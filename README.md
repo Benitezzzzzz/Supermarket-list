@@ -1,6 +1,6 @@
 # Lista do Mercado
 
-Lista de compras compartilhada da família (uso pessoal, feita sob pedido do Renan pros pais dele). Objetivo: abrir um link, adicionar/marcar itens, e todo mundo ver a mesma lista — **sem precisar de login** e sem app pra instalar.
+Lista de compras compartilhada da família (uso pessoal, feita sob pedido do Renan pros pais dele). Objetivo: abrir um link, adicionar/marcar itens, e todo mundo ver a mesma lista, sem app pra instalar. **Precisa estar logado numa conta Claude (gratuita) pra conseguir editar** — isso foi validado na prática e não tem como contornar dentro da plataforma de Artifacts (ver decisão abaixo).
 
 - **Link ao vivo (o que a família usa):** https://claude.ai/code/artifact/51a3e53d-c5e2-447e-9efd-db9f94198903
 - **Este repositório:** https://github.com/Benitezzzzzz/Supermarket-list (backup do código-fonte)
@@ -9,7 +9,7 @@ Lista de compras compartilhada da família (uso pessoal, feita sob pedido do Ren
 
 O app roda como um **Claude Artifact** (não é um site hospedado em servidor próprio). Foi publicado com a capability `artifact` do runtime de Artifacts da Claude, que permite a própria página salvar alterações nela mesma (`claude.use("artifact")` → `.publish(html)`).
 
-**Decisão importante:** cheguei a considerar Supabase + GitHub Pages pra ter zero dependência de login e mais controle, mas voltamos atrás porque era trabalho demais pra uma lista de mercado simples. O Artifact do Claude já funciona sem login (confirmado na prática: o pai do Renan conseguiu adicionar item pelo link sem se autenticar).
+**Decisão importante:** cheguei a considerar Supabase + GitHub Pages pra ter zero dependência de login e mais controle, mas voltamos atrás porque era trabalho demais pra uma lista de mercado simples. O Artifact do Claude funciona apenas com usuário logado em sua conta do claude. 
 
 ## Estrutura de arquivos
 
