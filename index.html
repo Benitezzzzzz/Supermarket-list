@@ -1,0 +1,71 @@
+<title>Lista do Mercado</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Big+Shoulders+Stencil:wght@600;800&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+
+<div class="page">
+  <header class="top">
+    <h1>Lista do Mercado</h1>
+    <p id="status" aria-live="polite">Carregando…</p>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <form id="addForm">
+    <div class="add-row1">
+      <div class="cat-picker">
+        <select id="newCat" class="cat-select" aria-label="Categoria do item"></select>
+        <button type="button" id="addCatBtn" class="cat-plus" aria-label="Criar nova categoria">+</button>
+      </div>
+      <input id="newItem" type="text" placeholder="O que precisa comprar?" autocomplete="off" maxlength="80">
+      <button type="submit">Adicionar</button>
+    </div>
+    <div class="new-cat-row" id="newCatRow" hidden>
+      <input type="text" id="newCatInput" placeholder="Nome da nova categoria" maxlength="40" autocomplete="off">
+      <button type="button" id="confirmNewCat">Criar</button>
+    </div>
+  </form>
+
+  <button type="button" class="link-btn" id="toggleImport">Importar lista</button>
+  <div id="importPanel" hidden>
+    <p class="hint">Cole vários itens de uma vez, um por linha. Uma linha só com o nome de uma categoria (ex.: "Hortifruti") vira um título e organiza os itens seguintes.</p>
+    <textarea id="importText" rows="6" placeholder="Hortifruti&#10;Banana&#10;Tomate&#10;&#10;Limpeza&#10;Detergente"></textarea>
+    <div class="add-row2">
+      <label for="importCat">Categoria padrão</label>
+      <select id="importCat" class="cat-select-wide" aria-label="Categoria padrão da importação"></select>
+    </div>
+    <div class="import-actions">
+      <button type="button" id="cancelImport">Cancelar</button>
+      <button type="button" id="doImport">Importar</button>
+    </div>
+  </div>
+
+  <section class="card">
+    <h2>Para comprar</h2>
+    <div id="listToBuy"></div>
+    <div class="empty" id="emptyState" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h2l2.4 12.2a2 2 0 0 0 2 1.8h7.2a2 2 0 0 0 2-1.6L21 9H7"/><circle cx="10" cy="21" r="1"/><circle cx="17" cy="21" r="1"/></svg>
+      <div>Sua lista está vazia.<br>Adicione o primeiro item ali em cima!</div>
+    </div>
+  </section>
+
+  <section class="card" id="boughtSection" hidden>
+    <h2>Já comprado</h2>
+    <ul class="list" id="listBought"></ul>
+  </section>
+
+  <div class="footer-actions" id="clearWrap" hidden>
+    <button id="clearBought" type="button">Limpar comprados</button>
+  </div>
+</div>
+
+<script>
+/*ITEMS_START*/
+const INITIAL_ITEMS = [{"id":"047d5f0e-11e8-4339-a898-a1d14168e80f","text":"2 frangos","done":false,"category":"Outros"},{"id":"84269b4e-5936-4608-8fdd-56fceeb19257","text":"1 carne","done":false,"category":"Outros"},{"id":"8b9ef0aa-a5d9-4e37-a231-c8b6b11b9395","text":"Presunto (150g)","done":false,"category":"Outros"},{"id":"1fa61445-c20b-44d1-9a6f-49af60a9c37c","text":"Queijo","done":false,"category":"Outros"},{"id":"3a98a2e4-004a-41ee-a07a-b2780a3b7237","text":"Batata","done":false,"category":"Outros"},{"id":"94bfa500-d01a-4c93-a301-2e5ee0ae7359","text":"Cebola","done":false,"category":"Outros"},{"id":"2a144a6a-e347-4790-bd32-1f15b7c46c09","text":"Tomate","done":false,"category":"Outros"},{"id":"4ba8b323-32c0-433e-95e0-940c8efc9ee9","text":"Alface americano","done":false,"category":"Outros"},{"id":"05089283-1ce7-44ee-a70e-51a2756f45cc","text":"Beterraba","done":false,"category":"Outros"},{"id":"fbd540ba-c9a5-47d7-bec5-34eb49de20af","text":"2 leite","done":false,"category":"Outros"},{"id":"57e496bf-bfae-4b69-88ff-f4ee727b138b","text":"Pão","done":false,"category":"Outros"},{"id":"55e6297e-ee7b-40be-aa9c-ab95e1f9c7ce","text":"Arroz","done":false,"category":"Outros"},{"id":"147176f3-0e02-4b16-9aa6-f1a5e8aea9ec","text":"Açúcar","done":false,"category":"Outros"},{"id":"5fe8d9cf-4ef5-4f8c-a7af-65846091bc85","text":"Mostarda","done":false,"category":"Outros"},{"id":"9f5f76f7-0383-43fe-90ba-5cb0f7597ab8","text":"Polpa de maracujá","done":false,"category":"Outros"},{"id":"b4121cdc-dfc5-4d51-a4b1-62f6752e7a1b","text":"Refrigerante 1L","done":false,"category":"Outros"},{"id":"bdbec66e-cf23-45b7-8671-7291b159e526","text":"Papel higiênico","done":false,"category":"Outros"}];
+/*ITEMS_END*/
+
+/*CATS_START*/
+const CUSTOM_CATEGORIES = [];
+/*CATS_END*/
+</script>
+<script src="js/app.js"></script>
