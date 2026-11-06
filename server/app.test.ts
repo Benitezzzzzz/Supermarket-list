@@ -1,0 +1,265 @@
+// @vitest-environment node
+import { randomUUID } from "node:crypto";
+import { beforeEach, describe, expect, it } from "vitest";
+import type { Item, SessionInfo } from "../shared/contract.ts";
+import { createApp } from "./app.ts";
+import { type Database, openDatabase } from "./db/database.ts";
+import { FamilyService } from "./services/families.ts";
+
+type App = ReturnType<typeof createApp>;
+
+function item(overrides: Partial<Item> = {}): Item {
+  return {
+    id: randomUUID(),
+    text: "Arroz",
+    quantity: 1,
+    done: false,
+    category: "Outros",
+    createdAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+/** Aparelho de teste: guarda o cookie como um navegador faria. */
+class Device {
+  cookie = "";
+  private app: App;
+
+  constructor(app: App) {
+    this.app = app;
+  }
+
+  async call(method: string, path: string, body?: unknown) {
+    const headers: Record<string, string> = {};
+    if (this.cookie) headers.cookie = this.cookie;
+    if (body !== undefined) headers["content-type"] = "application/json";
+    const response = await this.app.request(`/api${path}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const setCookie = response.headers.get("set-cookie");
+    if (setCookie) this.cookie = setCookie.split(";")[0];
+    return response;
+  }
+
+  async join(inviteToken: string, name: string): Promise<SessionInfo> {
+    const response = await this.call("POST", "/session", { inviteToken, name });
+    expect(response.ok).toBe(true);
+    return response.json() as Promise<SessionInfo>;
+  }
+
+  async items(): Promise<Item[]> {
+    const response = await this.call("GET", "/list");
+    expect(response.status).toBe(200);
+    return ((await response.json()) as { items: Item[] }).items;
+  }
+}
+
+describe("API", () => {
+  let db: Database;
+  let app: App;
+  let inviteA: string;
+  let inviteB: string;
+  let admin: Device;
+  let member: Device;
+  let outsider: Device;
+
+  beforeEach(async () => {
+    db = openDatabase(":memory:");
+    app = createApp(db);
+    const families = new FamilyService(db);
+    inviteA = families.create("Família A").inviteToken;
+    inviteB = families.create("Família B").inviteToken;
+    admin = new Device(app);
+    member = new Device(app);
+    outsider = new Device(app);
+    await admin.join(inviteA, "Renan");
+    await member.join(inviteA, "Mãe");
+    await outsider.join(inviteB, "Vizinho");
+  });
+
+  describe("autenticação", () => {
+    it.each([
+      ["GET", "/list"],
+      ["GET", "/events"],
+      ["PUT", "/items"],
+      ["POST", "/items/delete"],
+      ["POST", "/categories"],
+      ["GET", "/family/members"],
+      ["POST", "/family/invite"],
+      ["GET", "/session"],
+    ])("%s %s exige sessão", async (method, path) => {
+      const response = await new Device(app).call(method, path);
+      expect(response.status).toBe(401);
+    });
+
+    it("recusa cookie forjado", async () => {
+      const device = new Device(app);
+      device.cookie = `lista_sessao=${"a".repeat(64)}`;
+      expect((await device.call("GET", "/list")).status).toBe(401);
+    });
+
+    it("recusa convite inválido", async () => {
+      const response = await new Device(app).call("POST", "/session", {
+        inviteToken: "f".repeat(64),
+        name: "Intruso",
+      });
+      expect(response.status).toBe(404);
+    });
+
+    it("usa cookie httpOnly e SameSite Strict", async () => {
+      const response = await new Device(app).call("POST", "/session", {
+        inviteToken: inviteA,
+        name: "Pai",
+      });
+      const cookie = response.headers.get("set-cookie")!;
+      expect(cookie).toContain("HttpOnly");
+      expect(cookie).toContain("SameSite=Strict");
+    });
+
+    it("marca o cookie como Secure atrás de proxy HTTPS", async () => {
+      const response = await app.request("/api/session", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-proto": "https" },
+        body: JSON.stringify({ inviteToken: inviteA, name: "Pai" }),
+      });
+      expect(response.headers.get("set-cookie")).toContain("Secure");
+    });
+
+    it("não guarda convite nem sessão em texto puro", async () => {
+      const rows = db.prepare("SELECT invite_hash FROM families").all();
+      expect(JSON.stringify(rows)).not.toContain(inviteA);
+      const token = admin.cookie.split("=")[1];
+      const sessions = db.prepare("SELECT session_hash FROM members").all();
+      expect(JSON.stringify(sessions)).not.toContain(token);
+    });
+
+    it("não duplica o membro quando o aparelho reabre o link", async () => {
+      await admin.join(inviteA, "Renan");
+      const members = (await (await admin.call("GET", "/family/members")).json()) as unknown[];
+      expect(members).toHaveLength(2);
+    });
+  });
+
+  describe("isolamento entre famílias", () => {
+    it("família não vê itens de outra", async () => {
+      await admin.call("PUT", "/items", { items: [item()] });
+      expect(await outsider.items()).toEqual([]);
+    });
+
+    it("não altera item de outra família usando o mesmo id", async () => {
+      const original = item({ text: "Original" });
+      await admin.call("PUT", "/items", { items: [original] });
+      await outsider.call("PUT", "/items", { items: [{ ...original, text: "Hackeado" }] });
+      expect((await admin.items())[0].text).toBe("Original");
+    });
+
+    it("não apaga item de outra família", async () => {
+      const original = item();
+      await admin.call("PUT", "/items", { items: [original] });
+      await outsider.call("POST", "/items/delete", { ids: [original.id] });
+      expect(await admin.items()).toHaveLength(1);
+    });
+
+    it("não vê nem remove membros de outra família", async () => {
+      const list = (await (await admin.call("GET", "/family/members")).json()) as { id: string }[];
+      expect(list).toHaveLength(2);
+
+      const other = await new Device(app).join(inviteB, "Segundo");
+      const response = await admin.call("DELETE", `/family/members/${other.memberId}`);
+      expect(response.status).toBe(404);
+    });
+  });
+
+  describe("lista", () => {
+    it("compartilha itens entre membros da família", async () => {
+      const novo = item({ text: "Feijão", quantity: 3 });
+      expect((await admin.call("PUT", "/items", { items: [novo] })).status).toBe(204);
+      expect(await member.items()).toEqual([novo]);
+    });
+
+    it("é idempotente: reenviar não duplica", async () => {
+      const novo = item();
+      await admin.call("PUT", "/items", { items: [novo] });
+      await admin.call("PUT", "/items", { items: [novo] });
+      await admin.call("POST", "/items/delete", { ids: [novo.id] });
+      const again = await admin.call("POST", "/items/delete", { ids: [novo.id] });
+      expect(again.status).toBe(204);
+    });
+
+    it("ignora categoria repetida com maiúsculas diferentes", async () => {
+      await admin.call("POST", "/categories", { name: "Pet" });
+      await admin.call("POST", "/categories", { name: "PET" });
+      const snapshot = (await (await admin.call("GET", "/list")).json()) as {
+        customCategories: string[];
+      };
+      expect(snapshot.customCategories).toEqual(["Pet"]);
+    });
+
+    it.each([
+      ["texto vazio", { text: "   " }],
+      ["texto longo", { text: "x".repeat(81) }],
+      ["quantidade zero", { quantity: 0 }],
+      ["quantidade fracionada", { quantity: 1.5 }],
+      ["id inválido", { id: "1 OR 1=1" }],
+      ["data inválida", { createdAt: "ontem" }],
+    ])("recusa %s", async (_name, overrides) => {
+      const response = await admin.call("PUT", "/items", { items: [item(overrides)] });
+      expect(response.status).toBe(422);
+      expect(await admin.items()).toEqual([]);
+    });
+
+    it("recusa escrita que não seja JSON", async () => {
+      const response = await app.request("/api/items", {
+        method: "PUT",
+        headers: { cookie: admin.cookie, "content-type": "text/plain" },
+        body: "{}",
+      });
+      expect(response.status).toBe(415);
+    });
+  });
+
+  describe("gestão da família", () => {
+    it("o primeiro a entrar é admin e os demais são membros", async () => {
+      const list = (await (await member.call("GET", "/family/members")).json()) as {
+        name: string;
+        role: string;
+      }[];
+      expect(list.map((m) => [m.name, m.role])).toEqual([
+        ["Renan", "admin"],
+        ["Mãe", "member"],
+      ]);
+    });
+
+    it("membro comum não remove ninguém nem troca o convite", async () => {
+      const session = (await (await admin.call("GET", "/session")).json()) as SessionInfo;
+      expect((await member.call("DELETE", `/family/members/${session.memberId}`)).status).toBe(403);
+      expect((await member.call("POST", "/family/invite")).status).toBe(403);
+    });
+
+    it("membro removido perde o acesso na hora", async () => {
+      const session = (await (await member.call("GET", "/session")).json()) as SessionInfo;
+      const response = await admin.call("DELETE", `/family/members/${session.memberId}`);
+      expect(response.status).toBe(204);
+      expect((await member.call("GET", "/list")).status).toBe(401);
+    });
+
+    it("admin não remove a si mesmo", async () => {
+      const session = (await (await admin.call("GET", "/session")).json()) as SessionInfo;
+      expect((await admin.call("DELETE", `/family/members/${session.memberId}`)).status).toBe(400);
+    });
+
+    it("convite novo invalida o antigo sem derrubar quem já entrou", async () => {
+      const response = await admin.call("POST", "/family/invite");
+      const { inviteToken } = (await response.json()) as { inviteToken: string };
+
+      const late = new Device(app);
+      expect(
+        (await late.call("POST", "/session", { inviteToken: inviteA, name: "Atrasado" })).status,
+      ).toBe(404);
+      expect((await late.call("POST", "/session", { inviteToken, name: "Novo" })).status).toBe(201);
+      expect((await member.call("GET", "/list")).status).toBe(200);
+    });
+  });
+});

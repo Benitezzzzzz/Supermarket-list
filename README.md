@@ -1,75 +1,127 @@
 # Lista do Mercado
 
-Lista de compras compartilhada da família (uso pessoal, feita sob pedido do Renan pros pais dele). Objetivo: abrir um link, adicionar/marcar itens, e todo mundo ver a mesma lista, sem app pra instalar. **Precisa estar logado numa conta Claude (gratuita) pra conseguir editar** — isso foi validado na prática e não tem como contornar dentro da plataforma de Artifacts (ver decisão abaixo).
+Lista de compras compartilhada da família. Abre por um link, instala no celular como app, atualiza em tempo real entre os aparelhos e funciona sem internet dentro do mercado. Ninguém precisa criar senha.
 
-- **Link ao vivo (o que a família usa):** https://claude.ai/code/artifact/51a3e53d-c5e2-447e-9efd-db9f94198903
-- **Este repositório:** https://github.com/Benitezzzzzz/Supermarket-list (backup do código-fonte)
+**Stack:** React 19, TypeScript, Vite e PWA no frontend; Node.js, Hono e SQLite no backend; Zod para validar o contrato entre os dois.
 
-## Como está publicado
+**Situação atual:** roda localmente e ainda não foi publicado. A publicação gratuita está planejada em [docs/plano-publicacao-cloudflare.md](docs/plano-publicacao-cloudflare.md), e as mudanças feitas estão no [CHANGELOG](CHANGELOG.md).
 
-O app roda como um **Claude Artifact** (não é um site hospedado em servidor próprio). Foi publicado com a capability `artifact` do runtime de Artifacts da Claude, que permite a própria página salvar alterações nela mesma (`claude.use("artifact")` → `.publish(html)`).
+## Rodando localmente
 
-**Decisão importante:** cheguei a considerar Supabase + GitHub Pages pra ter zero dependência de login e mais controle, mas voltamos atrás porque era trabalho demais pra uma lista de mercado simples. O Artifact do Claude funciona apenas com usuário logado em sua conta do claude. 
+Requer Node.js 24 ou mais novo.
 
-## Estrutura de arquivos
-
-```
-index.html      — estrutura da página + OS DADOS da lista (ver abaixo, isso é proposital)
-css/styles.css  — todo o visual
-js/app.js       — toda a lógica (renderizar, adicionar, marcar, categorias, importar)
+```bash
+npm install
+cp .env.example .env     # ajuste APP_URL para http://localhost:5173
+npm run family:create -- "Minha Família" --importar server/seed/lista-familia.json
+npm run dev
 ```
 
-### Por que os dados ficam dentro do index.html e não em um arquivo separado?
+O comando `family:create` mostra o link de convite. Abra esse link no navegador e digite seu nome. Quem entra primeiro vira administrador.
 
-Isso é a parte mais importante de entender antes de mexer:
+| Comando | O que faz |
+|---|---|
+| `npm run dev` | Sobe API (porta 3000) e frontend com recarga automática (porta 5173) |
+| `npm run build` | Checa os tipos e gera o frontend em `dist/` |
+| `npm start` | Sobe o app completo na porta 3000 (depois do build) |
+| `npm test` | Roda os testes |
+| `npm run lint` | Roda o lint |
+| `npm run family:create -- "Nome"` | Cria uma família e mostra o convite |
+| `npm run backup` | Salva uma cópia do banco em `data/backups/` |
 
-- A runtime do Artifact tem duas formas de salvar: `publish(html)` (substitui o documento inteiro, sempre disponível) e `publish(files)` (atualiza só arquivos específicos, tipo um "save" de editor).
-- A forma `publish(files)` **é bloqueada quando o artifact é compartilhado publicamente** (retorna erro `capability_disabled`). Como o nosso link é público (é assim que a família acessa sem login), só sobra a `publish(html)`.
-- `publish(html)` reescreve o `index.html` inteiro — por isso os itens da lista (`INITIAL_ITEMS`) e as categorias custom (`CUSTOM_CATEGORIES`) ficam num bloco `<script>` dentro do próprio `index.html`, entre marcadores de comentário:
+## Colocando no ar
 
-```html
-<script>
-/*ITEMS_START*/
-const INITIAL_ITEMS = [...];
-/*ITEMS_END*/
+O app precisa de um servidor **sempre ligado, com disco persistente e HTTPS**. O HTTPS é obrigatório para instalar no celular e funcionar offline. Servir só o frontend não basta, e hospedagens com disco temporário apagam o banco a cada reinício.
 
-/*CATS_START*/
-const CUSTOM_CATEGORIES = [...];
-/*CATS_END*/
-</script>
-<script src="js/app.js"></script>
+Com Docker:
+
+```bash
+docker build -t lista-mercado .
+docker run -d --restart unless-stopped -p 3000:3000 -v lista-dados:/data lista-mercado
+docker exec -e APP_URL=https://seu-dominio <container> node server/scripts/create-family.ts "Minha Família" --importar server/seed/lista-familia.json
 ```
 
-- Em `js/app.js`, a função `persist()` faz: `fetch(location.href)` (busca o próprio HTML servido agora), troca só o conteúdo entre os marcadores via regex, e publica esse HTML inteiro de novo com `artifactApi.publish(newSource)`.
-- `css/styles.css` e `js/app.js` são **estáticos** — nunca são reescritos em tempo de execução, só mudam quando eu (Claude) edito o projeto e publico de novo manualmente.
+Sem Docker, rode `npm ci`, `npm run build` e `npm start` atrás de um proxy HTTPS, como Caddy ou Cloudflare Tunnel. O proxy precisa enviar o cabeçalho `X-Forwarded-Proto` e não pode segurar respostas em buffer, para não atrasar os avisos em tempo real.
 
-Se algum dia for tirar o compartilhamento público (só a família logada, por exemplo), aí sim dá pra migrar os dados pra um arquivo próprio via `publish(files)`.
+### Backup
 
-## Cuidado ao editar e republicar
+Todos os dados ficam em `DATA_DIR/lista.db`. Agende `npm run backup` e copie `DATA_DIR/backups/` para outro lugar. Para restaurar, pare o servidor, troque `lista.db` pelo backup e apague os arquivos `lista.db-wal` e `lista.db-shm`.
 
-Como qualquer pessoa com o link pode adicionar itens, **o artifact ao vivo pode ter dados mais recentes do que os arquivos locais desse repositório**. Antes de publicar uma mudança:
+## Arquitetura
 
-1. Ler a versão ao vivo do artifact (`Artifact` tool, `action: "read"`, com a URL acima).
-2. Copiar o array `INITIAL_ITEMS` (e `CUSTOM_CATEGORIES`) atual pro `index.html` local, se tiver mudado.
-3. Só então fazer as alterações desejadas e publicar de novo (`Artifact` tool, `action: "publish"`, passando `url` da mesma artifact pra atualizar em vez de criar uma nova).
+```
+shared/contract.ts   tipos e validação usados pelos dois lados
+server/
+  app.ts             monta a API
+  db/                conexão SQLite e migrações
+  services/          regras de famílias, membros, convites e listas
+  http/              rotas, autenticação e eventos em tempo real
+  scripts/           criar família e fazer backup
+  seed/              lista migrada da versão anterior
+src/
+  domain/            regras puras: itens, quantidade, categorias, importação
+  data/
+    syncedList.ts    escrita otimista e fila offline (o coração do app)
+    backend.ts       contrato entre a lista e o armazenamento
+    apiBackend.ts    implementação que fala com a API
+    session.ts       entrada na família e sessão do aparelho
+  hooks/  components/
+```
 
-Publicar com `files` (pra `css/styles.css` e `js/app.js`) funciona normal mesmo com o artifact público — o bloqueio de `capability_disabled` é só pra chamadas feitas **de dentro da página em tempo de execução**, não pra quando eu publico via ferramenta do Claude Code.
+Um único processo Node serve a API e o site. Por ser a mesma origem, não há CORS, e o cookie de sessão funciona sem exceções.
+
+### API
+
+| Método e rota | Função | Acesso |
+|---|---|---|
+| `POST /api/session` | Entra na família com o convite | Convite válido |
+| `GET /api/session` | Dados da sessão atual | Membro |
+| `GET /api/list` | Itens e categorias | Membro |
+| `PUT /api/items` | Cria ou altera itens | Membro |
+| `POST /api/items/delete` | Remove itens | Membro |
+| `POST /api/categories` | Cria categoria | Membro |
+| `GET /api/events` | Avisos em tempo real (SSE) | Membro |
+| `GET /api/family/members` | Lista os membros | Membro |
+| `DELETE /api/family/members/:id` | Remove um membro | Administrador |
+| `POST /api/family/invite` | Gera convite novo e invalida o anterior | Administrador |
+
+### Sincronização
+
+Cada alteração é uma operação pequena e idempotente que mexe só nos itens dela. A tela mostra a última versão confirmada pelo servidor somada à fila do que ainda não foi enviado. Isso traz três garantias:
+
+- A tela responde na hora, mesmo com sinal ruim.
+- Sem internet, as alterações ficam salvas no aparelho e são enviadas quando a conexão volta, mesmo que o app tenha sido fechado.
+- Duas pessoas mexendo ao mesmo tempo não apagam o trabalho uma da outra. Se as duas alterarem o mesmo item, vale a última.
+
+Quando algo muda, o servidor envia um aviso sem dados pelo canal SSE, e cada aparelho relê a lista pela API autenticada. O app também relê ao voltar para a tela e ao recuperar a conexão.
+
+### Segurança
+
+- **Sem cadastro público:** famílias só nascem pelo comando no servidor.
+- **Isolamento:** a família vem sempre da sessão, nunca de um id enviado pelo cliente. A chave dos itens inclui a lista, então o id de um item de outra família não alcança a linha dela.
+- **Sessão:** um token aleatório de 256 bits por aparelho, em cookie `HttpOnly` e `SameSite=Strict`, marcado como `Secure` em HTTPS. O banco guarda só o hash.
+- **Convite:** também aleatório e guardado como hash. Quem tem o link consegue entrar, então compartilhe só com a família. O administrador vê quem entrou, remove aparelhos e troca o link no painel Família.
+- **Validação:** todo dado de entrada passa pelo Zod no servidor, e o banco repete os limites com `CHECK`.
+
+Como não há senha, o administrador não recupera o acesso se perder o aparelho: para isso, a tabela `members` precisa ser ajustada no servidor.
 
 ## Funcionalidades
 
-- **Adicionar item**: campo de texto + categoria (dropdown) + botão "Adicionar". Botão "+" do lado do dropdown cria uma categoria nova na hora.
-- **Categorias padrão**: Hortifruti, Padaria, Açougue e Peixaria, Laticínios e Frios, Mercearia, Bebidas, Limpeza, Higiene e Farmácia, Congelados, Outros — mais qualquer categoria custom que alguém criar.
-- **Marcar como comprado**: toca no item, ele desce pra seção "Já comprado" com risco.
-- **Trocar categoria de um item já criado**: ícone 🏷 ao lado do item.
-- **Importar lista**: botão "Importar lista" abre uma caixa pra colar vários itens de uma vez (um por linha). Uma linha que seja só o nome de uma categoria conhecida vira um "título" que categoriza as linhas seguintes.
-- **Modo local (fallback)**: se por algum motivo a capability do Artifact não estiver disponível na visualização, o app cai pra salvar só em `localStorage` daquele navegador/aparelho (mostra um aviso amarelo avisando disso).
-
-## Problema conhecido: link mostrando versão desatualizada
-
-Já aconteceu do pai do Renan abrir o link e ver uma versão antiga mesmo depois de eu publicar uma atualização. O motivo aparente: o compartilhamento do artifact pode ficar **fixado ("pinned") numa versão específica** em vez de sempre mostrar a mais recente. Isso é uma configuração da própria interface do claude.ai (menu de "Compartilhar" do artifact), não algo que dá pra resolver por aqui via ferramenta. Se acontecer de novo: reabrir o menu de compartilhamento do artifact e conferir/reativar a opção de sempre mostrar a versão mais recente, e reenviar o link.
+- Adicionar item com categoria e criar categorias novas
+- Quantidade: digite "2 frangos" ou ajuste depois no lápis (medidas como "2 kg arroz" ficam no nome)
+- Marcar como comprado tocando na linha
+- Trocar a categoria de um item
+- Importar vários itens colando texto; uma linha com o nome de uma categoria vira título
+- Limpar comprados
+- Painel Família: ver membros e, para o administrador, remover aparelhos e trocar o convite
+- Tema claro e escuro automático
 
 ## Design
 
-- Fonte de título: "Big Shoulders Stencil" (efeito de carimbo de caixote de feira). Fonte de texto: "Atkinson Hyperlegible" (feita pra ser bem legível — importante pros pais do Renan usarem sem esforço).
-- Paleta: neutros quentes (bege/papel) + verde (hortifruti/mercado) como cor principal + terracota só pra ações destrutivas (excluir).
-- Tema claro/escuro automático (segue o sistema do aparelho).
+- Títulos em Big Shoulders Stencil, que lembra carimbo de caixote de feira.
+- Texto em Atkinson Hyperlegible, feita para leitura fácil.
+- Neutros quentes, verde como cor principal e terracota só para ações destrutivas.
+
+## Histórico
+
+A primeira versão era um Claude Artifact, que exigia conta Claude para editar e guardava os dados dentro do próprio HTML. Cada salvamento reescrevia a página inteira, e o link compartilhado podia ficar preso numa versão antiga. O código dessa fase está no histórico do Git, e a lista dela foi migrada para `server/seed/lista-familia.json`.

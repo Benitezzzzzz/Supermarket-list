@@ -1,0 +1,22 @@
+{
+  "customCategories": ["Tese"],
+  "items": [
+    { "id": "047d5f0e-11e8-4339-a898-a1d14168e80f", "text": "Frangos", "quantity": 2, "done": false, "category": "Congelados", "createdAt": "2026-11-05T00:00:00.001Z" },
+    { "id": "84269b4e-5936-4608-8fdd-56fceeb19257", "text": "Carne", "quantity": 1, "done": false, "category": "Congelados", "createdAt": "2026-11-05T00:00:00.002Z" },
+    { "id": "8b9ef0aa-a5d9-4e37-a231-c8b6b11b9395", "text": "Presunto (150g)", "quantity": 1, "done": false, "category": "Laticínios e Frios", "createdAt": "2026-11-05T00:00:00.003Z" },
+    { "id": "1fa61445-c20b-44d1-9a6f-49af60a9c37c", "text": "Queijo", "quantity": 1, "done": false, "category": "Laticínios e Frios", "createdAt": "2026-11-05T00:00:00.004Z" },
+    { "id": "3a98a2e4-004a-41ee-a07a-b2780a3b7237", "text": "Batata", "quantity": 1, "done": false, "category": "Hortifruti", "createdAt": "2026-11-05T00:00:00.005Z" },
+    { "id": "94bfa500-d01a-4c93-a301-2e5ee0ae7359", "text": "Cebola", "quantity": 1, "done": false, "category": "Hortifruti", "createdAt": "2026-11-05T00:00:00.006Z" },
+    { "id": "2a144a6a-e347-4790-bd32-1f15b7c46c09", "text": "Tomate", "quantity": 1, "done": false, "category": "Hortifruti", "createdAt": "2026-11-05T00:00:00.007Z" },
+    { "id": "4ba8b323-32c0-433e-95e0-940c8efc9ee9", "text": "Alface americano", "quantity": 1, "done": false, "category": "Hortifruti", "createdAt": "2026-11-05T00:00:00.008Z" },
+    { "id": "05089283-1ce7-44ee-a70e-51a2756f45cc", "text": "Beterraba", "quantity": 1, "done": false, "category": "Hortifruti", "createdAt": "2026-11-05T00:00:00.009Z" },
+    { "id": "fbd540ba-c9a5-47d7-bec5-34eb49de20af", "text": "Leite", "quantity": 2, "done": false, "category": "Laticínios e Frios", "createdAt": "2026-11-05T00:00:00.010Z" },
+    { "id": "57e496bf-bfae-4b69-88ff-f4ee727b138b", "text": "Pão", "quantity": 1, "done": false, "category": "Padaria", "createdAt": "2026-11-05T00:00:00.011Z" },
+    { "id": "55e6297e-ee7b-40be-aa9c-ab95e1f9c7ce", "text": "Arroz", "quantity": 1, "done": false, "category": "Outros", "createdAt": "2026-11-05T00:00:00.012Z" },
+    { "id": "147176f3-0e02-4b16-9aa6-f1a5e8aea9ec", "text": "Açúcar", "quantity": 1, "done": false, "category": "Outros", "createdAt": "2026-11-05T00:00:00.013Z" },
+    { "id": "5fe8d9cf-4ef5-4f8c-a7af-65846091bc85", "text": "Mostarda", "quantity": 1, "done": false, "category": "Outros", "createdAt": "2026-11-05T00:00:00.014Z" },
+    { "id": "9f5f76f7-0383-43fe-90ba-5cb0f7597ab8", "text": "Polpa de maracujá", "quantity": 1, "done": false, "category": "Congelados", "createdAt": "2026-11-05T00:00:00.015Z" },
+    { "id": "b4121cdc-dfc5-4d51-a4b1-62f6752e7a1b", "text": "Refrigerante 1L", "quantity": 1, "done": false, "category": "Outros", "createdAt": "2026-11-05T00:00:00.016Z" },
+    { "id": "bdbec66e-cf23-45b7-8671-7291b159e526", "text": "Papel higiênico", "quantity": 1, "done": false, "category": "Higiene e Farmácia", "createdAt": "2026-11-05T00:00:00.017Z" }
+  ]
+}
