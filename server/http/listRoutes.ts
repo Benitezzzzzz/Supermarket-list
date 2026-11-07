@@ -4,6 +4,7 @@ import {
   addCategorySchema,
   deleteItemsSchema,
   finishSchema,
+  paymentSchema,
   upsertItemsSchema,
 } from "../../shared/contract.ts";
 import type { FamilyService } from "../services/families.ts";
@@ -46,6 +47,16 @@ export function listRoutes(families: FamilyService, lists: ListService, notifier
     const { purchase, itemIds } = await readJson(c, finishSchema);
     // Quem registrou vem da sessão, nunca do que o aparelho mandou.
     await lists.finish(familyId, name, purchase, itemIds);
+    await notifier.broadcast(familyId);
+    return c.body(null, 204);
+  });
+
+  routes.put("/purchases/:id", async (c) => {
+    const { familyId } = c.get("session");
+    const payment = await readJson(c, paymentSchema);
+    if (!(await lists.updatePurchase(familyId, c.req.param("id"), payment))) {
+      throw new HTTPException(404, { message: "Compra não encontrada" });
+    }
     await notifier.broadcast(familyId);
     return c.body(null, 204);
   });

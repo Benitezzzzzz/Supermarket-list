@@ -4,6 +4,7 @@ import { Icon } from "../ui/Icon";
 
 interface ExpensesScreenProps {
   purchases: Purchase[];
+  onEdit: (purchase: Purchase) => void;
 }
 
 const dateFormat = new Intl.DateTimeFormat("pt-BR", {
@@ -14,7 +15,7 @@ const dateFormat = new Intl.DateTimeFormat("pt-BR", {
 });
 const monthFormat = new Intl.DateTimeFormat("pt-BR", { month: "long" });
 
-export function ExpensesScreen({ purchases }: ExpensesScreenProps) {
+export function ExpensesScreen({ purchases, onEdit }: ExpensesScreenProps) {
   const month = monthTotal(purchases);
 
   return (
@@ -53,10 +54,21 @@ export function ExpensesScreen({ purchases }: ExpensesScreenProps) {
               <span className={`purchase__method method--${purchase.method}`}>
                 {describePayment(purchase)}
               </span>
-              <span className="purchase__meta">
-                {purchase.itemCount === 1 ? "1 item" : `${purchase.itemCount} itens`}
-                {purchase.memberName && ` · por ${purchase.memberName}`}
-              </span>
+              <div className="purchase__bottom">
+                <span className="purchase__meta">
+                  {purchase.itemCount === 1 ? "1 item" : `${purchase.itemCount} itens`}
+                  {purchase.memberName && ` · por ${purchase.memberName}`}
+                </span>
+                <button
+                  type="button"
+                  className="item__edit"
+                  aria-label={`Corrigir compra de ${formatMoney(purchase.amountCents)} de ${dateFormat.format(new Date(purchase.createdAt))}`}
+                  onClick={() => onEdit(purchase)}
+                >
+                  <Icon name="edit" size={18} />
+                  Corrigir
+                </button>
+              </div>
             </li>
           ))}
         </ul>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CATEGORY_ORDER, groupByCategory, knownCategories } from "./categories";
 import { createItem, parseImport, parseQuantity } from "./items";
-import { describePayment, formatMoney, monthTotal, parseMoney } from "./money";
+import { centsToInput, describePayment, formatMoney, monthTotal, parseMoney } from "./money";
 import type { Purchase } from "./types";
 
 describe("parseImport", () => {
@@ -75,8 +75,15 @@ describe("forma de pagamento", () => {
   it("descreve cada forma", () => {
     expect(describePayment({ ...base, method: "pix", installments: 1 })).toBe("PIX");
     expect(describePayment({ ...base, method: "debito", installments: 1 })).toBe("Débito");
+    expect(describePayment({ ...base, method: "dinheiro", installments: 1 })).toBe("Dinheiro");
     expect(describePayment({ ...base, method: "credito", installments: 1 })).toBe("Crédito à vista");
     expect(describePayment({ ...base, method: "credito", installments: 3 })).toMatch(/^Crédito em 3x de R\$\s50,97$/);
+  });
+
+  it("volta para o formato digitado", () => {
+    expect(centsToInput(15290)).toBe("152,90");
+    expect(centsToInput(8000)).toBe("80,00");
+    expect(parseMoney(centsToInput(123456))).toBe(123456);
   });
 
   it("formata em reais", () => {

@@ -1,4 +1,4 @@
-import type { Item, Op, Purchase, Snapshot } from "../domain/types";
+import type { Item, Op, Payment, Purchase, Snapshot } from "../domain/types";
 import { applyOp } from "./applyOp";
 import { AccessRevokedError, type ListBackend, RejectedOpError } from "./backend";
 
@@ -140,6 +140,11 @@ export class SyncedList {
   /** Registra a compra e tira da lista os itens que existiam nesta hora. */
   finishShopping(purchase: Purchase, itemIds: string[]) {
     this.dispatch({ kind: "finish", purchase, itemIds });
+  }
+
+  /** Corrige valor ou forma de pagamento de uma compra já finalizada. */
+  updatePurchase(id: string, payment: Payment) {
+    this.dispatch({ kind: "updatePurchase", id, payment });
   }
 
   addCategory(name: string) {

@@ -44,20 +44,33 @@ export interface FamilySettings {
 export const MAX_INSTALLMENTS = 24;
 export const MAX_AMOUNT_CENTS = 100_000_000;
 
+const onlyCreditSplits = {
+  check: (payment: { method: string; installments: number }) =>
+    payment.method === "credito" || payment.installments === 1,
+  message: "Só o crédito pode ser parcelado",
+};
+
+/** Valor e forma de pagamento: o que dá para corrigir depois. */
+const paymentFields = {
+  amountCents: z.number().int().min(1).max(MAX_AMOUNT_CENTS),
+  method: z.enum(["pix", "dinheiro", "debito", "credito"]),
+  installments: z.number().int().min(1).max(MAX_INSTALLMENTS),
+};
+
 /** Compra finalizada. O valor fica em centavos para não haver erro de arredondamento. */
 export const purchaseSchema = z
   .object({
     id: z.uuid(),
-    amountCents: z.number().int().min(1).max(MAX_AMOUNT_CENTS),
-    method: z.enum(["pix", "debito", "credito"]),
-    installments: z.number().int().min(1).max(MAX_INSTALLMENTS),
+    ...paymentFields,
     itemCount: z.number().int().min(0).max(MAX_BATCH),
     memberName: z.string().max(MAX_NAME),
     createdAt: z.iso.datetime({ offset: true }),
   })
-  .refine((purchase) => purchase.method === "credito" || purchase.installments === 1, {
-    message: "Só o crédito pode ser parcelado",
-  });
+  .refine(onlyCreditSplits.check, { message: onlyCreditSplits.message });
+
+export const paymentSchema = z
+  .object(paymentFields)
+  .refine(onlyCreditSplits.check, { message: onlyCreditSplits.message });
 
 /** Finalizar registra a compra e tira da lista exatamente os itens que existiam naquela hora. */
 export const finishSchema = z.object({
@@ -68,6 +81,7 @@ export const finishSchema = z.object({
 export type Item = z.infer<typeof itemSchema>;
 export type Purchase = z.infer<typeof purchaseSchema>;
 export type PaymentMethod = Purchase["method"];
+export type Payment = z.infer<typeof paymentSchema>;
 
 export interface Snapshot {
   items: Item[];
@@ -81,7 +95,8 @@ export type Op =
   | { kind: "upsert"; items: Item[] }
   | { kind: "delete"; ids: string[] }
   | { kind: "addCategory"; name: string }
-  | { kind: "finish"; purchase: Purchase; itemIds: string[] };
+  | { kind: "finish"; purchase: Purchase; itemIds: string[] }
+  | { kind: "updatePurchase"; id: string; payment: Payment };
 
 export type Role = "admin" | "member";
 

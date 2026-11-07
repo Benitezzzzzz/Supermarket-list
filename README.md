@@ -109,6 +109,7 @@ Nos testes, o banco é um adaptador sobre o SQLite do Node com a mesma interface
 | `POST /api/items/delete` | Remove itens | Membro |
 | `POST /api/categories` | Cria categoria | Membro |
 | `POST /api/purchases` | Registra a compra e tira os itens da lista | Membro |
+| `PUT /api/purchases/:id` | Corrige valor e forma de pagamento | Membro |
 | `GET /api/events` | Avisos em tempo real (WebSocket) | Membro |
 | `GET /api/family/members` | Lista os membros | Membro |
 | `DELETE /api/family/members/:id` | Remove um membro | Administrador |
@@ -143,8 +144,8 @@ Como não há senha, o administrador não recupera o acesso se perder o aparelho
 - Trocar a categoria de um item
 - Importar vários itens colando texto; uma linha com o nome de uma categoria vira título
 - Limpar comprados, ou a lista toda pela lixeira no topo
-- Finalizar compra: valor, forma de pagamento (PIX, débito ou crédito, à vista ou parcelado) e limpeza da lista
-- Aba Gastos: últimas compras e total do mês
+- Finalizar compra: valor, forma de pagamento (PIX, dinheiro, débito ou crédito, à vista ou parcelado) e limpeza da lista
+- Aba Gastos: últimas compras, total do mês e correção de valor ou forma de pagamento
 - Tela Participantes: ver quem está na lista, copiar o endereço e, para o administrador, remover aparelhos e fechar a entrada
 - Desfazer depois de remover ou limpar o carrinho
 - Tema claro e escuro automático

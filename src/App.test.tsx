@@ -162,9 +162,36 @@ describe("App", () => {
     await user.click(await screen.findByRole("button", { name: "Não, voltar" }));
 
     expect(screen.getByRole("dialog", { name: "Finalizar compra" })).toBeTruthy();
-    expect((screen.getByLabelText("Valor da compra") as HTMLInputElement).value).toBe("10");
+    expect((screen.getByLabelText("Valor da compra") as HTMLInputElement).value).toBe("10,00");
     await user.click(screen.getByRole("button", { name: "Fechar" }));
     expect(screen.getByRole("button", { name: "Editar Sal" })).toBeTruthy();
+  });
+
+  it("corrige o valor e a forma de pagamento em Gastos", async () => {
+    const user = renderApp();
+    await addItems(user, "Arroz");
+    await user.click(screen.getByRole("button", { name: "Finalizar compra" }));
+    await user.type(screen.getByLabelText("Valor da compra"), "100");
+    await user.click(screen.getByRole("radio", { name: "PIX" }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await user.click(await screen.findByRole("button", { name: "Sim, finalizar" }));
+    await user.click(screen.getByRole("button", { name: "Gastos" }));
+
+    await user.click(screen.getByRole("button", { name: /^Corrigir compra de R\$\s100,00/ }));
+    const sheet = await screen.findByRole("dialog", { name: "Corrigir compra" });
+    const amount = within(sheet).getByLabelText("Valor da compra") as HTMLInputElement;
+    expect(amount.value).toBe("100,00");
+    expect((within(sheet).getByRole("radio", { name: "PIX" }) as HTMLInputElement).checked).toBe(true);
+
+    await user.clear(amount);
+    await user.type(amount, "98,50");
+    await user.click(within(sheet).getByRole("radio", { name: "Dinheiro (espécie)" }));
+    await user.click(within(sheet).getByRole("button", { name: "Salvar correção" }));
+
+    expect(await screen.findByText("Compra corrigida")).toBeTruthy();
+    expect(screen.getAllByText(/R\$\s98,50/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("Dinheiro")).toBeTruthy();
+    expect(screen.queryByText(/R\$\s100,00/)).toBeNull();
   });
 
   it("parcelamento só aparece no crédito", async () => {
@@ -175,6 +202,8 @@ describe("App", () => {
     await user.click(screen.getByRole("radio", { name: "PIX" }));
     expect(screen.queryByRole("radio", { name: "Parcelado" })).toBeNull();
     await user.click(screen.getByRole("radio", { name: "Cartão de débito" }));
+    expect(screen.queryByRole("radio", { name: "Parcelado" })).toBeNull();
+    await user.click(screen.getByRole("radio", { name: "Dinheiro (espécie)" }));
     expect(screen.queryByRole("radio", { name: "Parcelado" })).toBeNull();
     await user.click(screen.getByRole("radio", { name: "Cartão de crédito" }));
     expect(screen.getByRole("radio", { name: "Parcelado" })).toBeTruthy();

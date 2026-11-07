@@ -31,8 +31,14 @@ export function parseMoney(input: string): number | null {
   return cents > 0 && cents <= MAX_AMOUNT_CENTS ? cents : null;
 }
 
+/** Centavos no formato que a pessoa digita: 15290 vira "152,90". */
+export function centsToInput(cents: number): string {
+  return (cents / 100).toFixed(2).replace(".", ",");
+}
+
 export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   pix: "PIX",
+  dinheiro: "Dinheiro (espécie)",
   debito: "Cartão de débito",
   credito: "Cartão de crédito",
 };
@@ -40,6 +46,7 @@ export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
 /** "PIX", "Débito", "Crédito à vista" ou "Crédito em 3x de R$ 50,97". */
 export function describePayment(purchase: Pick<Purchase, "method" | "installments" | "amountCents">): string {
   if (purchase.method === "pix") return "PIX";
+  if (purchase.method === "dinheiro") return "Dinheiro";
   if (purchase.method === "debito") return "Débito";
   if (purchase.installments <= 1) return "Crédito à vista";
   const each = Math.round(purchase.amountCents / purchase.installments);

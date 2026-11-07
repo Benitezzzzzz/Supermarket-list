@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { AddSheet } from "./components/AddSheet";
 import { BottomNav, type Screen } from "./components/BottomNav";
 import { EditItemSheet } from "./components/EditItemSheet";
+import { EditPurchaseSheet } from "./components/EditPurchaseSheet";
 import { ExpensesScreen } from "./components/ExpensesScreen";
 import { FamilyScreen } from "./components/FamilyScreen";
 import { FinishSheet } from "./components/FinishSheet";
@@ -29,6 +30,7 @@ type Sheet =
   | { kind: "clear" }
   | { kind: "clear-all" }
   | { kind: "finish" }
+  | { kind: "edit-purchase"; id: string }
   | null;
 
 export function App({ list, session, onRejoined }: AppProps) {
@@ -44,6 +46,8 @@ export function App({ list, session, onRejoined }: AppProps) {
 
   const categories = knownCategories(state.customCategories, state.items);
   const editing = sheet?.kind === "edit" ? state.items.find((item) => item.id === sheet.id) : undefined;
+  const editingPurchase =
+    sheet?.kind === "edit-purchase" ? state.purchases.find((purchase) => purchase.id === sheet.id) : undefined;
   const close = () => setSheet(null);
 
   /** Remove e oferece desfazer: os mesmos itens voltam com o mesmo id e a mesma ordem. */
@@ -71,7 +75,12 @@ export function App({ list, session, onRejoined }: AppProps) {
           onFinish={() => setSheet({ kind: "finish" })}
         />
       )}
-      {screen === "expenses" && <ExpensesScreen purchases={state.purchases} />}
+      {screen === "expenses" && (
+        <ExpensesScreen
+          purchases={state.purchases}
+          onEdit={(purchase) => setSheet({ kind: "edit-purchase", id: purchase.id })}
+        />
+      )}
       {screen === "family" && <FamilyScreen session={session} />}
 
       {screen === "list" && (
@@ -161,6 +170,18 @@ export function App({ list, session, onRejoined }: AppProps) {
             );
             close();
             show("Compra finalizada e guardada em Gastos");
+          }}
+          onClose={close}
+        />
+      )}
+
+      {editingPurchase && (
+        <EditPurchaseSheet
+          purchase={editingPurchase}
+          onSave={(payment) => {
+            list.updatePurchase(editingPurchase.id, payment);
+            close();
+            show("Compra corrigida");
           }}
           onClose={close}
         />

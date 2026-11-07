@@ -844,6 +844,18 @@ select.field {
   font-size: var(--text-2xl);
 }
 
+.purchase__bottom {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.purchase__bottom .item__edit {
+  margin-right: 0;
+}
+
 .purchase__date,
 .purchase__meta {
   font-size: var(--text-sm);
@@ -860,6 +872,7 @@ select.field {
 }
 
 .method--pix { --tone-bg: var(--cat-limpeza-bg); --tone-fg: var(--cat-limpeza-fg); }
+.method--dinheiro { --tone-bg: var(--cat-horti-bg); --tone-fg: var(--cat-horti-fg); }
 .method--debito { --tone-bg: var(--cat-padaria-bg); --tone-fg: var(--cat-padaria-fg); }
 .method--credito { --tone-bg: var(--cat-laticinios-bg); --tone-fg: var(--cat-laticinios-fg); }
 

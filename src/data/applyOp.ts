@@ -24,6 +24,13 @@ export function applyOp(snapshot: Snapshot, op: Op): Snapshot {
         purchases: [op.purchase, ...others].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
       };
     }
+    case "updatePurchase":
+      return {
+        ...snapshot,
+        purchases: snapshot.purchases.map((purchase) =>
+          purchase.id === op.id ? { ...purchase, ...op.payment } : purchase,
+        ),
+      };
     case "addCategory": {
       const name = op.name.toLowerCase();
       if (snapshot.customCategories.some((c) => c.toLowerCase() === name)) return snapshot;

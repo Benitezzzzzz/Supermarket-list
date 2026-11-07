@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.6.0 (2026-11-07)
+
+### Adicionado
+
+- **Corrigir compra:** em Gastos, cada compra tem o botão Corrigir para mudar o valor ou a forma de pagamento. Funciona sem internet, pela mesma fila.
+- **Dinheiro (espécie)** como forma de pagamento, sem parcelamento.
+
+### Banco de dados
+
+- Migração `0004_dinheiro.sql` recria a tabela de compras para aceitar a nova forma de pagamento, copiando as compras existentes. Testada com dados antes de publicar.
+
 ## 3.5.0 (2026-11-07)
 
 ### Adicionado

@@ -1,4 +1,4 @@
-import type { Item, Purchase, Snapshot } from "../../shared/contract.ts";
+import type { Item, Payment, Purchase, Snapshot } from "../../shared/contract.ts";
 import { type Database, FAMILY_LIST } from "../db/database.ts";
 
 interface ItemRow {
@@ -107,6 +107,18 @@ export class ListService {
         ),
       ...itemIds.map((id) => remove.bind(familyId, id)),
     ]);
+  }
+
+  /** Devolve false se a compra não existe nesta família. */
+  async updatePurchase(familyId: string, id: string, payment: Payment): Promise<boolean> {
+    const { meta } = await this.db
+      .prepare(
+        `UPDATE purchases SET amount_cents = ?, method = ?, installments = ?
+         WHERE list_id = ${FAMILY_LIST} AND id = ?`,
+      )
+      .bind(payment.amountCents, payment.method, payment.installments, familyId, id)
+      .run();
+    return meta.changes > 0;
   }
 
   async addCategory(familyId: string, name: string) {

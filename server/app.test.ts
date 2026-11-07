@@ -296,6 +296,7 @@ describe("API", () => {
 
     it.each([
       ["PIX parcelado", { method: "pix", installments: 2 }],
+      ["dinheiro parcelado", { method: "dinheiro", installments: 2 }],
       ["débito parcelado", { method: "debito", installments: 3 }],
       ["valor zero", { amountCents: 0 }],
       ["valor fracionado", { amountCents: 10.5 }],
@@ -305,6 +306,49 @@ describe("API", () => {
       const response = await admin.call("POST", "/purchases", { purchase: purchase(overrides), itemIds: [] });
       expect(response.status).toBe(422);
       expect(await purchases(admin)).toEqual([]);
+    });
+
+    it("aceita dinheiro em espécie", async () => {
+      const response = await admin.call("POST", "/purchases", {
+        purchase: purchase({ method: "dinheiro", installments: 1 }),
+        itemIds: [],
+      });
+      expect(response.status).toBe(204);
+    });
+
+    it("corrige valor e forma de pagamento", async () => {
+      const compra = purchase();
+      await admin.call("POST", "/purchases", { purchase: compra, itemIds: [] });
+      const response = await member.call("PUT", `/purchases/${compra.id}`, {
+        amountCents: 9850,
+        method: "dinheiro",
+        installments: 1,
+      });
+      expect(response.status).toBe(204);
+      const [saved] = (await (await admin.call("GET", "/list")).json()).purchases;
+      expect([saved.amountCents, saved.method, saved.installments, saved.id]).toEqual([9850, "dinheiro", 1, compra.id]);
+    });
+
+    it("não corrige compra de outra família", async () => {
+      const compra = purchase();
+      await admin.call("POST", "/purchases", { purchase: compra, itemIds: [] });
+      const response = await outsider.call("PUT", `/purchases/${compra.id}`, {
+        amountCents: 1,
+        method: "pix",
+        installments: 1,
+      });
+      expect(response.status).toBe(404);
+      const [saved] = (await (await admin.call("GET", "/list")).json()).purchases;
+      expect(saved.amountCents).toBe(15290);
+    });
+
+    it.each([
+      ["valor zero", { amountCents: 0, method: "pix", installments: 1 }],
+      ["débito parcelado", { amountCents: 100, method: "debito", installments: 2 }],
+    ])("recusa correção com %s", async (_name, payment) => {
+      const compra = purchase();
+      await admin.call("POST", "/purchases", { purchase: compra, itemIds: [] });
+      expect((await admin.call("PUT", `/purchases/${compra.id}`, payment)).status).toBe(422);
     });
 
     it("avisa a família em tempo real", async () => {
