@@ -24,7 +24,9 @@ function validate(mode: Mode | "claim", fields: { username: string; displayName:
 }
 
 export function AuthScreen({ onAuthenticated, legacyName, notice }: AuthScreenProps) {
-  const claiming = legacyName !== undefined;
+  // Quem já criou a conta em outro aparelho pode pular a transferência e só entrar.
+  const [skipClaim, setSkipClaim] = useState(false);
+  const claiming = legacyName !== undefined && !skipClaim;
   const [mode, setMode] = useState<Mode>("login");
   const [displayName, setDisplayName] = useState(legacyName ?? "");
   const [username, setUsername] = useState("");
@@ -154,6 +156,19 @@ export function AuthScreen({ onAuthenticated, legacyName, notice }: AuthScreenPr
             {busy ? "Aguarde…" : submitLabel}
           </button>
         </form>
+        {claiming && (
+          <button
+            type="button"
+            className="btn btn--link"
+            onClick={() => {
+              setSkipClaim(true);
+              setMode("login");
+              setError("");
+            }}
+          >
+            Já criei minha conta em outro aparelho
+          </button>
+        )}
       </div>
     </main>
   );

@@ -13,6 +13,7 @@ Contas com usuário e senha, e várias listas por pessoa.
 - **Transferência automática:** aparelhos da versão anterior, na primeira abertura, criam usuário e senha e levam a lista com itens e gastos.
 - Comando `npm run user:reset-password` para redefinir a senha de quem esqueceu.
 - Botão "Sua conta" no topo da lista.
+- Na tela de transferência, "Já criei minha conta em outro aparelho" leva direto ao Entrar.
 
 ### Alterado
 
