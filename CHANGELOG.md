@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.8.0 (2026-11-07)
+
+### Alterado
+
+- Item marcado como comprado continua na mesma categoria e na mesma posição, só riscado. A seção separada "No carrinho" foi removida.
+- Categoria com todos os itens comprados mostra um sinal de concluído no lugar da contagem.
+- A lixeira do topo agora pergunta o que limpar: só os itens riscados ou a lista toda. É onde ficou o antigo "Limpar comprados".
+
 ## 3.7.0 (2026-11-07)
 
 ### Adicionado

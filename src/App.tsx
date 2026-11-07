@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { AddSheet } from "./components/AddSheet";
 import { BottomNav, type Screen } from "./components/BottomNav";
+import { ClearSheet } from "./components/ClearSheet";
 import { EditItemSheet } from "./components/EditItemSheet";
 import { EditPurchaseSheet } from "./components/EditPurchaseSheet";
 import { ExpensesScreen } from "./components/ExpensesScreen";
@@ -13,7 +14,6 @@ import type { SyncedList } from "./data/syncedList";
 import { DEFAULT_CATEGORY, knownCategories } from "./domain/categories";
 import { createItem } from "./domain/items";
 import type { Item, SessionInfo } from "./domain/types";
-import { ConfirmSheet } from "./ui/ConfirmSheet";
 import { Icon } from "./ui/Icon";
 import { Toast, useToast } from "./ui/Toast";
 
@@ -28,7 +28,6 @@ type Sheet =
   | { kind: "import" }
   | { kind: "edit"; id: string }
   | { kind: "clear" }
-  | { kind: "clear-all" }
   | { kind: "finish" }
   | { kind: "edit-purchase"; id: string }
   | null;
@@ -70,8 +69,7 @@ export function App({ list, session, onRejoined }: AppProps) {
           session={session}
           onToggle={(item) => list.updateItem(item.id, { done: !item.done })}
           onEdit={(item) => setSheet({ kind: "edit", id: item.id })}
-          onAskClear={() => setSheet({ kind: "clear" })}
-          onAskClearAll={() => setSheet({ kind: "clear-all" })}
+          onAskClearAll={() => setSheet({ kind: "clear" })}
           onFinish={() => setSheet({ kind: "finish" })}
         />
       )}
@@ -140,14 +138,18 @@ export function App({ list, session, onRejoined }: AppProps) {
       )}
 
       {sheet?.kind === "clear" && (
-        <ConfirmSheet
-          title="Limpar o carrinho?"
-          message="Os itens marcados como comprados saem da lista. Dá para desfazer logo depois."
-          confirmLabel="Limpar"
-          onConfirm={() => {
-            const bought = state.items.filter((item) => item.done);
+        <ClearSheet
+          doneCount={state.items.filter((item) => item.done).length}
+          totalCount={state.items.length}
+          onClearDone={() => {
+            const done = state.items.filter((item) => item.done);
             close();
-            removeWithUndo(bought, bought.length === 1 ? "1 item saiu da lista" : `${bought.length} itens saíram da lista`);
+            removeWithUndo(done, done.length === 1 ? "1 item riscado saiu da lista" : `${done.length} itens riscados saíram da lista`);
+          }}
+          onClearAll={() => {
+            const all = state.items;
+            close();
+            removeWithUndo(all, "Lista limpa");
           }}
           onClose={close}
         />
@@ -199,19 +201,6 @@ export function App({ list, session, onRejoined }: AppProps) {
         />
       )}
 
-      {sheet?.kind === "clear-all" && (
-        <ConfirmSheet
-          title="Limpar a lista toda?"
-          message={`Todos os ${state.items.length} itens saem da lista, comprados ou não. Dá para desfazer logo depois.`}
-          confirmLabel="Limpar tudo"
-          onConfirm={() => {
-            const all = state.items;
-            close();
-            removeWithUndo(all, "Lista limpa");
-          }}
-          onClose={close}
-        />
-      )}
     </main>
   );
 }

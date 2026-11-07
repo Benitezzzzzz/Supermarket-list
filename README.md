@@ -142,10 +142,10 @@ Como não há senha, o administrador não recupera o acesso se perder o aparelho
 
 - Adicionar item com categoria e criar categorias novas
 - Quantidade: digite "2 frangos" ou ajuste depois no lápis (medidas como "2 kg arroz" ficam no nome)
-- Marcar como comprado tocando na linha
+- Marcar como comprado tocando na linha: o item fica riscado no mesmo lugar
 - Trocar a categoria de um item
 - Importar vários itens colando texto; uma linha com o nome de uma categoria vira título
-- Limpar comprados, ou a lista toda pela lixeira no topo
+- Lixeira no topo: limpar só os riscados ou a lista toda
 - Finalizar compra: valor, forma de pagamento (PIX, dinheiro, débito ou crédito, à vista ou parcelado) e limpeza da lista
 - Aba Gastos: últimas compras com a lista de itens de cada uma, total do mês, correção de valor ou forma de pagamento e exclusão com Desfazer
 - Tela Participantes: ver quem está na lista, copiar o endereço e, para o administrador, remover aparelhos e fechar a entrada

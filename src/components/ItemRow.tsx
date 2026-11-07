@@ -4,17 +4,15 @@ import { Icon } from "../ui/Icon";
 interface ItemRowProps {
   item: Item;
   onToggle: (item: Item) => void;
-  /** Ausente nos itens do carrinho, que só podem ser desmarcados. */
-  onEdit?: (item: Item) => void;
+  onEdit: (item: Item) => void;
 }
 
+/** Marcado, o item continua no mesmo lugar, só riscado. */
 export function ItemRow({ item, onToggle, onEdit }: ItemRowProps) {
-  const label = item.done
-    ? `Tirar ${item.text} do carrinho`
-    : `Marcar ${item.text} como comprado`;
+  const label = item.done ? `Desmarcar ${item.text}` : `Marcar ${item.text} como comprado`;
 
   return (
-    <li className="item">
+    <li className={item.done ? "item item--done" : "item"}>
       <button
         type="button"
         className="item__toggle"
@@ -28,17 +26,15 @@ export function ItemRow({ item, onToggle, onEdit }: ItemRowProps) {
         <span className="item__text">{item.text}</span>
         {item.quantity > 1 && <span className="qty">{item.quantity}×</span>}
       </button>
-      {onEdit && (
-        <button
-          type="button"
-          className="item__edit"
-          aria-label={`Editar ${item.text}`}
-          onClick={() => onEdit(item)}
-        >
-          <Icon name="edit" size={18} />
-          Editar
-        </button>
-      )}
+      <button
+        type="button"
+        className="item__edit"
+        aria-label={`Editar ${item.text}`}
+        onClick={() => onEdit(item)}
+      >
+        <Icon name="edit" size={18} />
+        Editar
+      </button>
     </li>
   );
 }

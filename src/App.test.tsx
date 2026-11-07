@@ -87,38 +87,62 @@ describe("App", () => {
     expect(screen.getByText("Oi, Renan! Falta 1 item.")).toBeTruthy();
   });
 
-  it("marca, limpa o carrinho com confirmação e desfaz", async () => {
+  it("marcar deixa o item na mesma categoria, só riscado", async () => {
     const user = renderApp();
-    await addItems(user, "Arroz");
+    await addItems(user, "Arroz", "Feijão");
 
     await user.click(screen.getByRole("button", { name: "Marcar Arroz como comprado" }));
-    expect(await screen.findByText("Oi, Renan! Tudo comprado.")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "No carrinho · 1" })).toBeTruthy();
+    const card = screen.getByRole("region", { name: "Outros" });
+    const marcado = within(card).getByRole("button", { name: "Desmarcar Arroz" });
+    expect(marcado.getAttribute("aria-pressed")).toBe("true");
+    expect(marcado.closest("li")?.className).toContain("item--done");
+    // Continua na mesma ordem: Arroz antes de Feijão.
+    const ordem = within(card).getAllByRole("button", { name: /Arroz|Feijão/ }).map((b) => b.getAttribute("aria-label"));
+    expect(ordem.filter((n) => !n?.startsWith("Editar"))).toEqual(["Desmarcar Arroz", "Marcar Feijão como comprado"]);
+    expect(screen.queryByText(/No carrinho/)).toBeNull();
+    expect(screen.getByText("Oi, Renan! Falta 1 item.")).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Limpar o carrinho" }));
-    const confirm = await screen.findByRole("dialog", { name: "Limpar o carrinho?" });
-    await user.click(within(confirm).getByRole("button", { name: "Limpar" }));
-    expect(await screen.findByText("Oi, Renan! Sua lista está vazia.")).toBeTruthy();
-
-    await user.click(screen.getByRole("button", { name: "Desfazer" }));
-    expect(await screen.findByRole("button", { name: "Tirar Arroz do carrinho" })).toBeTruthy();
+    await user.click(marcado);
+    expect(screen.getByRole("button", { name: "Marcar Arroz como comprado" })).toBeTruthy();
   });
 
-  it("limpa a lista toda com confirmação e desfaz", async () => {
+  it("a lixeira limpa só os riscados e desfaz", async () => {
     const user = renderApp();
-    expect(screen.queryByRole("button", { name: "Limpar a lista toda" })).toBeNull();
     await addItems(user, "Arroz", "Feijão");
     await user.click(screen.getByRole("button", { name: "Marcar Arroz como comprado" }));
 
-    await user.click(screen.getByRole("button", { name: "Limpar a lista toda" }));
-    const confirm = await screen.findByRole("dialog", { name: "Limpar a lista toda?" });
-    expect(within(confirm).getByText(/Todos os 2 itens/)).toBeTruthy();
-    await user.click(within(confirm).getByRole("button", { name: "Limpar tudo" }));
+    await user.click(screen.getByRole("button", { name: "Limpar a lista" }));
+    const sheet = await screen.findByRole("dialog", { name: "Limpar a lista?" });
+    await user.click(within(sheet).getByRole("button", { name: "Limpar só o riscado (1)" }));
+    expect(screen.queryByRole("button", { name: "Desmarcar Arroz" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Editar Feijão" })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Desfazer" }));
+    expect(await screen.findByRole("button", { name: "Desmarcar Arroz" })).toBeTruthy();
+  });
+
+  it("a lixeira limpa a lista toda e desfaz", async () => {
+    const user = renderApp();
+    expect(screen.queryByRole("button", { name: "Limpar a lista" })).toBeNull();
+    await addItems(user, "Arroz", "Feijão");
+    await user.click(screen.getByRole("button", { name: "Marcar Arroz como comprado" }));
+
+    await user.click(screen.getByRole("button", { name: "Limpar a lista" }));
+    await user.click(await screen.findByRole("button", { name: "Limpar a lista toda (2)" }));
     expect(await screen.findByText("Oi, Renan! Sua lista está vazia.")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Desfazer" }));
     expect(await screen.findByRole("button", { name: "Editar Feijão" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Tirar Arroz do carrinho" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Desmarcar Arroz" })).toBeTruthy();
+  });
+
+  it("sem itens riscados, a lixeira só oferece limpar tudo", async () => {
+    const user = renderApp();
+    await addItems(user, "Arroz");
+    await user.click(screen.getByRole("button", { name: "Limpar a lista" }));
+    const sheet = await screen.findByRole("dialog", { name: "Limpar a lista?" });
+    expect(within(sheet).queryByRole("button", { name: /riscad/ })).toBeNull();
+    expect(within(sheet).getByRole("button", { name: "Limpar a lista toda (1)" })).toBeTruthy();
   });
 
   it("finaliza a compra no crédito parcelado e mostra em Gastos", async () => {
@@ -262,9 +286,9 @@ describe("App", () => {
     await addItems(user, "Sal");
     await user.click(screen.getByRole("button", { name: "Marcar Sal como comprado" }));
 
-    await user.click(screen.getByRole("button", { name: "Limpar o carrinho" }));
+    await user.click(screen.getByRole("button", { name: "Limpar a lista" }));
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
-    expect(screen.getByRole("button", { name: "Tirar Sal do carrinho" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Desmarcar Sal" })).toBeTruthy();
   });
 
   it("muda a categoria sem marcar o item", async () => {

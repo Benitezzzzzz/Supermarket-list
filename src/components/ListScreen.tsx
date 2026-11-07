@@ -10,7 +10,6 @@ interface ListScreenProps {
   session: SessionInfo;
   onToggle: (item: Item) => void;
   onEdit: (item: Item) => void;
-  onAskClear: () => void;
   onAskClearAll: () => void;
   onFinish: () => void;
 }
@@ -51,12 +50,10 @@ export function ListScreen({
   session,
   onToggle,
   onEdit,
-  onAskClear,
   onAskClearAll,
   onFinish,
 }: ListScreenProps) {
   const toBuy = state.items.filter((item) => !item.done);
-  const bought = state.items.filter((item) => item.done);
   const loading = state.connection === "loading" && state.items.length === 0;
 
   return (
@@ -68,8 +65,8 @@ export function ListScreen({
             <button
               type="button"
               className="icon-btn"
-              aria-label="Limpar a lista toda"
-              title="Limpar a lista toda"
+              aria-label="Limpar a lista"
+              title="Limpar a lista"
               onClick={onAskClearAll}
             >
               <Icon name="trash" size={22} />
@@ -103,19 +100,10 @@ export function ListScreen({
         </div>
       )}
 
-      {!loading && state.items.length > 0 && toBuy.length === 0 && (
-        <div className="empty">
-          <span className="empty__icon" aria-hidden="true">
-            <Icon name="check" size={32} />
-          </span>
-          <h2 className="empty__title">Tudo comprado!</h2>
-          <p className="hint">Toque em Adicionar para colocar mais itens.</p>
-        </div>
-      )}
-
       <div className="categories">
-        {groupByCategory(toBuy).map((group) => {
+        {groupByCategory(state.items).map((group) => {
           const style = categoryStyle(group.category);
+          const left = group.items.filter((item) => !item.done).length;
           return (
             <section key={group.category} className="card" aria-label={group.category}>
               <h2 className="card__header">
@@ -123,7 +111,17 @@ export function ListScreen({
                   <Icon name={style.icon} size={20} />
                 </span>
                 <span className="card__name">{group.category}</span>
-                <span className="card__count">{group.items.length}</span>
+                {left > 0 ? (
+                  <span className="card__count">
+                    {left}
+                    <span className="visually-hidden">{left === 1 ? " falta" : " faltam"}</span>
+                  </span>
+                ) : (
+                  <span className="card__done">
+                    <Icon name="check" size={20} strokeWidth={3} />
+                    <span className="visually-hidden"> tudo comprado</span>
+                  </span>
+                )}
               </h2>
               <ul className="items">
                 {group.items.map((item) => (
@@ -133,29 +131,6 @@ export function ListScreen({
             </section>
           );
         })}
-
-        {bought.length > 0 && (
-          <section className="cart" aria-labelledby="carrinho">
-            <div className="cart__header">
-              <h2 id="carrinho" className="cart__title">
-                No carrinho · {bought.length}
-              </h2>
-              <button
-                type="button"
-                className="cart__clear"
-                aria-label="Limpar o carrinho"
-                onClick={onAskClear}
-              >
-                Limpar
-              </button>
-            </div>
-            <ul className="items">
-              {bought.map((item) => (
-                <ItemRow key={item.id} item={item} onToggle={onToggle} />
-              ))}
-            </ul>
-          </section>
-        )}
       </div>
 
       {state.items.length > 0 && (

@@ -490,53 +490,27 @@ select.field {
   font-weight: 700;
 }
 
-.cart {
-  background: var(--done-bg);
-  border: 1px solid var(--done-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3) var(--space-2) var(--space-1);
-}
-
-.cart__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: 0 var(--space-2) var(--space-1);
-}
-
-.cart__title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  font-weight: 600;
+.card__done {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--primary-soft);
   color: var(--primary-soft-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.cart__clear {
-  min-height: var(--touch);
-  padding: 0 var(--space-3);
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--danger);
-  font-size: var(--text-md);
-  font-weight: 700;
-}
-
-.cart .item {
-  min-height: 56px;
-  border-top-color: var(--done-border);
-}
-
-.cart .item__toggle {
-  min-height: 56px;
+/* Item marcado: fica no lugar, riscado e mais apagado. */
+.item--done .item__toggle {
   color: var(--done-ink);
 }
 
-.cart .item__text {
+.item--done .item__text {
   text-decoration: line-through;
+  text-decoration-thickness: 2px;
 }
+
 
 .empty {
   background: var(--surface);
