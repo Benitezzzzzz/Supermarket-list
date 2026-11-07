@@ -22,10 +22,15 @@ Backend adaptado para o plano gratuito da Cloudflare, para publicar sem custo e 
 
 - Servidor Node próprio, `Dockerfile` e comando de backup local, substituídos pela Cloudflare.
 
+### Publicado
+
+- No ar em https://lista-do-mercado.lista-do-mercado.workers.dev, com a lista da família importada.
+- Testado em produção: entrada pelo link, tempo real, quantidade, uso offline, remoção de membro, isolamento entre famílias e cabeçalhos de segurança.
+- URLs de pré-visualização desligadas, para existir só a versão oficial.
+
 ### Ainda não verificado
 
-- Nada foi publicado ainda: tudo foi testado no simulador local da Cloudflare.
-- Os workflows de backup e de publicação nunca rodaram.
+- Os workflows de backup e de publicação automática nunca rodaram.
 - O app não foi testado em celular físico.
 
 ## 3.0.0 (2026-11-06)

@@ -1,6 +1,6 @@
 # Plano: publicação gratuita na Cloudflare
 
-**Status:** código adaptado e testado localmente em 2026-11-07. Falta publicar.
+**Status:** publicado em 2026-11-07 em https://lista-do-mercado.lista-do-mercado.workers.dev.
 
 ## Objetivo
 
@@ -45,7 +45,7 @@ Opções descartadas:
 
 Repetir lint, testes automáticos e o cenário de ponta a ponta com dois aparelhos no simulador local da Cloudflare, depois testar em celular físico.
 
-## O que depende do Renan
+## Pendências
 
-1. Criar a conta gratuita na Cloudflare.
-2. Fazer o login com `npx wrangler login`, sem compartilhar senha.
+- Configurar os segredos do GitHub para o backup diário e a publicação automática (ver README).
+- Testar em celular físico.

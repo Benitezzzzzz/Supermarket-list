@@ -3,6 +3,9 @@
   "name": "lista-do-mercado",
   "main": "server/worker.ts",
   "compatibility_date": "2026-11-01",
+  "workers_dev": true,
+  // Sem URLs de pré-visualização: só existe uma versão no ar, a oficial.
+  "preview_urls": false,
   // O site é servido direto pela Cloudflare (grátis e sem limite); só /api passa pelo Worker.
   "assets": {
     "directory": "./dist",
@@ -13,8 +16,7 @@
     {
       "binding": "DB",
       "database_name": "lista-do-mercado",
-      // Trocado pelo id real ao criar o banco com `wrangler d1 create`.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "aecc4608-79a5-4055-805d-2ed9df6cd819",
       "migrations_dir": "server/db/migrations"
     }
   ],

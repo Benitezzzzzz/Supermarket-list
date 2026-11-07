@@ -4,6 +4,8 @@ Lista de compras compartilhada da família. Abre por um link, instala no celular
 
 **Stack:** React 19, TypeScript, Vite e PWA no frontend; Hono rodando em Cloudflare Workers, banco Cloudflare D1 (SQLite) e um Durable Object por família para o tempo real; Zod para validar o contrato entre os dois lados.
 
+**No ar:** https://lista-do-mercado.lista-do-mercado.workers.dev (entrada só por convite).
+
 **Hospedagem:** tudo no plano gratuito da Cloudflare, sem servidor próprio para manter. As mudanças estão no [CHANGELOG](CHANGELOG.md), e a decisão está registrada em [docs/plano-publicacao-cloudflare.md](docs/plano-publicacao-cloudflare.md).
 
 ## Rodando localmente
