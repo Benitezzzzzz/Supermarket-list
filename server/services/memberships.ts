@@ -19,24 +19,26 @@ export class MembershipService {
     return row?.role ?? null;
   }
 
+  /** Na ordem em que a pessoa entrou; rowid desempata entradas no mesmo milissegundo. */
   async listsOf(userId: string): Promise<ListSummary[]> {
     const { results } = await this.db
       .prepare(
         `SELECT l.id, l.name, m.role
          FROM list_members m JOIN lists l ON l.id = m.list_id
-         WHERE m.user_id = ? ORDER BY m.joined_at`,
+         WHERE m.user_id = ? ORDER BY m.joined_at, m.rowid`,
       )
       .bind(userId)
       .all<ListSummary>();
     return results;
   }
 
+  /** Quem administra primeiro, depois na ordem de entrada. */
   async members(listId: string): Promise<ListMember[]> {
     const { results } = await this.db
       .prepare(
         `SELECT u.id AS userId, u.username, u.display_name AS displayName, m.role, m.joined_at AS joinedAt
          FROM list_members m JOIN users u ON u.id = m.user_id
-         WHERE m.list_id = ? ORDER BY m.joined_at`,
+         WHERE m.list_id = ? ORDER BY m.role = 'admin' DESC, m.joined_at, m.rowid`,
       )
       .bind(listId)
       .all<ListMember>();

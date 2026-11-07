@@ -246,6 +246,25 @@ describe("listas", () => {
     expect(me.lists).toEqual([casa]);
   });
 
+  it("mantém a ordem mesmo com tudo no mesmo milissegundo", async () => {
+    const realNow = Date.prototype.toISOString;
+    Date.prototype.toISOString = () => "2026-11-07T12:00:00.000Z";
+    try {
+      const a = await pai.createList("Primeira");
+      const b = await pai.createList("Segunda");
+      const c = await pai.createList("Terceira");
+      await pai.call("POST", `/lists/${a.id}/members`, { username: "renan" });
+      for (let i = 0; i < 5; i++) {
+        const me = (await (await pai.call("GET", "/auth/me")).json()) as MeResponse;
+        expect(me.lists.map((l) => l.id)).toEqual([a.id, b.id, c.id]);
+        const members = (await (await pai.call("GET", `/lists/${a.id}/members`)).json()) as ListMember[];
+        expect(members.map((m) => m.role)).toEqual(["admin", "member"]);
+      }
+    } finally {
+      Date.prototype.toISOString = realNow;
+    }
+  });
+
   it("uma pessoa pode ter várias listas, cada uma com dados próprios", async () => {
     const pousada = await pai.createList("Pousada");
     const casaDoPai = await pai.createList("Casa do pai");
