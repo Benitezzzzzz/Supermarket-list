@@ -12,7 +12,7 @@ const ONE_YEAR = 60 * 60 * 24 * 365;
 export type Env = { Variables: { session: SessionInfo } };
 
 export function setSessionCookie(c: Context, sessionToken: string) {
-  // Atrás de um proxy HTTPS o Node recebe HTTP, por isso o cabeçalho encaminhado conta.
+  // Atrás de um proxy HTTPS a aplicação pode receber HTTP, por isso o cabeçalho encaminhado conta.
   const https =
     c.req.header("x-forwarded-proto") === "https" || new URL(c.req.url).protocol === "https:";
   setCookie(c, SESSION_COOKIE, sessionToken, {
@@ -28,7 +28,7 @@ export function setSessionCookie(c: Context, sessionToken: string) {
 export function requireSession(families: FamilyService) {
   return createMiddleware<Env>(async (c, next) => {
     const token = getCookie(c, SESSION_COOKIE);
-    const session = token ? families.findSession(token) : null;
+    const session = token ? await families.findSession(token) : null;
     if (!session) throw new HTTPException(401, { message: "Sessão inválida" });
     c.set("session", session);
     await next();

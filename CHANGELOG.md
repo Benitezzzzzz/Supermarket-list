@@ -1,5 +1,33 @@
 # Changelog
 
+## 3.1.0 (2026-11-07)
+
+Backend adaptado para o plano gratuito da Cloudflare, para publicar sem custo e sem servidor próprio.
+
+### Alterado
+
+- API passa a rodar em Cloudflare Workers, e o banco passa para o D1 (SQLite gerenciado). Esquema, regras e validação foram mantidos.
+- Tempo real passa de SSE para WebSocket, com um Durable Object por família em hibernação.
+- Aparelho removido pelo administrador é desconectado na hora, sem precisar recarregar.
+- Criação de família grava direto no D1, local ou de produção.
+- Tokens passam a usar a Web Crypto API.
+
+### Adicionado
+
+- Backup diário criptografado por GitHub Actions, além do Time Travel de 7 dias do D1.
+- Publicação automática a cada push na `main`, desligada até ser configurada.
+- Validação do pacote da Cloudflare no CI.
+
+### Removido
+
+- Servidor Node próprio, `Dockerfile` e comando de backup local, substituídos pela Cloudflare.
+
+### Ainda não verificado
+
+- Nada foi publicado ainda: tudo foi testado no simulador local da Cloudflare.
+- Os workflows de backup e de publicação nunca rodaram.
+- O app não foi testado em celular físico.
+
 ## 3.0.0 (2026-11-06)
 
 Reescrita completa da primeira versão, que rodava como Claude Artifact.
@@ -29,9 +57,4 @@ Reescrita completa da primeira versão, que rodava como Claude Artifact.
 
 ### Ainda não verificado
 
-- O `Dockerfile` e o workflow de CI nunca foram executados.
 - O app não foi testado em HTTPS nem em celular físico.
-
-## Próximos passos
-
-Publicar de graça em Cloudflare Workers + D1. O plano está em [docs/plano-publicacao-cloudflare.md](docs/plano-publicacao-cloudflare.md).

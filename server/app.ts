@@ -3,19 +3,18 @@ import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
 import type { Database } from "./db/database.ts";
-import { EventHub } from "./http/eventHub.ts";
 import { familyRoutes } from "./http/familyRoutes.ts";
 import { listRoutes } from "./http/listRoutes.ts";
+import type { Notifier } from "./http/notifier.ts";
 import { sessionRoutes } from "./http/sessionRoutes.ts";
 import { FamilyService } from "./services/families.ts";
 import { ListService } from "./services/lists.ts";
 
 const MAX_BODY_BYTES = 512 * 1024;
 
-export function createApp(db: Database) {
+export function createApp(db: Database, notifier: Notifier) {
   const families = new FamilyService(db);
   const lists = new ListService(db);
-  const hub = new EventHub();
 
   const api = new Hono();
   api.use(
@@ -26,8 +25,8 @@ export function createApp(db: Database) {
     }),
   );
   api.route("/session", sessionRoutes(families));
-  api.route("/family", familyRoutes(families, hub));
-  api.route("/", listRoutes(families, lists, hub));
+  api.route("/family", familyRoutes(families, notifier));
+  api.route("/", listRoutes(families, lists, notifier));
 
   const app = new Hono();
   app.use("*", secureHeaders({ crossOriginResourcePolicy: "same-origin" }));

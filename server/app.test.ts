@@ -3,10 +3,27 @@ import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Item, SessionInfo } from "../shared/contract.ts";
 import { createApp } from "./app.ts";
-import { type Database, openDatabase } from "./db/database.ts";
+import type { Database } from "./db/database.ts";
+import { openTestDatabase } from "./db/sqliteAdapter.ts";
+import type { Notifier } from "./http/notifier.ts";
 import { FamilyService } from "./services/families.ts";
 
 type App = ReturnType<typeof createApp>;
+
+/** Registra os avisos que iriam para o Durable Object. */
+class RecordingNotifier implements Notifier {
+  broadcasts: string[] = [];
+  disconnects: string[] = [];
+  async broadcast(familyId: string) {
+    this.broadcasts.push(familyId);
+  }
+  async disconnectMember(familyId: string, memberId: string) {
+    this.disconnects.push(`${familyId}/${memberId}`);
+  }
+  async connect() {
+    return new Response("conectado");
+  }
+}
 
 function item(overrides: Partial<Item> = {}): Item {
   return {
@@ -64,13 +81,18 @@ describe("API", () => {
   let admin: Device;
   let member: Device;
   let outsider: Device;
+  let notifier: RecordingNotifier;
+  let familyA: string;
 
   beforeEach(async () => {
-    db = openDatabase(":memory:");
-    app = createApp(db);
+    db = openTestDatabase();
+    notifier = new RecordingNotifier();
+    app = createApp(db, notifier);
     const families = new FamilyService(db);
-    inviteA = families.create("Família A").inviteToken;
-    inviteB = families.create("Família B").inviteToken;
+    const a = await families.create("Família A");
+    familyA = a.familyId;
+    inviteA = a.inviteToken;
+    inviteB = (await families.create("Família B")).inviteToken;
     admin = new Device(app);
     member = new Device(app);
     outsider = new Device(app);
@@ -128,10 +150,10 @@ describe("API", () => {
     });
 
     it("não guarda convite nem sessão em texto puro", async () => {
-      const rows = db.prepare("SELECT invite_hash FROM families").all();
+      const rows = await db.prepare("SELECT invite_hash FROM families").all();
       expect(JSON.stringify(rows)).not.toContain(inviteA);
       const token = admin.cookie.split("=")[1];
-      const sessions = db.prepare("SELECT session_hash FROM members").all();
+      const sessions = await db.prepare("SELECT session_hash FROM members").all();
       expect(JSON.stringify(sessions)).not.toContain(token);
     });
 
@@ -217,6 +239,38 @@ describe("API", () => {
         body: "{}",
       });
       expect(response.status).toBe(415);
+    });
+  });
+
+  describe("tempo real", () => {
+    it("avisa só a família que mudou", async () => {
+      notifier.broadcasts = [];
+      await admin.call("PUT", "/items", { items: [item()] });
+      await admin.call("POST", "/categories", { name: "Pet" });
+      expect(notifier.broadcasts).toEqual([familyA, familyA]);
+    });
+
+    it("escrita recusada não gera aviso", async () => {
+      notifier.broadcasts = [];
+      await admin.call("PUT", "/items", { items: [item({ text: "" })] });
+      expect(notifier.broadcasts).toEqual([]);
+    });
+
+    it("exige WebSocket para abrir o canal", async () => {
+      expect((await admin.call("GET", "/events")).status).toBe(426);
+    });
+
+    it("entrega o canal com o membro da sessão", async () => {
+      const response = await app.request("/api/events", {
+        headers: { cookie: admin.cookie, upgrade: "websocket" },
+      });
+      expect(await response.text()).toBe("conectado");
+    });
+
+    it("desconecta na hora o membro removido", async () => {
+      const session = (await (await member.call("GET", "/session")).json()) as SessionInfo;
+      await admin.call("DELETE", `/family/members/${session.memberId}`);
+      expect(notifier.disconnects).toEqual([`${familyA}/${session.memberId}`]);
     });
   });
 

@@ -2,73 +2,99 @@
 
 Lista de compras compartilhada da família. Abre por um link, instala no celular como app, atualiza em tempo real entre os aparelhos e funciona sem internet dentro do mercado. Ninguém precisa criar senha.
 
-**Stack:** React 19, TypeScript, Vite e PWA no frontend; Node.js, Hono e SQLite no backend; Zod para validar o contrato entre os dois.
+**Stack:** React 19, TypeScript, Vite e PWA no frontend; Hono rodando em Cloudflare Workers, banco Cloudflare D1 (SQLite) e um Durable Object por família para o tempo real; Zod para validar o contrato entre os dois lados.
 
-**Situação atual:** roda localmente e ainda não foi publicado. A publicação gratuita está planejada em [docs/plano-publicacao-cloudflare.md](docs/plano-publicacao-cloudflare.md), e as mudanças feitas estão no [CHANGELOG](CHANGELOG.md).
+**Hospedagem:** tudo no plano gratuito da Cloudflare, sem servidor próprio para manter. As mudanças estão no [CHANGELOG](CHANGELOG.md), e a decisão está registrada em [docs/plano-publicacao-cloudflare.md](docs/plano-publicacao-cloudflare.md).
 
 ## Rodando localmente
 
-Requer Node.js 24 ou mais novo.
+Requer Node.js 24 ou mais novo. Tudo roda no simulador local da Cloudflare, sem conta.
 
 ```bash
 npm install
-cp .env.example .env     # ajuste APP_URL para http://localhost:5173
+npm run db:migrate
 npm run family:create -- "Minha Família" --importar server/seed/lista-familia.json
-npm run dev
+npm run preview
 ```
 
-O comando `family:create` mostra o link de convite. Abra esse link no navegador e digite seu nome. Quem entra primeiro vira administrador.
+Abra o link que o `family:create` mostrar e digite seu nome. Quem entra primeiro vira administrador.
 
 | Comando | O que faz |
 |---|---|
-| `npm run dev` | Sobe API (porta 3000) e frontend com recarga automática (porta 5173) |
-| `npm run build` | Checa os tipos e gera o frontend em `dist/` |
-| `npm start` | Sobe o app completo na porta 3000 (depois do build) |
+| `npm run preview` | Gera o site e sobe o app completo em `localhost:8787` |
+| `npm run dev` | API em `8787` e frontend com recarga automática em `5173` (use `--url http://localhost:5173` no `family:create`) |
 | `npm test` | Roda os testes |
 | `npm run lint` | Roda o lint |
+| `npm run db:migrate` | Aplica as migrações no banco local |
 | `npm run family:create -- "Nome"` | Cria uma família e mostra o convite |
-| `npm run backup` | Salva uma cópia do banco em `data/backups/` |
+| `npm run deploy` | Publica na Cloudflare |
 
-## Colocando no ar
+O banco local fica em `.wrangler/`, fora do Git. Apagar essa pasta zera os dados de teste.
 
-O app precisa de um servidor **sempre ligado, com disco persistente e HTTPS**. O HTTPS é obrigatório para instalar no celular e funcionar offline. Servir só o frontend não basta, e hospedagens com disco temporário apagam o banco a cada reinício.
+## Publicando
 
-Com Docker:
+Precisa de uma conta gratuita na Cloudflare.
 
 ```bash
-docker build -t lista-mercado .
-docker run -d --restart unless-stopped -p 3000:3000 -v lista-dados:/data lista-mercado
-docker exec -e APP_URL=https://seu-dominio <container> node server/scripts/create-family.ts "Minha Família" --importar server/seed/lista-familia.json
+npx wrangler login
+npx wrangler d1 create lista-do-mercado   # copie o database_id para o wrangler.jsonc
+npm run deploy
+npm run family:create -- "Minha Família" --importar server/seed/lista-familia.json --remoto --url https://lista-do-mercado.SEU-SUBDOMINIO.workers.dev
 ```
 
-Sem Docker, rode `npm ci`, `npm run build` e `npm start` atrás de um proxy HTTPS, como Caddy ou Cloudflare Tunnel. O proxy precisa enviar o cabeçalho `X-Forwarded-Proto` e não pode segurar respostas em buffer, para não atrasar os avisos em tempo real.
+### Publicação automática
 
-### Backup
+O workflow `ci.yml` publica a cada push na `main` depois de os testes passarem. Para ligar, configure no GitHub, em **Settings > Secrets and variables > Actions**:
 
-Todos os dados ficam em `DATA_DIR/lista.db`. Agende `npm run backup` e copie `DATA_DIR/backups/` para outro lugar. Para restaurar, pare o servidor, troque `lista.db` pelo backup e apague os arquivos `lista.db-wal` e `lista.db-shm`.
+- **Secrets:** `CLOUDFLARE_API_TOKEN`, um token com permissão de editar Workers e D1, e `CLOUDFLARE_ACCOUNT_ID`.
+- **Variável:** `DEPLOY_ENABLED` com o valor `true`.
+
+### Limites do plano gratuito
+
+Por dia: 100 mil requisições ao Worker, 5 milhões de leituras e 100 mil escritas no D1, e 100 mil requisições aos Durable Objects. Arquivos do site não contam. Se um limite estourar, as chamadas falham até a meia-noite UTC; não há cobrança. A fila offline guarda as alterações nesse meio-tempo.
+
+## Backup
+
+São duas camadas:
+
+- **Time Travel do D1:** a Cloudflare permite voltar o banco para qualquer minuto dos últimos 7 dias, com `npx wrangler d1 time-travel restore lista-do-mercado --timestamp=<data>`.
+- **Cópia diária no GitHub:** o workflow `backup.yml` exporta o banco todo dia, criptografa e guarda por 30 dias nos artefatos da Action. Além dos dois segredos da Cloudflare, ele precisa do segredo `BACKUP_PASSPHRASE`. Guarde essa senha em outro lugar: sem ela, o backup não abre.
+
+Para restaurar uma cópia do GitHub:
+
+```bash
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in lista-AAAA-MM-DD.sql.enc -out backup.sql
+npx wrangler d1 execute lista-do-mercado --remote --file backup.sql
+```
+
+O GitHub pausa workflows agendados em repositórios sem atividade por 60 dias. Se isso acontecer, reative o `backup.yml` na aba Actions.
 
 ## Arquitetura
 
 ```
-shared/contract.ts   tipos e validação usados pelos dois lados
+shared/contract.ts      tipos e validação usados pelos dois lados
 server/
-  app.ts             monta a API
-  db/                conexão SQLite e migrações
-  services/          regras de famílias, membros, convites e listas
-  http/              rotas, autenticação e eventos em tempo real
-  scripts/           criar família e fazer backup
-  seed/              lista migrada da versão anterior
+  worker.ts             entrada do Worker
+  app.ts                monta a API
+  db/                   interface do banco e migrações do D1
+  services/             regras de famílias, membros, convites e listas
+  http/                 rotas, autenticação e tempo real
+    familyEvents.ts     Durable Object que guarda os WebSockets de uma família
+  scripts/              criar família
+  seed/                 lista migrada da versão anterior
 src/
-  domain/            regras puras: itens, quantidade, categorias, importação
+  domain/               regras puras: itens, quantidade, categorias, importação
   data/
-    syncedList.ts    escrita otimista e fila offline (o coração do app)
-    backend.ts       contrato entre a lista e o armazenamento
-    apiBackend.ts    implementação que fala com a API
-    session.ts       entrada na família e sessão do aparelho
+    syncedList.ts       escrita otimista e fila offline (o coração do app)
+    backend.ts          contrato entre a lista e o armazenamento
+    apiBackend.ts       implementação que fala com a API
+    session.ts          entrada na família e sessão do aparelho
   hooks/  components/
 ```
 
-Um único processo Node serve a API e o site. Por ser a mesma origem, não há CORS, e o cookie de sessão funciona sem exceções.
+A Cloudflare serve o site direto. Só as rotas `/api/*` passam pelo Worker, então site e API ficam na mesma origem, sem CORS.
+
+Nos testes, o banco é um adaptador sobre o SQLite do Node com a mesma interface do D1 e as mesmas migrações.
 
 ### API
 
@@ -80,7 +106,7 @@ Um único processo Node serve a API e o site. Por ser a mesma origem, não há C
 | `PUT /api/items` | Cria ou altera itens | Membro |
 | `POST /api/items/delete` | Remove itens | Membro |
 | `POST /api/categories` | Cria categoria | Membro |
-| `GET /api/events` | Avisos em tempo real (SSE) | Membro |
+| `GET /api/events` | Avisos em tempo real (WebSocket) | Membro |
 | `GET /api/family/members` | Lista os membros | Membro |
 | `DELETE /api/family/members/:id` | Remove um membro | Administrador |
 | `POST /api/family/invite` | Gera convite novo e invalida o anterior | Administrador |
@@ -93,17 +119,17 @@ Cada alteração é uma operação pequena e idempotente que mexe só nos itens 
 - Sem internet, as alterações ficam salvas no aparelho e são enviadas quando a conexão volta, mesmo que o app tenha sido fechado.
 - Duas pessoas mexendo ao mesmo tempo não apagam o trabalho uma da outra. Se as duas alterarem o mesmo item, vale a última.
 
-Quando algo muda, o servidor envia um aviso sem dados pelo canal SSE, e cada aparelho relê a lista pela API autenticada. O app também relê ao voltar para a tela e ao recuperar a conexão.
+Cada família tem um Durable Object que guarda os WebSockets abertos. Quando algo muda, ele envia um aviso sem dados, e cada aparelho relê a lista pela API autenticada. Com a API de hibernação, conexões paradas não consomem a cota de tempo de execução. O app também relê ao voltar para a tela e ao recuperar a conexão.
 
 ### Segurança
 
-- **Sem cadastro público:** famílias só nascem pelo comando no servidor.
+- **Sem cadastro público:** famílias só nascem pelo comando `family:create`.
 - **Isolamento:** a família vem sempre da sessão, nunca de um id enviado pelo cliente. A chave dos itens inclui a lista, então o id de um item de outra família não alcança a linha dela.
-- **Sessão:** um token aleatório de 256 bits por aparelho, em cookie `HttpOnly` e `SameSite=Strict`, marcado como `Secure` em HTTPS. O banco guarda só o hash.
-- **Convite:** também aleatório e guardado como hash. Quem tem o link consegue entrar, então compartilhe só com a família. O administrador vê quem entrou, remove aparelhos e troca o link no painel Família.
+- **Sessão:** um token aleatório de 256 bits por aparelho, em cookie `HttpOnly`, `SameSite=Strict` e `Secure`. O banco guarda só o hash.
+- **Convite:** também aleatório e guardado como hash. Quem tem o link consegue entrar, então compartilhe só com a família. O administrador vê quem entrou, remove aparelhos e troca o link no painel Família. Um aparelho removido é desconectado na hora.
 - **Validação:** todo dado de entrada passa pelo Zod no servidor, e o banco repete os limites com `CHECK`.
 
-Como não há senha, o administrador não recupera o acesso se perder o aparelho: para isso, a tabela `members` precisa ser ajustada no servidor.
+Como não há senha, o administrador não recupera o acesso se perder o aparelho: para isso, a tabela `members` precisa ser ajustada com `wrangler d1 execute`.
 
 ## Funcionalidades
 

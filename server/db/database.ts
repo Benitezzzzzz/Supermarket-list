@@ -1,49 +1,23 @@
-import { mkdirSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+/**
+ * O subconjunto da API do Cloudflare D1 que o servidor usa. Em produção é o
+ * próprio D1; nos testes, um adaptador sobre o SQLite do Node (sqliteAdapter.ts).
+ */
 
-const MIGRATIONS_DIR = join(import.meta.dirname, "migrations");
+export type SqlValue = string | number | null;
 
-export type Database = DatabaseSync;
-
-/** Roda em transação tudo que precisa acontecer junto. */
-export function transaction<T>(db: Database, work: () => T): T {
-  db.exec("BEGIN IMMEDIATE");
-  try {
-    const result = work();
-    db.exec("COMMIT");
-    return result;
-  } catch (error) {
-    db.exec("ROLLBACK");
-    throw error;
-  }
+export interface Statement {
+  bind(...values: SqlValue[]): Statement;
+  first<T>(): Promise<T | null>;
+  all<T>(): Promise<{ results: T[] }>;
+  run(): Promise<{ meta: { changes: number } }>;
 }
 
-/** Aplica as migrações ainda não rodadas; a versão fica em PRAGMA user_version. */
-function migrate(db: Database) {
-  const { user_version: current } = db.prepare("PRAGMA user_version").get() as {
-    user_version: number;
-  };
-  const files = readdirSync(MIGRATIONS_DIR)
-    .filter((file) => file.endsWith(".sql"))
-    .sort();
-
-  files.forEach((file, index) => {
-    const version = index + 1;
-    if (version <= current) return;
-    transaction(db, () => {
-      db.exec(readFileSync(join(MIGRATIONS_DIR, file), "utf8"));
-      db.exec(`PRAGMA user_version = ${version}`);
-    });
-  });
+export interface Database {
+  prepare(sql: string): Statement;
+  /** Executa tudo numa transação: ou todas as instruções valem, ou nenhuma. */
+  batch(statements: Statement[]): Promise<unknown[]>;
 }
 
-export function openDatabase(path: string): Database {
-  if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-  const db = new DatabaseSync(path);
-  db.exec("PRAGMA journal_mode = WAL");
-  db.exec("PRAGMA foreign_keys = ON");
-  db.exec("PRAGMA busy_timeout = 5000");
-  migrate(db);
-  return db;
-}
+/** A lista da família, resolvida no próprio banco a partir da sessão. */
+export const FAMILY_LIST =
+  "(SELECT id FROM lists WHERE family_id = ? ORDER BY created_at LIMIT 1)";

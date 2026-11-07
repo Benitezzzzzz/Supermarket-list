@@ -19,22 +19,23 @@ export function sessionRoutes(families: FamilyService) {
 
     // Aparelho já conectado que abre o link de novo não vira um membro duplicado.
     const cookie = getCookie(c, SESSION_COOKIE);
-    const current = cookie ? families.findSession(cookie) : null;
-    if (current && families.isInviteFor(inviteToken, current.familyId)) {
+    const current = cookie ? await families.findSession(cookie) : null;
+    if (current && (await families.isInviteFor(inviteToken, current.familyId))) {
       return c.json(current);
     }
 
-    const joined = families.join(inviteToken, name);
+    const joined = await families.join(inviteToken, name);
     if (!joined) throw new HTTPException(404, { message: "Convite inválido" });
     setSessionCookie(c, joined.sessionToken);
     return c.json(joined.session, 201);
   });
 
-  routes.get("/", requireSession(families), (c) => {
+  routes.get("/", requireSession(families), async (c) => {
     const session = c.get("session");
-    families.touch(session.memberId);
+    await families.touch(session.memberId);
     // Renova a validade do cookie: quem usa o app nunca é desconectado.
-    setSessionCookie(c, getCookie(c, SESSION_COOKIE)!);
+    const token = getCookie(c, SESSION_COOKIE);
+    if (token) setSessionCookie(c, token);
     return c.json(session);
   });
 
