@@ -44,41 +44,58 @@ export function JoinScreen({ onJoined, revoked = false }: JoinScreenProps) {
   }
 
   return (
-    <div className="page">
-      <header className="top">
-        <h1>Lista do Mercado</h1>
-        <p id="status">
-          {linkInvite ? "Como você se chama?" : "Cole o link da família para entrar."}
-        </p>
-      </header>
-      {revoked && <div className="banner">Este aparelho não tem mais acesso à lista.</div>}
-      {error && <div className="banner">{error}</div>}
-      <form className="join-form" onSubmit={(event) => void submit(event)}>
-        {!linkInvite && (
+    <main className="app">
+      <div className="page">
+        <header className="screen-header">
+          <h1 className="title">Lista do Mercado</h1>
+          <p className="subtitle">
+            {linkInvite ? "Bem-vindo! Como você se chama?" : "Cole o link da família para entrar."}
+          </p>
+        </header>
+        {revoked && (
+          <p className="banner banner--warning">Este aparelho não tem mais acesso à lista.</p>
+        )}
+        {error && (
+          <p className="banner banner--danger" role="alert">
+            {error}
+          </p>
+        )}
+        <form className="form" onSubmit={(event) => void submit(event)}>
+          {!linkInvite && (
+            <>
+              <label htmlFor="link-lista" className="field-label">
+                Link da lista
+              </label>
+              <input
+                id="link-lista"
+                className="field"
+                type="url"
+                inputMode="url"
+                placeholder="Cole aqui o link"
+                autoComplete="off"
+                value={link}
+                onChange={(event) => setLink(event.target.value)}
+              />
+            </>
+          )}
+          <label htmlFor="seu-nome" className="field-label">
+            Seu nome
+          </label>
           <input
+            id="seu-nome"
             className="field"
             type="text"
-            placeholder="Link da lista"
-            aria-label="Link da lista"
-            autoComplete="off"
-            value={link}
-            onChange={(event) => setLink(event.target.value)}
+            placeholder="Ex.: Maria"
+            autoComplete="given-name"
+            maxLength={40}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
           />
-        )}
-        <input
-          className="field"
-          type="text"
-          placeholder="Seu nome"
-          aria-label="Seu nome"
-          autoComplete="given-name"
-          maxLength={40}
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-        />
-        <button type="submit" disabled={joining}>
-          Entrar
-        </button>
-      </form>
-    </div>
+          <button type="submit" className="btn btn--primary btn--block btn--xl" disabled={joining}>
+            {joining ? "Entrando…" : "Entrar"}
+          </button>
+        </form>
+      </div>
+    </main>
   );
 }

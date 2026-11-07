@@ -1,0 +1,186 @@
+/*
+ * Tokens do Design System "Friendly & Family".
+ * Toda cor, medida e sombra do app vem daqui. Componentes nunca usam valores soltos.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Tipografia */
+  --font-display: "Fredoka", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --text-xs: 0.875rem; /* 14px: nada menor que isso */
+  --text-sm: 0.9375rem; /* 15px */
+  --text-md: 1.0625rem; /* 17px */
+  --text-lg: 1.1875rem; /* 19px: itens da lista */
+  --text-xl: 1.375rem; /* 22px */
+  --text-2xl: 1.625rem; /* 26px */
+  --text-3xl: 1.875rem; /* 30px */
+  --field-text: 1.25rem; /* 20px: campos nunca abaixo de 16px, para o iPhone não dar zoom */
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+
+  /* Espaçamento (base 4) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* Bordas */
+  --radius-sm: 14px;
+  --radius-md: 18px;
+  --radius-lg: 22px;
+  --radius-xl: 28px;
+  --radius-full: 999px;
+  --border-width: 2px;
+
+  /* Alvos de toque */
+  --touch: 48px;
+  --touch-lg: 56px;
+  --touch-xl: 60px;
+
+  /* Camadas */
+  --layer-nav: 20;
+  --layer-toast: 30;
+  --layer-sheet: 40;
+
+  /* Movimento */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration: 180ms;
+
+  /* Cores */
+  --bg: #fff8ec;
+  --surface: #ffffff;
+  --surface-muted: #fff1d6;
+  --border: #eadfcb;
+  --border-soft: #f3eadb;
+  --ink: #2b2622;
+  --ink-soft: #6b6158; /* 5,7:1 sobre o fundo */
+  --check-border: #b9ac98;
+
+  --primary: #2f7d4f; /* 5,1:1 com texto branco */
+  --primary-strong: #23633d;
+  --on-primary: #ffffff;
+  --primary-soft: #e3f2e1;
+  --primary-soft-ink: #1f5e35;
+
+  --accent: #f4b740;
+  --on-accent: #2b2622;
+  --accent-soft: #fce7b2;
+  --accent-soft-ink: #5c4207;
+
+  --danger: #b93a26; /* 5,7:1 com texto branco */
+  --on-danger: #ffffff;
+  --danger-soft: #fff4f1;
+  --danger-border: #f2d2cb;
+  --danger-ink: #8e2b1c;
+
+  --done-bg: #eef6ef;
+  --done-border: #cfe3d3;
+  --done-ink: #5e7363;
+
+  --warning-bg: #fff1d6;
+  --warning-border: #f0d49a;
+  --warning-ink: #5c4207;
+
+  --scrim: rgba(43, 38, 34, 0.45);
+  --toast-bg: #2b2622;
+  --toast-ink: #ffffff;
+  --focus-ring: #23633d;
+
+  --shadow-card: 0 2px 0 var(--border);
+  --shadow-raised: 0 8px 18px rgba(47, 125, 79, 0.35);
+  --shadow-float: 0 10px 24px rgba(43, 38, 34, 0.25);
+
+  /* Cores das categorias: fundo claro + texto escuro da mesma família (≥ 4,5:1) */
+  --cat-horti-bg: #e3f2e1;
+  --cat-horti-fg: #1f5e35;
+  --cat-padaria-bg: #fcebd3;
+  --cat-padaria-fg: #7a4a12;
+  --cat-acougue-bg: #fbe3de;
+  --cat-acougue-fg: #8a2a1a;
+  --cat-laticinios-bg: #e3eef9;
+  --cat-laticinios-fg: #1d4c7a;
+  --cat-mercearia-bg: #f6eedc;
+  --cat-mercearia-fg: #6b4e16;
+  --cat-bebidas-bg: #e6f0fb;
+  --cat-bebidas-fg: #1e4e86;
+  --cat-limpeza-bg: #e4f4f1;
+  --cat-limpeza-fg: #135c50;
+  --cat-higiene-bg: #f3e6f5;
+  --cat-higiene-fg: #6a2d74;
+  --cat-congelados-bg: #e2f3f7;
+  --cat-congelados-fg: #145a6b;
+  --cat-outros-bg: #efeae4;
+  --cat-outros-fg: #5a4f45;
+  --cat-custom-bg: #ece9f7;
+  --cat-custom-fg: #43357a;
+}
+
+/* Tema escuro em tons quentes, automático pelo sistema (data-theme="light" força o claro) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #1c1915;
+    --surface: #26221d;
+    --surface-muted: #332b20;
+    --border: #3e362c;
+    --border-soft: #322b23;
+    --ink: #f4ece0;
+    --ink-soft: #c4b8a8;
+    --check-border: #8a7e6e;
+    --primary: #6dbe8b;
+    --primary-strong: #8fd3a8;
+    --on-primary: #0f2417;
+    --primary-soft: #23382a;
+    --primary-soft-ink: #a5ddb7;
+    --accent: #f4b740;
+    --on-accent: #2b2622;
+    --accent-soft: #4a3a14;
+    --accent-soft-ink: #f7d47f;
+    --danger: #f08a74;
+    --on-danger: #2a0e08;
+    --danger-soft: #3a211b;
+    --danger-border: #5a3127;
+    --danger-ink: #f7b4a5;
+    --done-bg: #1f2e23;
+    --done-border: #2e4535;
+    --done-ink: #9bb3a1;
+    --warning-bg: #3a2f17;
+    --warning-border: #5a4720;
+    --warning-ink: #f2d58f;
+    --scrim: rgba(0, 0, 0, 0.6);
+    --toast-bg: #f4ece0;
+    --toast-ink: #1c1915;
+    --focus-ring: #8fd3a8;
+    --shadow-card: 0 2px 0 rgba(0, 0, 0, 0.35);
+    --shadow-raised: 0 8px 18px rgba(0, 0, 0, 0.45);
+    --shadow-float: 0 10px 24px rgba(0, 0, 0, 0.5);
+    --cat-horti-bg: #23382a;
+    --cat-horti-fg: #a5ddb7;
+    --cat-padaria-bg: #3d2e1a;
+    --cat-padaria-fg: #f2c98e;
+    --cat-acougue-bg: #3d2420;
+    --cat-acougue-fg: #f5b0a3;
+    --cat-laticinios-bg: #1f2e3d;
+    --cat-laticinios-fg: #a9cbef;
+    --cat-mercearia-bg: #372e1c;
+    --cat-mercearia-fg: #e8cf96;
+    --cat-bebidas-bg: #1f2b3c;
+    --cat-bebidas-fg: #a8c6ef;
+    --cat-limpeza-bg: #1d3532;
+    --cat-limpeza-fg: #9edbcf;
+    --cat-higiene-bg: #33233a;
+    --cat-higiene-fg: #e1b3ea;
+    --cat-congelados-bg: #1c3239;
+    --cat-congelados-fg: #9fd6e4;
+    --cat-outros-bg: #302a24;
+    --cat-outros-fg: #d8ccbf;
+    --cat-custom-bg: #2a2640;
+    --cat-custom-fg: #c9bff0;
+  }
+}

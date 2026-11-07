@@ -1,5 +1,38 @@
 # Changelog
 
+## 3.2.0 (2026-11-07)
+
+Novo Design System "Friendly & Family", escolhido entre três propostas prototipadas.
+
+### Design System
+
+- Tokens únicos de cor, tipografia, espaçamento, bordas, sombras e camadas em `src/styles/tokens.css`, com tema escuro em tons quentes.
+- Tipografia: Fredoka nos títulos e Atkinson Hyperlegible no texto; itens com 19px e nada abaixo de 14px.
+- Cor e ícone próprios para cada categoria, com contraste mínimo de 4,5:1.
+- Componentes compartilhados: painel de baixo, confirmação, aviso com Desfazer, ícones e seletor de categoria.
+
+### Experiência no celular
+
+- Barra inferior com Lista, Adicionar e Família; o botão de adicionar fica no alcance do polegar.
+- Adicionar abre um painel que continua aberto para vários itens seguidos.
+- Editar item abre um painel com quantidade e categoria em blocos grandes.
+- Remover e limpar o carrinho mostram Desfazer; limpar pede confirmação antes.
+- Confirmações da família no visual do app, no lugar das janelas do navegador.
+- Alvos de toque de 48 a 68px e campos com 20px, para o iPhone não dar zoom.
+- Respeita as áreas seguras do iPhone e acompanha o teclado virtual nos painéis.
+- Esqueleto de carregamento no lugar da tela em branco, e estado de "tudo comprado".
+- Indicador de sincronização: Sincronizado, Enviando ou Sem internet.
+
+### Acessibilidade
+
+- Categorias viraram opções de verdade (radio), com navegação pelas setas.
+- Painéis prendem o foco, fecham com Esc e devolvem o foco ao sair.
+
+### Validação
+
+- 71 testes automáticos, lint sem erros e build limpo.
+- Conferido no navegador em 390px, 320px, tema escuro e desktop: nenhum alvo de toque abaixo de 44px, nenhum campo abaixo de 16px e nenhuma rolagem horizontal.
+
 ## 3.1.0 (2026-11-07)
 
 Backend adaptado para o plano gratuito da Cloudflare, para publicar sem custo e sem servidor próprio.

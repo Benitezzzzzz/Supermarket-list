@@ -142,13 +142,18 @@ Como não há senha, o administrador não recupera o acesso se perder o aparelho
 - Importar vários itens colando texto; uma linha com o nome de uma categoria vira título
 - Limpar comprados
 - Painel Família: ver membros e, para o administrador, remover aparelhos e trocar o convite
+- Desfazer depois de remover ou limpar o carrinho
 - Tema claro e escuro automático
 
-## Design
+## Design System
 
-- Títulos em Big Shoulders Stencil, que lembra carimbo de caixote de feira.
-- Texto em Atkinson Hyperlegible, feita para leitura fácil.
-- Neutros quentes, verde como cor principal e terracota só para ações destrutivas.
+Proposta "Friendly & Family": pensada para uma família com pessoas de várias idades usando o app com uma mão, no mercado.
+
+- **Tokens:** tudo em `src/styles/tokens.css`, entre cores, tipografia, espaçamento, bordas, sombras e camadas, com tema claro e escuro. Os componentes em `src/styles/app.css` só usam esses tokens.
+- **Tipografia:** Fredoka nos títulos, Atkinson Hyperlegible no texto (feita para leitura fácil). Itens com 19px; campos com 20px.
+- **Cores:** creme quente, verde-folha para ação, girassol para quantidade e desfazer, tomate só para remover. Cada categoria tem cor e ícone próprios.
+- **Toque:** alvos de 48 a 68px; barra inferior com rótulos e o botão de adicionar no centro.
+- **Componentes compartilhados** em `src/ui/`: `BottomSheet`, `ConfirmSheet`, `Toast` e `Icon`.
 
 ## Histórico
 

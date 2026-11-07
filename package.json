@@ -1,7 +1,7 @@
 {
   "name": "lista-do-mercado",
   "private": true,
-  "version": "3.1.0",
+  "version": "3.2.0",
   "type": "module",
   "scripts": {
     "dev": "concurrently -n api,web -c green,blue \"wrangler dev\" \"vite\"",

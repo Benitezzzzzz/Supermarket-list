@@ -1,13 +1,17 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { AddForm } from "./components/AddForm";
-import { FamilyPanel } from "./components/FamilyPanel";
-import { ImportPanel } from "./components/ImportPanel";
-import { ItemRow } from "./components/ItemRow";
+import { AddSheet } from "./components/AddSheet";
+import { BottomNav, type Screen } from "./components/BottomNav";
+import { EditItemSheet } from "./components/EditItemSheet";
+import { FamilyScreen } from "./components/FamilyScreen";
+import { ImportSheet } from "./components/ImportSheet";
 import { JoinScreen } from "./components/JoinScreen";
+import { ListScreen } from "./components/ListScreen";
 import type { SyncedList } from "./data/syncedList";
-import { DEFAULT_CATEGORY, groupByCategory, knownCategories } from "./domain/categories";
+import { DEFAULT_CATEGORY, knownCategories } from "./domain/categories";
 import { createItem } from "./domain/items";
-import type { SessionInfo } from "./domain/types";
+import type { Item, SessionInfo } from "./domain/types";
+import { ConfirmSheet } from "./ui/ConfirmSheet";
+import { Toast, useToast } from "./ui/Toast";
 
 interface AppProps {
   list: SyncedList;
@@ -15,147 +19,123 @@ interface AppProps {
   onRejoined: (session: SessionInfo) => void;
 }
 
-type OpenPanel = "import" | "family" | null;
-
-function statusText(loading: boolean, total: number, toBuy: number): string {
-  if (loading && total === 0) return "Carregando…";
-  if (total === 0) return "Lista vazia";
-  if (toBuy === 0) return "Tudo comprado! ✅";
-  return toBuy === 1 ? "1 item para comprar" : `${toBuy} itens para comprar`;
-}
+type Sheet =
+  | { kind: "add" }
+  | { kind: "import" }
+  | { kind: "edit"; id: string }
+  | { kind: "clear" }
+  | null;
 
 export function App({ list, session, onRejoined }: AppProps) {
   const state = useSyncExternalStore(list.subscribe, list.getState);
-  const [selectedCategory, setSelectedCategory] = useState(DEFAULT_CATEGORY);
-  const [panel, setPanel] = useState<OpenPanel>(null);
+  const [screen, setScreen] = useState<Screen>("list");
+  const [sheet, setSheet] = useState<Sheet>(null);
+  const [category, setCategory] = useState(DEFAULT_CATEGORY);
+  const { toast, show, dismiss } = useToast();
 
   useEffect(() => list.start(), [list]);
 
   if (state.accessRevoked) return <JoinScreen revoked onJoined={onRejoined} />;
 
   const categories = knownCategories(state.customCategories, state.items);
-  const toBuy = state.items.filter((item) => !item.done);
-  const bought = state.items.filter((item) => item.done);
+  const editing = sheet?.kind === "edit" ? state.items.find((item) => item.id === sheet.id) : undefined;
+  const close = () => setSheet(null);
+
+  /** Remove e oferece desfazer: os mesmos itens voltam com o mesmo id e a mesma ordem. */
+  function removeWithUndo(items: Item[], message: string) {
+    list.removeItems(items.map((item) => item.id));
+    show(message, { label: "Desfazer", onAction: () => list.addItems(items) });
+  }
 
   function createCategory(name: string) {
     const existing = categories.find((c) => c.toLowerCase() === name.toLowerCase());
     if (!existing) list.addCategory(name);
-    setSelectedCategory(existing ?? name);
+    setCategory(existing ?? name);
   }
 
-  const togglePanel = (target: OpenPanel) => setPanel(panel === target ? null : target);
-
-  const rowProps = {
-    categories,
-    onUpdate: (id: string, changes: Parameters<SyncedList["updateItem"]>[1]) =>
-      list.updateItem(id, changes),
-    onDelete: (id: string) => list.removeItems([id]),
-  };
-
   return (
-    <div className="page">
-      <header className="top">
-        <h1>Lista do Mercado</h1>
-        <p id="status" aria-live="polite">
-          {statusText(state.connection === "loading", state.items.length, toBuy.length)}
-        </p>
-      </header>
-
-      {state.connection === "offline" && (
-        <div className="banner info">
-          Sem conexão. Pode continuar usando: as alterações são enviadas quando a internet voltar.
-        </div>
-      )}
-      {state.rejected && (
-        <div className="banner">Uma alteração não foi aceita pelo servidor. Confira a lista.</div>
+    <main className="app">
+      {screen === "list" ? (
+        <ListScreen
+          state={state}
+          session={session}
+          onToggle={(item) => list.updateItem(item.id, { done: !item.done })}
+          onEdit={(item) => setSheet({ kind: "edit", id: item.id })}
+          onAskClear={() => setSheet({ kind: "clear" })}
+        />
+      ) : (
+        <FamilyScreen session={session} />
       )}
 
-      <AddForm
-        categories={categories}
-        category={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-        onCreateCategory={createCategory}
-        onAdd={(text) => list.addItems([createItem(text, selectedCategory)])}
+      <BottomNav
+        screen={screen}
+        onNavigate={setScreen}
+        onAdd={() => {
+          setScreen("list");
+          setSheet({ kind: "add" });
+        }}
       />
 
-      <div className="links-row">
-        <button type="button" className="link-btn" onClick={() => togglePanel("import")}>
-          Importar lista
-        </button>
-        <button type="button" className="link-btn" onClick={() => togglePanel("family")}>
-          Família
-        </button>
-      </div>
-      {panel === "import" && (
-        <ImportPanel
+      <Toast toast={toast} onDismiss={dismiss} />
+
+      {sheet?.kind === "add" && (
+        <AddSheet
           categories={categories}
-          initialCategory={selectedCategory}
-          onImport={(items) => {
-            list.addItems(items);
-            setPanel(null);
+          category={category}
+          onCategoryChange={setCategory}
+          onCreateCategory={createCategory}
+          onAdd={(text) => {
+            const item = createItem(text, category);
+            list.addItems([item]);
+            return item.quantity > 1 ? `${item.quantity}× ${item.text}` : item.text;
           }}
-          onCancel={() => setPanel(null)}
+          onOpenImport={() => setSheet({ kind: "import" })}
+          onClose={close}
         />
       )}
-      {panel === "family" && <FamilyPanel session={session} />}
 
-      <section className="card">
-        <h2>Para comprar</h2>
-        {groupByCategory(toBuy).map((group) => (
-          <div className="cat-group" key={group.category}>
-            <h3 className="cat-heading">{group.category}</h3>
-            <ul className="list">
-              {group.items.map((item) => (
-                <ItemRow key={item.id} item={item} {...rowProps} />
-              ))}
-            </ul>
-          </div>
-        ))}
-        {state.items.length === 0 && state.connection !== "loading" && (
-          <div className="empty">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M3 6h2l2.4 12.2a2 2 0 0 0 2 1.8h7.2a2 2 0 0 0 2-1.6L21 9H7" />
-              <circle cx="10" cy="21" r="1" />
-              <circle cx="17" cy="21" r="1" />
-            </svg>
-            <div>
-              Sua lista está vazia.
-              <br />
-              Adicione o primeiro item ali em cima!
-            </div>
-          </div>
-        )}
-      </section>
-
-      {bought.length > 0 && (
-        <>
-          <section className="card" id="boughtSection">
-            <h2>Já comprado</h2>
-            <ul className="list">
-              {bought.map((item) => (
-                <ItemRow key={item.id} item={item} {...rowProps} />
-              ))}
-            </ul>
-          </section>
-          <div className="footer-actions">
-            <button
-              id="clearBought"
-              type="button"
-              onClick={() => list.removeItems(bought.map((item) => item.id))}
-            >
-              Limpar comprados
-            </button>
-          </div>
-        </>
+      {sheet?.kind === "import" && (
+        <ImportSheet
+          categories={categories}
+          initialCategory={category}
+          onImport={(items) => {
+            list.addItems(items);
+            close();
+            show(items.length === 1 ? "1 item importado" : `${items.length} itens importados`, {
+              label: "Desfazer",
+              onAction: () => list.removeItems(items.map((item) => item.id)),
+            });
+          }}
+          onClose={close}
+        />
       )}
-    </div>
+
+      {editing && (
+        <EditItemSheet
+          item={editing}
+          categories={categories}
+          onUpdate={(changes) => list.updateItem(editing.id, changes)}
+          onRemove={() => {
+            close();
+            removeWithUndo([editing], `${editing.text} saiu da lista`);
+          }}
+          onClose={close}
+        />
+      )}
+
+      {sheet?.kind === "clear" && (
+        <ConfirmSheet
+          title="Limpar o carrinho?"
+          message="Os itens marcados como comprados saem da lista. Dá para desfazer logo depois."
+          confirmLabel="Limpar"
+          onConfirm={() => {
+            const bought = state.items.filter((item) => item.done);
+            close();
+            removeWithUndo(bought, bought.length === 1 ? "1 item saiu da lista" : `${bought.length} itens saíram da lista`);
+          }}
+          onClose={close}
+        />
+      )}
+    </main>
   );
 }
