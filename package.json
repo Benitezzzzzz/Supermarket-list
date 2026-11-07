@@ -1,7 +1,7 @@
 {
   "name": "lista-do-mercado",
   "private": true,
-  "version": "4.2.0",
+  "version": "4.3.0",
   "type": "module",
   "scripts": {
     "dev": "concurrently -n api,web -c green,blue \"wrangler dev\" \"vite\"",
@@ -20,7 +20,8 @@
     "hono": "^4.13.16",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "zxing-wasm": "^2.2.4"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.5",

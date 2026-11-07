@@ -88,6 +88,50 @@ export const purchasedItemSchema = z.object({
   done: z.boolean(),
 });
 
+export const MAX_RECEIPT_ITEMS = 300;
+
+/** Uma linha do cupom fiscal (NFC-e), já ligada ou não a um item da lista da compra. */
+export const receiptItemSchema = z.object({
+  /** Código de barras (EAN) ou código interno da loja. */
+  code: z.string().trim().max(20),
+  description: z.string().trim().min(1).max(120),
+  /** Pode ter casas decimais: 0,835 kg. */
+  quantity: z.number().positive().max(100_000),
+  unit: z.string().trim().max(6),
+  unitCents: z.number().int().min(0).max(MAX_AMOUNT_CENTS),
+  totalCents: z.number().int().min(0).max(MAX_AMOUNT_CENTS),
+  /** Posição do item em purchase.items que corresponde a esta linha; null quando veio fora da lista. */
+  listIndex: z.number().int().min(0).max(MAX_BATCH).nullable(),
+});
+
+/** Cupom fiscal lido por foto ou QR code e ligado a uma compra. A foto não é guardada. */
+export const receiptSchema = z.object({
+  /** Chave de acesso de 44 dígitos (vem do QR code); impede ler o mesmo cupom duas vezes. */
+  accessKey: z.string().regex(/^\d{44}$/).nullable(),
+  storeName: z.string().trim().max(120),
+  cnpj: z.string().regex(/^\d{14}$/).nullable(),
+  /** Data da compra no cupom, AAAA-MM-DD. */
+  issuedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  totalCents: z.number().int().min(0).max(MAX_AMOUNT_CENTS).nullable(),
+  source: z.enum(["foto", "qrcode"]),
+  readAt: z.iso.datetime({ offset: true }),
+  items: z.array(receiptItemSchema).max(MAX_RECEIPT_ITEMS),
+});
+
+/** O que a leitura da foto devolve, antes de a pessoa revisar as ligações. */
+export interface ReceiptReading {
+  storeName: string;
+  cnpj: string | null;
+  issuedOn: string | null;
+  totalCents: number | null;
+  items: Omit<ReceiptItem, "listIndex">[];
+}
+
+export const readReceiptSchema = z.object({
+  /** JPEG em base64, já reduzido no aparelho. */
+  image: z.string().min(100).max(6_000_000).regex(/^[A-Za-z0-9+/=]+$/),
+});
+
 /** Compra finalizada. O valor fica em centavos para não haver erro de arredondamento. */
 export const purchaseSchema = z
   .object({
@@ -98,6 +142,8 @@ export const purchaseSchema = z
     createdAt: z.iso.datetime({ offset: true }),
     // Versões anteriores do app não mandam a lista; vira lista vazia.
     items: z.array(purchasedItemSchema).max(MAX_BATCH).default([]),
+    /** Cupom fiscal ligado à compra; só o servidor preenche, pela rota do cupom. */
+    receipt: receiptSchema.nullable().optional(),
   })
   .refine(onlyCreditSplits.check, { message: onlyCreditSplits.message });
 
@@ -116,6 +162,8 @@ export type Purchase = z.infer<typeof purchaseSchema>;
 export type PaymentMethod = Purchase["method"];
 export type Payment = z.infer<typeof paymentSchema>;
 export type PurchasedItem = z.infer<typeof purchasedItemSchema>;
+export type Receipt = z.infer<typeof receiptSchema>;
+export type ReceiptItem = z.infer<typeof receiptItemSchema>;
 
 export interface Snapshot {
   items: Item[];
@@ -132,7 +180,9 @@ export type Op =
   | { kind: "finish"; purchase: Purchase; itemIds: string[] }
   | { kind: "updatePurchase"; id: string; payment: Payment }
   | { kind: "deletePurchase"; id: string }
-  | { kind: "restorePurchase"; purchase: Purchase };
+  | { kind: "restorePurchase"; purchase: Purchase }
+  | { kind: "setReceipt"; purchaseId: string; receipt: Receipt }
+  | { kind: "removeReceipt"; purchaseId: string };
 
 export type Role = "admin" | "member";
 

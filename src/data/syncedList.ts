@@ -1,4 +1,4 @@
-import type { Item, Op, Payment, Purchase, Snapshot } from "../domain/types";
+import type { Item, Op, Payment, Purchase, Receipt, Snapshot } from "../domain/types";
 import { applyOp } from "./applyOp";
 import { type AccessLoss, AccessRevokedError, type ListBackend, RejectedOpError } from "./backend";
 
@@ -153,6 +153,15 @@ export class SyncedList {
 
   restorePurchase(purchase: Purchase) {
     this.dispatch({ kind: "restorePurchase", purchase });
+  }
+
+  /** Liga o cupom fiscal revisado à compra (substitui o anterior, se houver). */
+  setReceipt(purchaseId: string, receipt: Receipt) {
+    this.dispatch({ kind: "setReceipt", purchaseId, receipt });
+  }
+
+  removeReceipt(purchaseId: string) {
+    this.dispatch({ kind: "removeReceipt", purchaseId });
   }
 
   addCategory(name: string) {

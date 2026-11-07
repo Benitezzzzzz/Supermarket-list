@@ -602,3 +602,158 @@ describe("aparelhos da versão anterior", () => {
     expect(await (await device.call("GET", "/auth/me")).json()).toEqual({ legacy: { name: "Renan" } });
   });
 });
+
+describe("cupom fiscal", () => {
+  const KEY = "25261107309087000122651110005414179346777270";
+  let renan: Device;
+  let estranho: Device;
+  let casa: ListSummary;
+  let reads: string[];
+  let answer: unknown;
+
+  const compra = () => ({
+    id: randomUUID(),
+    amountCents: 2000,
+    method: "debito",
+    installments: 1,
+    itemCount: 2,
+    memberName: "",
+    createdAt: new Date().toISOString(),
+    items: [
+      { text: "Amendoim", quantity: 1, category: "Mercearia", done: true },
+      { text: "Café", quantity: 1, category: "Mercearia", done: false },
+    ],
+  });
+
+  const cupom = (overrides: Record<string, unknown> = {}) => ({
+    accessKey: KEY,
+    storeName: "RC Comercio de Alimentos LTDA",
+    cnpj: "07309087000122",
+    issuedOn: "2026-11-04",
+    totalCents: 1738,
+    source: "foto",
+    readAt: new Date().toISOString(),
+    items: [
+      { code: "7896058599848", description: "AMENDOIM PETTIZ", quantity: 2, unit: "UN", unitCents: 869, totalCents: 1738, listIndex: 0 },
+      { code: "", description: "SACOLA", quantity: 1, unit: "UN", unitCents: 0, totalCents: 0, listIndex: 7 },
+    ],
+    ...overrides,
+  });
+
+  beforeEach(async () => {
+    reads = [];
+    answer = {
+      loja: "RC Comercio",
+        cnpj: "07.309.087/0001-22",
+        data: "04/11/2026",
+        itens: [
+          { codigo: "7896058599848", descricao: "AMENDOIM PETTIZ", quantidade: 1, unidade: "un", valorUnitario: "8,69", valorTotal: 8.69 },
+          { codigo: "7896058599848", descricao: "AMENDOIM PETTIZ", quantidade: 1, unidade: "UN", valorUnitario: 8.69, valorTotal: 8.69 },
+          { descricao: "", valorTotal: 1 },
+        ],
+        total: 17.38,
+    };
+    app = createApp(db, notifier, {
+      read: async (image) => {
+        reads.push(image);
+        return answer;
+      },
+    });
+    renan = new Device(app);
+    estranho = new Device(app);
+    await renan.signup("renan", "Renan");
+    await estranho.signup("estranho", "Estranho");
+    casa = await renan.createList("Casa");
+  });
+
+  it("lê a foto e devolve os produtos normalizados, sem gravar nada", async () => {
+    const image = "A".repeat(200);
+    const response = await renan.call("POST", `/lists/${casa.id}/receipts/read`, { image });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      storeName: "RC Comercio",
+      cnpj: "07309087000122",
+      issuedOn: "2026-11-04",
+      totalCents: 1738,
+      items: [{ code: "7896058599848", description: "AMENDOIM PETTIZ", quantity: 2, unit: "UN", unitCents: 869, totalCents: 1738 }],
+    });
+    expect(reads).toEqual([image]);
+  });
+
+  it("aceita foto maior que o limite comum de envio", async () => {
+    const response = await renan.call("POST", `/lists/${casa.id}/receipts/read`, { image: "A".repeat(2_000_000) });
+    expect(response.status).toBe(200);
+  });
+
+  it("quem não participa da lista não lê nem grava cupom", async () => {
+    expect((await estranho.call("POST", `/lists/${casa.id}/receipts/read`, { image: "A".repeat(200) })).status).toBe(404);
+    expect(reads).toEqual([]);
+  });
+
+  it("foto sem produtos e limite diário viram mensagens claras", async () => {
+    answer = null;
+    const empty = await renan.call("POST", `/lists/${casa.id}/receipts/read`, { image: "A".repeat(200) });
+    expect(empty.status).toBe(422);
+    expect(((await empty.json()) as { error: string }).error).toMatch(/Não encontrei produtos/);
+    for (let i = 0; i < 29; i++) await renan.call("POST", `/lists/${casa.id}/receipts/read`, { image: "A".repeat(200) });
+    const limited = await renan.call("POST", `/lists/${casa.id}/receipts/read`, { image: "A".repeat(200) });
+    expect(limited.status).toBe(429);
+    expect(reads).toHaveLength(30);
+  });
+
+  it("sem IA configurada responde 503", async () => {
+    const semIa = new Device(createApp(db, notifier));
+    semIa.cookies = renan.cookies;
+    expect((await semIa.call("POST", `/lists/${casa.id}/receipts/read`, { image: "A".repeat(200) })).status).toBe(503);
+  });
+
+  it("liga o cupom à compra, aparece no snapshot e some ao remover", async () => {
+    const c = compra();
+    await renan.call("POST", `/lists/${casa.id}/purchases`, { purchase: c, itemIds: [] });
+    notifier.broadcasts = [];
+    expect((await renan.call("PUT", `/lists/${casa.id}/purchases/${c.id}/receipt`, cupom())).status).toBe(204);
+    // Reenviar (fila offline) dá o mesmo resultado.
+    expect((await renan.call("PUT", `/lists/${casa.id}/purchases/${c.id}/receipt`, cupom())).status).toBe(204);
+    expect(notifier.broadcasts).toEqual([casa.id, casa.id]);
+
+    const [saved] = (await renan.snapshot(casa.id)).purchases;
+    expect(saved.receipt).toMatchObject({ accessKey: KEY, storeName: "RC Comercio de Alimentos LTDA", totalCents: 1738 });
+    // A ligação para um item que não existe na compra vira "fora da lista".
+    expect(saved.receipt?.items.map((i) => [i.description, i.listIndex])).toEqual([
+      ["AMENDOIM PETTIZ", 0],
+      ["SACOLA", null],
+    ]);
+
+    expect((await renan.call("DELETE", `/lists/${casa.id}/purchases/${c.id}/receipt`)).status).toBe(204);
+    expect((await renan.snapshot(casa.id)).purchases[0].receipt).toBeNull();
+  });
+
+  it("o mesmo cupom não entra em duas compras", async () => {
+    const a = compra();
+    const b = compra();
+    await renan.call("POST", `/lists/${casa.id}/purchases`, { purchase: a, itemIds: [] });
+    await renan.call("POST", `/lists/${casa.id}/purchases`, { purchase: b, itemIds: [] });
+    await renan.call("PUT", `/lists/${casa.id}/purchases/${a.id}/receipt`, cupom());
+    const response = await renan.call("PUT", `/lists/${casa.id}/purchases/${b.id}/receipt`, cupom());
+    expect(response.status).toBe(409);
+    expect(((await response.json()) as { error: string }).error).toMatch(/já está ligado à compra de/);
+    // Sem chave (só foto, QR ilegível) pode.
+    expect((await renan.call("PUT", `/lists/${casa.id}/purchases/${b.id}/receipt`, cupom({ accessKey: null }))).status).toBe(204);
+  });
+
+  it("recusa cupom de compra que não existe ou com dados inválidos", async () => {
+    expect((await renan.call("PUT", `/lists/${casa.id}/purchases/${randomUUID()}/receipt`, cupom())).status).toBe(404);
+    const c = compra();
+    await renan.call("POST", `/lists/${casa.id}/purchases`, { purchase: c, itemIds: [] });
+    expect((await renan.call("PUT", `/lists/${casa.id}/purchases/${c.id}/receipt`, cupom({ accessKey: "123" }))).status).toBe(422);
+  });
+
+  it("excluir a lista apaga os cupons junto", async () => {
+    const c = compra();
+    await renan.call("POST", `/lists/${casa.id}/purchases`, { purchase: c, itemIds: [] });
+    await renan.call("PUT", `/lists/${casa.id}/purchases/${c.id}/receipt`, cupom());
+    expect((await renan.call("DELETE", `/lists/${casa.id}`)).status).toBe(204);
+    const left = await db.prepare("SELECT COUNT(*) AS n FROM receipt_items").first<{ n: number }>();
+    expect(left?.n).toBe(0);
+  });
+});

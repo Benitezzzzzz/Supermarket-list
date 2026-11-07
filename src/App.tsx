@@ -13,6 +13,7 @@ import { takeSharedText } from "./sharedText";
 import { ListScreen } from "./components/ListScreen";
 import { ListsSheet } from "./components/ListsSheet";
 import { ParticipantsScreen } from "./components/ParticipantsScreen";
+import { ReceiptSheet } from "./components/ReceiptSheet";
 import type { SyncedList } from "./data/syncedList";
 import { DEFAULT_CATEGORY, knownCategories } from "./domain/categories";
 import { createItem } from "./domain/items";
@@ -42,6 +43,7 @@ type Sheet =
   | { kind: "clear" }
   | { kind: "finish" }
   | { kind: "edit-purchase"; id: string }
+  | { kind: "receipt"; id: string }
   | { kind: "lists" }
   | { kind: "account" }
   | { kind: "admin" }
@@ -84,6 +86,8 @@ export function App({
   const editing = sheet?.kind === "edit" ? state.items.find((item) => item.id === sheet.id) : undefined;
   const editingPurchase =
     sheet?.kind === "edit-purchase" ? state.purchases.find((purchase) => purchase.id === sheet.id) : undefined;
+  const receiptPurchase =
+    sheet?.kind === "receipt" ? state.purchases.find((purchase) => purchase.id === sheet.id) : undefined;
   const close = () => setSheet(null);
 
   /** Remove e oferece desfazer: os mesmos itens voltam com o mesmo id e a mesma ordem. */
@@ -116,6 +120,7 @@ export function App({
         <ExpensesScreen
           purchases={state.purchases}
           onEdit={(purchase) => setSheet({ kind: "edit-purchase", id: purchase.id })}
+          onReceipt={(purchase) => setSheet({ kind: "receipt", id: purchase.id })}
         />
       )}
       {screen === "family" && <ParticipantsScreen user={user} list={current} onListsChanged={onListsChanged} />}
@@ -280,6 +285,46 @@ export function App({
         />
       )}
 
+      {receiptPurchase && (
+        <ReceiptSheet
+          listId={current.id}
+          purchase={receiptPurchase}
+          onSave={({ receipt, amountCents, returnItems }) => {
+            list.setReceipt(receiptPurchase.id, receipt);
+            if (amountCents !== null) {
+              list.updatePurchase(receiptPurchase.id, {
+                amountCents,
+                method: receiptPurchase.method,
+                installments: receiptPurchase.installments,
+              });
+            }
+            const now = Date.now();
+            list.addItems(
+              returnItems.map((item, index) => ({
+                id: crypto.randomUUID(),
+                text: item.text,
+                quantity: item.quantity,
+                category: item.category,
+                done: false,
+                createdAt: new Date(now + index).toISOString(),
+              })),
+            );
+            close();
+            const back = returnItems.length;
+            show(
+              back === 0
+                ? "Cupom salvo na compra"
+                : `Cupom salvo. ${back === 1 ? "1 item voltou" : `${back} itens voltaram`} para a lista`,
+            );
+          }}
+          onRemove={() => {
+            list.removeReceipt(receiptPurchase.id);
+            close();
+            show("Cupom removido da compra");
+          }}
+          onClose={close}
+        />
+      )}
     </main>
   );
 }

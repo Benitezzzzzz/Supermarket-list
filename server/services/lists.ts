@@ -1,5 +1,6 @@
 import type { Item, ListSummary, Payment, Purchase, Snapshot } from "../../shared/contract.ts";
 import type { Database } from "../db/database.ts";
+import { ReceiptService } from "./receipts.ts";
 import { generateToken, hashToken } from "./tokens.ts";
 
 interface ItemRow {
@@ -30,9 +31,11 @@ function parseItems(json: string): Purchase["items"] {
  */
 export class ListService {
   private db: Database;
+  private receipts: ReceiptService;
 
   constructor(db: Database) {
     this.db = db;
+    this.receipts = new ReceiptService(db);
   }
 
   /** Cria a lista com quem criou como administrador. */
@@ -102,10 +105,18 @@ export class ListService {
         .all<PurchaseRow>(),
     ]);
 
+    const receipts = await this.receipts.forPurchases(
+      listId,
+      purchases.results.map((row) => row.id),
+    );
     return {
       items: items.results.map((item) => ({ ...item, done: item.done === 1 })),
       customCategories: categories.results.map((category) => category.name),
-      purchases: purchases.results.map((row) => ({ ...row, items: parseItems(row.items) })),
+      purchases: purchases.results.map((row) => ({
+        ...row,
+        items: parseItems(row.items),
+        receipt: receipts.get(row.id) ?? null,
+      })),
     };
   }
 

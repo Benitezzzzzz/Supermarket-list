@@ -40,6 +40,20 @@ export function applyOp(snapshot: Snapshot, op: Op): Snapshot {
         purchases: [op.purchase, ...others].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
       };
     }
+    case "setReceipt":
+      return {
+        ...snapshot,
+        purchases: snapshot.purchases.map((purchase) =>
+          purchase.id === op.purchaseId ? { ...purchase, receipt: op.receipt } : purchase,
+        ),
+      };
+    case "removeReceipt":
+      return {
+        ...snapshot,
+        purchases: snapshot.purchases.map((purchase) =>
+          purchase.id === op.purchaseId ? { ...purchase, receipt: null } : purchase,
+        ),
+      };
     case "addCategory": {
       const name = op.name.toLowerCase();
       if (snapshot.customCategories.some((c) => c.toLowerCase() === name)) return snapshot;

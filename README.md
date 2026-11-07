@@ -166,6 +166,7 @@ Cada lista tem um Durable Object que guarda os WebSockets abertos. Quando algo m
 - Lixeira no topo: limpar só os riscados ou a lista toda
 - Finalizar compra: valor, forma de pagamento (PIX, dinheiro, débito ou crédito, à vista ou parcelado) e limpeza da lista
 - Aba Gastos, separada por lista: últimas compras com os itens de cada uma, total do mês, correção e exclusão com Desfazer
+- Cupom fiscal (NFC-e) em cada compra: foto lida por IA grátis (Workers AI) ou QR code; liga os produtos do cupom aos itens da lista, mostra o que veio fora da lista e o que faltou, e devolve à lista o que faltou
 - Desfazer depois de remover ou limpar
 - Tema claro e escuro automático
 

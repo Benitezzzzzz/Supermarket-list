@@ -28,6 +28,9 @@ const PATHS = {
   bag: "M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2",
   chevron: "M6 9l6 6 6-6",
   tag: "M20.4 12.6 12 21l-9-9V4h8l9.4 9.4a2 2 0 0 1 0 2.6zM7.5 7.5h.01",
+  camera: "M4 8h3l2-3h6l2 3h3v11H4zM12 10.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+  qr: "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM18 14h2M14 18h2",
+  image: "M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9h.01",
 };
 
 export type IconName = keyof typeof PATHS;

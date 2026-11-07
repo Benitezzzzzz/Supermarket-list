@@ -20,6 +20,8 @@
       "migrations_dir": "server/db/migrations"
     }
   ],
+  // Workers AI (plano grátis): lê a foto do cupom fiscal.
+  "ai": { "binding": "AI" },
   "durable_objects": {
     "bindings": [{ "name": "FAMILY_EVENTS", "class_name": "FamilyEvents" }]
   },

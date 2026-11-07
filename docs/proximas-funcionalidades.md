@@ -1,6 +1,6 @@
 # Próximas funcionalidades
 
-**Status:** etapa 2 (várias listas) e etapa 3 (contas) entregues em 2026-11-07, na versão 4.0.0. A lista vinda do WhatsApp saiu na 4.2.0. Faltam PDF, NFC-e e código de barras.
+**Status:** etapa 2 (várias listas) e etapa 3 (contas) entregues em 2026-11-07, na versão 4.0.0. A lista vinda do WhatsApp saiu na 4.2.0 e a leitura do cupom fiscal (NFC-e) na 4.3.0. Faltam PDF e código de barras.
 
 Pedido: contas individuais com login, várias listas por pessoa (o pai administra uma pousada e quer listas separadas), exportar os relatórios de compras para PDF e, mais adiante, trazer compras para o app lendo a NFC-e, o código de barras ou o QR code.
 
@@ -15,7 +15,7 @@ Cada etapa funciona sozinha e já entrega valor.
 | 1 | Exportar compras para PDF | Pequeno | — |
 | 2 | Várias listas e troca de lista | Médio | — |
 | 3 | Contas com login | Grande | 2 |
-| 4 | Importar NFC-e pelo QR code | Médio | 2 |
+| 4 | Cupom fiscal (NFC-e) por foto e QR code (entregue na 4.3.0) | Médio | 2 |
 | 5 | Ler código de barras de produto | Médio | — |
 
 ## 1. Exportar para PDF
@@ -45,15 +45,17 @@ Hoje o acesso é por aparelho: quem limpa os dados do navegador ou troca de celu
 
 **Recomendação:** chave de acesso, com a entrada atual como alternativa.
 
-## 4. Importar NFC-e pelo QR code
+## 4. Cupom fiscal (NFC-e): entregue na 4.3.0
 
-- O QR code da nota fiscal do consumidor leva a uma página pública da Secretaria da Fazenda do estado, com os itens, as quantidades e os valores.
-- **Como funcionaria:** a câmera lê o QR code, o servidor do app abre essa página e extrai os itens, e o app mostra a compra pronta para conferir e salvar em Gastos, já com o valor de cada item.
-- **Atenção:**
-  - Cada estado tem seu próprio formato de página, então dá para começar pelo estado de vocês.
-  - Alguns estados pedem captcha, e esses não funcionam.
-  - Se a Fazenda mudar a página, a leitura precisa de ajuste.
-- **Câmera no iPhone:** o leitor nativo do navegador não existe no Safari, então seria preciso uma biblioteca de leitura de códigos, carregada só nessa tela.
+- **O que se descobriu na Sefaz-PB:**
+  - O QR dos cupons aponta para `www5.receita.pb.gov.br`, que não responde mais. A consulta atual fica em `www4.sefaz.pb.gov.br`, com o mesmo parâmetro `p`.
+  - O botão Consultar tem reCAPTCHA do Google. Por isso o servidor não busca os itens na Sefaz, e o captcha não é contornado.
+- **Como ficou:**
+  - Em Gastos, cada compra tem "Ler cupom". A foto do cupom é lida pela IA do Workers AI (Llama 4 Scout, plano grátis), que devolve loja, data, produtos e preços. A foto não é guardada.
+  - O QR code é lido no aparelho com o ZXing (WebAssembly), na própria foto ou com a câmera ao vivo. Traz a chave de acesso, o CNPJ e, em nota de contingência, o dia e o valor.
+  - O app liga cada produto ao item da lista (abreviações, plural, erros de leitura) e mostra "Da lista", "Fora da lista" e "Faltou comprar". A pessoa revisa, escolhe o que volta para a lista e pode usar o total do cupom.
+  - Ficam guardados os códigos de barras dos produtos (`receipt_items.code`): base para o histórico de preços e para a etapa 5.
+- **Custo:** cerca de 70 "neurons" por cupom pequeno, de 10 mil grátis por dia na conta. O limite é de 30 leituras por lista por dia.
 
 ## 5. Código de barras do produto
 

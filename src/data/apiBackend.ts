@@ -38,6 +38,12 @@ export class ApiBackend implements ListBackend {
       case "restorePurchase":
         await api(`${this.base}/purchases/${op.purchase.id}/restore`, "POST");
         return;
+      case "setReceipt":
+        await api(`${this.base}/purchases/${op.purchaseId}/receipt`, "PUT", op.receipt);
+        return;
+      case "removeReceipt":
+        await api(`${this.base}/purchases/${op.purchaseId}/receipt`, "DELETE");
+        return;
       case "finish":
         await api(`${this.base}/purchases`, "POST", { purchase: op.purchase, itemIds: op.itemIds });
         return;

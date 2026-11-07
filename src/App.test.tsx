@@ -1,12 +1,40 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { applyOp } from "./data/applyOp";
 import type { ListBackend } from "./data/backend";
 import { SyncedList } from "./data/syncedList";
 import { captureSharedText } from "./sharedText";
 import type { ListSummary, Op, Snapshot, UserInfo } from "./domain/types";
+
+const receiptMocks = vi.hoisted(() => ({
+  qr: "https://www5.receita.pb.gov.br/atf/seg/SEGf_AcessarFuncao.jsp?cdFuncao=FIS_1410&?p=25261107309087000122651110005414179346777270|2|1|04|17.38||1|C1D1",
+  reading: {
+    storeName: "RC Comercio de Alimentos LTDA",
+    cnpj: "07309087000122",
+    issuedOn: "2026-11-04",
+    totalCents: 2252,
+    items: [
+      { code: "7896058599848", description: "AMENDOIM PETTIZ CROC 120G", quantity: 2, unit: "UN", unitCents: 869, totalCents: 1738 },
+      { code: "7896", description: "LTE UHT ITALAC INT 1L", quantity: 1, unit: "UN", unitCents: 499, totalCents: 499 },
+      { code: "", description: "SACOLA PLASTICA", quantity: 1, unit: "UN", unitCents: 15, totalCents: 15 },
+    ],
+  },
+  sent: [] as string[][],
+}));
+
+vi.mock("./data/receiptImage", () => ({
+  preparePhoto: async () => ({ base64: "FOTO", qrText: receiptMocks.qr }),
+  qrFromPhoto: async () => receiptMocks.qr,
+  scanVideo: () => () => {},
+}));
+vi.mock("./data/receiptsApi", () => ({
+  readReceiptPhoto: async (listId: string, base64: string) => {
+    receiptMocks.sent.push([listId, base64]);
+    return receiptMocks.reading;
+  },
+}));
 
 class MemoryBackend implements ListBackend {
   snapshot: Snapshot = { items: [], customCategories: [], purchases: [] };
@@ -277,6 +305,81 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Estavam na lista sem marcar · 1" })).toBeTruthy();
     expect(screen.getByText("Frangos")).toBeTruthy();
     expect(screen.getByText("Sal")).toBeTruthy();
+  });
+
+  it("lê o cupom pela foto, liga à lista e devolve o que faltou", async () => {
+    const user = renderApp();
+    await addItems(user, "Amendoim", "Café", "Leite");
+    await user.click(screen.getByRole("button", { name: "Finalizar compra" }));
+    await user.type(screen.getByLabelText("Valor da compra"), "20");
+    await user.click(screen.getByRole("radio", { name: "PIX" }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await user.click(await screen.findByRole("button", { name: "Sim, finalizar" }));
+    await user.click(screen.getByRole("button", { name: "Gastos" }));
+
+    await user.click(screen.getByRole("button", { name: /^Ler cupom da compra de R\$\s20,00/ }));
+    const sheet = await screen.findByRole("dialog", { name: "Cupom fiscal" });
+    const camera = sheet.querySelector("input[capture]") as HTMLInputElement;
+    await user.upload(camera, new File(["x"], "cupom.jpg", { type: "image/jpeg" }));
+
+    expect(await within(sheet).findByText("RC Comercio de Alimentos LTDA")).toBeTruthy();
+    expect(receiptMocks.sent).toEqual([["l1", "FOTO"]]);
+    expect(within(sheet).getByText("CNPJ 07.309.087/0001-22 · 04/11/2026")).toBeTruthy();
+    expect(within(sheet).getByRole("heading", { name: "Da lista · 2" })).toBeTruthy();
+    expect(within(sheet).getByRole("heading", { name: "Fora da lista · 1" })).toBeTruthy();
+    expect(within(sheet).getByRole("heading", { name: "Faltou comprar · 1" })).toBeTruthy();
+    const leite = within(sheet).getByLabelText("Item da lista para LTE UHT ITALAC INT 1L") as HTMLSelectElement;
+    expect(leite.selectedOptions[0].textContent).toBe("É: Leite");
+
+    // Corrigir uma ligação errada muda os grupos na hora.
+    const sacola = within(sheet).getByLabelText("Item da lista para SACOLA PLASTICA");
+    await user.selectOptions(sacola, "É: Café");
+    expect(within(sheet).queryByRole("heading", { name: /Faltou comprar/ })).toBeNull();
+    // A linha muda de grupo e o foco continua nela.
+    const moved = within(sheet).getByLabelText("Item da lista para SACOLA PLASTICA");
+    expect(document.activeElement).toBe(moved);
+    await user.selectOptions(moved, "Fora da lista");
+
+    await user.click(within(sheet).getByRole("checkbox", { name: "Café" }));
+    expect((within(sheet).getByRole("checkbox", { name: /Usar o total do cupom/ }) as HTMLInputElement).checked).toBe(true);
+    await user.click(within(sheet).getByRole("button", { name: "Salvar cupom" }));
+
+    expect(await screen.findByText("Cupom salvo. 1 item voltou para a lista")).toBeTruthy();
+    expect(screen.getAllByText(/R\$\s22,52/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/· RC Comercio de Alimentos LTDA/)).toBeTruthy();
+    await user.click(screen.getByText("Ver os 3 produtos do cupom"));
+    expect(screen.getByRole("heading", { name: "Da lista · 2" })).toBeTruthy();
+    expect(screen.getByText(/^R\$\s17,38$/)).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /^Ver cupom da compra/ }));
+    const saved = await screen.findByRole("dialog", { name: "Cupom fiscal" });
+    expect(within(saved).getByRole("button", { name: "Remover cupom" })).toBeTruthy();
+    await user.click(within(saved).getByRole("button", { name: "Fechar" }));
+
+    await user.click(screen.getByRole("button", { name: "Lista" }));
+    expect(screen.getByText("Café")).toBeTruthy();
+  });
+
+  it("só o QR code registra a loja e pede a foto para os produtos", async () => {
+    const user = renderApp();
+    await addItems(user, "Arroz");
+    await user.click(screen.getByRole("button", { name: "Finalizar compra" }));
+    await user.type(screen.getByLabelText("Valor da compra"), "17,38");
+    await user.click(screen.getByRole("radio", { name: "PIX" }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await user.click(await screen.findByRole("button", { name: "Sim, finalizar" }));
+    await user.click(screen.getByRole("button", { name: "Gastos" }));
+    await user.click(screen.getByRole("button", { name: /^Ler cupom/ }));
+
+    const sheet = await screen.findByRole("dialog", { name: "Cupom fiscal" });
+    const inputs = sheet.querySelectorAll("input[type=file]");
+    await user.upload(inputs[2] as HTMLInputElement, new File(["x"], "qr.jpg", { type: "image/jpeg" }));
+    expect(await within(sheet).findByText(/não os produtos/)).toBeTruthy();
+    const sefaz = within(sheet).getByRole("link", { name: "Conferir a nota no site da Sefaz" }) as HTMLAnchorElement;
+    expect(sefaz.href).toMatch(/^https:\/\/www4\.sefaz\.pb\.gov\.br\//);
+    await user.click(within(sheet).getByRole("button", { name: "Salvar cupom" }));
+    expect(await screen.findByText("Cupom salvo na compra")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Ver cupom da compra de R\$\s17,38/})).toBeTruthy();
   });
 
   it("exclui a compra pelo painel de corrigir e desfaz", async () => {

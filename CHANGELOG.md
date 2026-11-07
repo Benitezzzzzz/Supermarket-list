@@ -1,5 +1,22 @@
 # Changelog
 
+## 4.3.0 (2026-11-07)
+
+### Adicionado
+
+- **Cupom fiscal (NFC-e) na compra:** em Gastos, cada compra tem "Ler cupom". Dá para tirar foto do cupom, escolher da galeria ou ler só o QR code.
+- A foto é lida pela IA do Workers AI (modelo Llama 4 Scout, plano grátis da Cloudflare): loja, CNPJ, data, produtos, quantidades, preços e total. A foto não é guardada.
+- O QR code é lido no aparelho (ZXing em WebAssembly, servido pelo próprio app), na foto ou com a câmera ao vivo. A chave de acesso impede lançar o mesmo cupom em duas compras.
+- **Comparação com a lista:** cada produto do cupom é ligado ao item da lista. O app entende abreviações ("LTE", "PAP HIG"), plural, acento e erros de leitura da foto. Mostra "Da lista", "Fora da lista" e "Faltou comprar".
+- Na revisão dá para trocar a ligação de cada produto, escolher quais itens que faltaram voltam para a lista e usar o total do cupom como valor da compra.
+- Em Gastos, compra com cupom mostra o preço pago em cada item da lista e o nome da loja.
+- Link para conferir a nota no site da Sefaz-PB. O QR antigo dos cupons aponta para um endereço que não responde mais; o app usa o atual.
+- Limite de 30 leituras de foto por lista por dia, para não esgotar a cota grátis da IA.
+
+### Banco de dados
+
+- Migração `0008_cupons.sql`: tabelas `receipts`, `receipt_items` (com o código de barras de cada produto, base para o histórico de preços) e `receipt_reads`.
+
 ## 4.2.0 (2026-11-07)
 
 ### Adicionado
