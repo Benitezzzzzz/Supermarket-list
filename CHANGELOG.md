@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.3.1 (2026-11-07)
+
+### Corrigido
+
+- O app continuava mostrando a versão antiga depois de uma atualização, até ser recarregado duas vezes. Agora ele procura versão nova ao abrir, ao voltar para a tela e a cada hora, e recarrega sozinho quando encontra.
+
 ## 3.3.0 (2026-11-07)
 
 Um link só para a família.
