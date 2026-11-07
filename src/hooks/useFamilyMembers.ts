@@ -11,7 +11,7 @@ export function useFamilyMembers() {
       setMembers(await fetchMembers());
       setError("");
     } catch {
-      setError("Não consegui carregar a família. Confira a internet.");
+      setError("Não consegui carregar os participantes. Confira a internet.");
     }
   }, []);
 

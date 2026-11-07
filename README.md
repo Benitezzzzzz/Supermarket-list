@@ -129,7 +129,7 @@ Cada família tem um Durable Object que guarda os WebSockets abertos. Quando alg
 - **Sem cadastro público:** famílias só nascem pelo comando `family:create`.
 - **Isolamento:** a família vem sempre da sessão, nunca de um id enviado pelo cliente. A chave dos itens inclui a lista, então o id de um item de outra família não alcança a linha dela.
 - **Sessão:** um token aleatório de 256 bits por aparelho, em cookie `HttpOnly`, `SameSite=Strict` e `Secure`. O banco guarda só o hash.
-- **Entrada:** com uma família só no app, basta abrir o endereço e digitar o nome. Enquanto a entrada estiver aberta, qualquer pessoa que descobrir o endereço consegue entrar; por isso o administrador pode fechá-la na tela Família depois que todos entraram. Ele também vê quem está na lista e remove aparelhos, que são desconectados na hora. Se o mesmo app tiver mais de uma família, a entrada passa a exigir o convite de cada uma.
+- **Entrada:** com uma família só no app, basta abrir o endereço e digitar o nome. Enquanto a entrada estiver aberta, qualquer pessoa que descobrir o endereço consegue entrar; por isso o administrador pode fechá-la na tela Participantes depois que todos entraram. Ele também vê quem está na lista e remove aparelhos, que são desconectados na hora. Se o mesmo app tiver mais de uma família, a entrada passa a exigir o convite de cada uma.
 - **Validação:** todo dado de entrada passa pelo Zod no servidor, e o banco repete os limites com `CHECK`.
 
 Como não há senha, o administrador não recupera o acesso se perder o aparelho: para isso, a tabela `members` precisa ser ajustada com `wrangler d1 execute`.
@@ -142,7 +142,7 @@ Como não há senha, o administrador não recupera o acesso se perder o aparelho
 - Trocar a categoria de um item
 - Importar vários itens colando texto; uma linha com o nome de uma categoria vira título
 - Limpar comprados, ou a lista toda pela lixeira no topo
-- Painel Família: ver membros, copiar o endereço e, para o administrador, remover aparelhos e fechar a entrada
+- Tela Participantes: ver quem está na lista, copiar o endereço e, para o administrador, remover aparelhos e fechar a entrada
 - Desfazer depois de remover ou limpar o carrinho
 - Tema claro e escuro automático
 
@@ -153,7 +153,7 @@ Proposta "Friendly & Family": pensada para uma família com pessoas de várias i
 - **Tokens:** tudo em `src/styles/tokens.css`, entre cores, tipografia, espaçamento, bordas, sombras e camadas, com tema claro e escuro. Os componentes em `src/styles/app.css` só usam esses tokens.
 - **Tipografia:** Fredoka nos títulos, Atkinson Hyperlegible no texto (feita para leitura fácil). Itens com 19px; campos com 20px.
 - **Cores:** creme quente, verde-folha para ação, girassol para quantidade e desfazer, tomate só para remover. Cada categoria tem cor e ícone próprios.
-- **Toque:** alvos de 48 a 68px; barra inferior com rótulos e o botão de adicionar no centro.
+- **Toque:** alvos de 48 a 68px; barra inferior com Lista, Adicionar e Participantes.
 - **Componentes compartilhados** em `src/ui/`: `BottomSheet`, `ConfirmSheet`, `Toast` e `Icon`.
 
 ## Histórico

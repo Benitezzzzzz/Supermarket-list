@@ -49,7 +49,7 @@ export function FamilyScreen({ session }: FamilyScreenProps) {
   return (
     <div className="page">
       <header className="screen-header">
-        <h1 className="title">Família</h1>
+        <h1 className="title">Participantes</h1>
         <p className="subtitle">Todo mundo aqui vê e edita a mesma lista.</p>
       </header>
 
@@ -81,7 +81,7 @@ export function FamilyScreen({ session }: FamilyScreenProps) {
                   <button
                     type="button"
                     className="btn btn--danger-soft btn--small"
-                    aria-label={`Remover ${member.name} da família`}
+                    aria-label={`Remover ${member.name} da lista`}
                     onClick={() => setPending({ kind: "remove", member })}
                   >
                     Remover
@@ -132,7 +132,7 @@ export function FamilyScreen({ session }: FamilyScreenProps) {
 
       {pending?.kind === "remove" && (
         <ConfirmSheet
-          title="Remover da família?"
+          title="Remover participante?"
           message={`${pending.member.name} deixa de ver e editar a lista.`}
           confirmLabel="Remover"
           onConfirm={() => {

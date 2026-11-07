@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.4.1 (2026-11-07)
+
+### Alterado
+
+- A aba Família passa a se chamar Participantes, na barra de baixo, no título e nas mensagens.
+
 ## 3.4.0 (2026-11-07)
 
 ### Alterado

@@ -33,7 +33,7 @@ export function BottomNav({ screen, onNavigate, onAdd }: BottomNavProps) {
           onClick={() => onNavigate("family")}
         >
           <Icon name="family" size={26} />
-          Família
+          Participantes
         </button>
       </div>
     </nav>

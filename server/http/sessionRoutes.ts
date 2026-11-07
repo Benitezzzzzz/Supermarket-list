@@ -27,7 +27,7 @@ export function sessionRoutes(families: FamilyService) {
       : await families.joinOpen(name);
     if (!joined.ok && joined.reason === "closed") {
       throw new HTTPException(403, {
-        message: "A entrada de pessoas novas está fechada. Peça para quem cuida da lista abrir, na tela Família.",
+        message: "A entrada de pessoas novas está fechada. Peça para quem cuida da lista abrir, na tela Participantes.",
       });
     }
     if (!joined.ok) throw new HTTPException(404, { message: "Lista não encontrada" });

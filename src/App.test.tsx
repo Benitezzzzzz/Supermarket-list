@@ -194,11 +194,11 @@ describe("App", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Adicionar" }));
   });
 
-  it("navega para a família pela barra inferior", async () => {
+  it("navega para os participantes pela barra inferior", async () => {
     const user = renderApp();
-    await user.click(screen.getByRole("button", { name: "Família" }));
+    await user.click(screen.getByRole("button", { name: "Participantes" }));
 
-    expect(screen.getByRole("heading", { name: "Família" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Família" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("heading", { name: "Participantes" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Participantes" }).getAttribute("aria-current")).toBe("page");
   });
 });
