@@ -1,11 +1,14 @@
 export type {
   Item,
-  Member,
+  ListMember,
+  ListSummary,
+  MeResponse,
   Op,
   Payment,
   PaymentMethod,
   Purchase,
   PurchasedItem,
-  SessionInfo,
+  Role,
   Snapshot,
+  UserInfo,
 } from "../../shared/contract.ts";

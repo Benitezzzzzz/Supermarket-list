@@ -1,26 +1,36 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { AccountSheet } from "./components/AccountSheet";
 import { AddSheet } from "./components/AddSheet";
 import { BottomNav, type Screen } from "./components/BottomNav";
 import { ClearSheet } from "./components/ClearSheet";
 import { EditItemSheet } from "./components/EditItemSheet";
 import { EditPurchaseSheet } from "./components/EditPurchaseSheet";
 import { ExpensesScreen } from "./components/ExpensesScreen";
-import { FamilyScreen } from "./components/FamilyScreen";
 import { FinishSheet } from "./components/FinishSheet";
 import { ImportSheet } from "./components/ImportSheet";
-import { JoinScreen } from "./components/JoinScreen";
 import { ListScreen } from "./components/ListScreen";
+import { ListsSheet } from "./components/ListsSheet";
+import { ParticipantsScreen } from "./components/ParticipantsScreen";
 import type { SyncedList } from "./data/syncedList";
 import { DEFAULT_CATEGORY, knownCategories } from "./domain/categories";
 import { createItem } from "./domain/items";
-import type { Item, SessionInfo } from "./domain/types";
+import type { Item, ListSummary, UserInfo } from "./domain/types";
 import { Icon } from "./ui/Icon";
 import { Toast, useToast } from "./ui/Toast";
 
 interface AppProps {
   list: SyncedList;
-  session: SessionInfo;
-  onRejoined: (session: SessionInfo) => void;
+  user: UserInfo;
+  current: ListSummary;
+  lists: ListSummary[];
+  /** Aviso vindo de fora, como "você não participa mais daquela lista". */
+  notice?: string;
+  onSwitchList: (listId: string) => void;
+  onCreateList: (name: string) => Promise<void>;
+  onListsChanged: () => void;
+  onLogout: () => void;
+  onSessionLost: () => void;
+  onListLost: () => void;
 }
 
 type Sheet =
@@ -30,9 +40,23 @@ type Sheet =
   | { kind: "clear" }
   | { kind: "finish" }
   | { kind: "edit-purchase"; id: string }
+  | { kind: "lists" }
+  | { kind: "account" }
   | null;
 
-export function App({ list, session, onRejoined }: AppProps) {
+export function App({
+  list,
+  user,
+  current,
+  lists,
+  notice,
+  onSwitchList,
+  onCreateList,
+  onListsChanged,
+  onLogout,
+  onSessionLost,
+  onListLost,
+}: AppProps) {
   const state = useSyncExternalStore(list.subscribe, list.getState);
   const [screen, setScreen] = useState<Screen>("list");
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -41,7 +65,14 @@ export function App({ list, session, onRejoined }: AppProps) {
 
   useEffect(() => list.start(), [list]);
 
-  if (state.accessRevoked) return <JoinScreen revoked onJoined={onRejoined} />;
+  useEffect(() => {
+    if (state.accessRevoked === "session") onSessionLost();
+    if (state.accessRevoked === "list") onListLost();
+  }, [state.accessRevoked, onSessionLost, onListLost]);
+
+  useEffect(() => {
+    if (notice) show(notice);
+  }, [notice, show]);
 
   const categories = knownCategories(state.customCategories, state.items);
   const editing = sheet?.kind === "edit" ? state.items.find((item) => item.id === sheet.id) : undefined;
@@ -66,11 +97,13 @@ export function App({ list, session, onRejoined }: AppProps) {
       {screen === "list" && (
         <ListScreen
           state={state}
-          session={session}
+          user={user}
+          current={current}
+          onOpenLists={() => setSheet({ kind: "lists" })}
+          onOpenAccount={() => setSheet({ kind: "account" })}
           onToggle={(item) => list.updateItem(item.id, { done: !item.done })}
           onEdit={(item) => setSheet({ kind: "edit", id: item.id })}
           onAskClearAll={() => setSheet({ kind: "clear" })}
-          onFinish={() => setSheet({ kind: "finish" })}
         />
       )}
       {screen === "expenses" && (
@@ -79,13 +112,29 @@ export function App({ list, session, onRejoined }: AppProps) {
           onEdit={(purchase) => setSheet({ kind: "edit-purchase", id: purchase.id })}
         />
       )}
-      {screen === "family" && <FamilyScreen session={session} />}
+      {screen === "family" && <ParticipantsScreen user={user} list={current} onListsChanged={onListsChanged} />}
 
+      {/* Ações principais fixas acima do menu: sempre visíveis, sem cobrir nada. */}
       {screen === "list" && (
-        <button type="button" className="fab" onClick={() => setSheet({ kind: "add" })}>
-          <Icon name="plus" size={26} strokeWidth={2.6} />
-          Adicionar
-        </button>
+        <div className="action-bar">
+          <div className="action-bar__inner">
+            {state.items.length > 0 && (
+              <button
+                type="button"
+                className="btn btn--accent btn--xl"
+                aria-label="Finalizar compra"
+                onClick={() => setSheet({ kind: "finish" })}
+              >
+                <Icon name="bag" size={24} />
+                Finalizar
+              </button>
+            )}
+            <button type="button" className="btn btn--primary btn--xl" onClick={() => setSheet({ kind: "add" })}>
+              <Icon name="plus" size={26} strokeWidth={2.6} />
+              Adicionar
+            </button>
+          </div>
+        </div>
       )}
 
       <BottomNav screen={screen} onNavigate={setScreen} />
@@ -137,6 +186,24 @@ export function App({ list, session, onRejoined }: AppProps) {
         />
       )}
 
+      {sheet?.kind === "lists" && (
+        <ListsSheet
+          lists={lists}
+          currentId={current.id}
+          onPick={(id) => {
+            close();
+            if (id !== current.id) onSwitchList(id);
+          }}
+          onCreate={async (name) => {
+            await onCreateList(name);
+            close();
+          }}
+          onClose={close}
+        />
+      )}
+
+      {sheet?.kind === "account" && <AccountSheet user={user} onLogout={onLogout} onClose={close} />}
+
       {sheet?.kind === "clear" && (
         <ClearSheet
           doneCount={state.items.filter((item) => item.done).length}
@@ -165,7 +232,7 @@ export function App({ list, session, onRejoined }: AppProps) {
                 id: crypto.randomUUID(),
                 ...details,
                 itemCount: itemIds.length,
-                memberName: session.name,
+                memberName: user.displayName,
                 createdAt: new Date().toISOString(),
                 items: state.items.map(({ text, quantity, category, done }) => ({
                   text,

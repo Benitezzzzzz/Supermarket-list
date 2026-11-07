@@ -14,7 +14,7 @@ class FakeServer implements ListBackend {
   private listeners = new Set<() => void>();
 
   async load() {
-    if (this.revoked) throw new AccessRevokedError("sem acesso");
+    if (this.revoked) throw new AccessRevokedError("sem acesso", "list");
     if (!this.online) throw new Error("offline");
     return this.snapshot;
   }
@@ -138,7 +138,7 @@ describe("SyncedList", () => {
     server.revoked = true;
     await list.refresh();
 
-    expect(list.getState().accessRevoked).toBe(true);
+    expect(list.getState().accessRevoked).toBe("list");
     expect(texts(list)).toEqual(["Arroz"]);
   });
 

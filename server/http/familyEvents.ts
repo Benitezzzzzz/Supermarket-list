@@ -1,7 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 
 /**
- * Um por família. Guarda os WebSockets abertos e avisa quando a lista muda.
+ * Um por lista. Guarda os WebSockets abertos e avisa quando a lista muda.
  * Usa a API de hibernação: com todos parados, o objeto dorme e não consome a
  * cota de tempo de execução.
  */

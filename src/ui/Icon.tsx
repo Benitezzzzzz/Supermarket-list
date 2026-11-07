@@ -26,6 +26,7 @@ const PATHS = {
   card: "M3 6h18v12H3zM3 10h18M7 15h3",
   pix: "M12 3l9 9-9 9-9-9zM8.5 12h7",
   bag: "M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2",
+  chevron: "M6 9l6 6 6-6",
   tag: "M20.4 12.6 12 21l-9-9V4h8l9.4 9.4a2 2 0 0 1 0 2.6zM7.5 7.5h.01",
 };
 

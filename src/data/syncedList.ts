@@ -1,6 +1,6 @@
 import type { Item, Op, Payment, Purchase, Snapshot } from "../domain/types";
 import { applyOp } from "./applyOp";
-import { AccessRevokedError, type ListBackend, RejectedOpError } from "./backend";
+import { type AccessLoss, AccessRevokedError, type ListBackend, RejectedOpError } from "./backend";
 
 export type ConnectionStatus = "loading" | "online" | "offline";
 
@@ -12,8 +12,8 @@ export interface ListState {
   pendingCount: number;
   /** Alguma alteração foi recusada pelo servidor e descartada. */
   rejected: boolean;
-  /** O servidor não reconhece mais este aparelho. */
-  accessRevoked: boolean;
+  /** A conta saiu do aparelho, ou a pessoa não participa mais da lista. */
+  accessRevoked: AccessLoss | null;
 }
 
 interface Persisted {
@@ -44,7 +44,7 @@ export class SyncedList {
     connection: "loading",
     pendingCount: 0,
     rejected: false,
-    accessRevoked: false,
+    accessRevoked: null,
   };
   private backend: ListBackend;
   private storageKey: string;
@@ -168,7 +168,7 @@ export class SyncedList {
   private handleFailure(error: unknown) {
     if (error instanceof AccessRevokedError) {
       // A fila fica salva: se a pessoa entrar de novo, as alterações seguem para o servidor.
-      this.publish({ accessRevoked: true });
+      this.publish({ accessRevoked: error.reason });
       return;
     }
     this.publish({ connection: "offline" });

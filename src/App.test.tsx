@@ -5,7 +5,7 @@ import { App } from "./App";
 import { applyOp } from "./data/applyOp";
 import type { ListBackend } from "./data/backend";
 import { SyncedList } from "./data/syncedList";
-import type { Op, SessionInfo, Snapshot } from "./domain/types";
+import type { ListSummary, Op, Snapshot, UserInfo } from "./domain/types";
 
 class MemoryBackend implements ListBackend {
   snapshot: Snapshot = { items: [], customCategories: [], purchases: [] };
@@ -20,13 +20,10 @@ class MemoryBackend implements ListBackend {
   }
 }
 
-const session: SessionInfo = {
-  memberId: "m1",
-  name: "Renan",
-  role: "admin",
-  familyId: "f1",
-  familyName: "Família Benitez",
-};
+const user: UserInfo = { id: "u1", username: "renan", displayName: "Renan" };
+const casa: ListSummary = { id: "l1", name: "Casa", role: "admin" };
+const pousada: ListSummary = { id: "l2", name: "Pousada", role: "member" };
+const calls: string[] = [];
 
 type User = ReturnType<typeof userEvent.setup>;
 
@@ -34,8 +31,17 @@ function renderApp() {
   render(
     <App
       list={new SyncedList(new MemoryBackend(), "teste")}
-      session={session}
-      onRejoined={() => {}}
+      user={user}
+      current={casa}
+      lists={[casa, pousada]}
+      onSwitchList={(id) => calls.push(`switch:${id}`)}
+      onCreateList={async (name) => {
+        calls.push(`create:${name}`);
+      }}
+      onListsChanged={() => calls.push("changed")}
+      onLogout={() => calls.push("logout")}
+      onSessionLost={() => calls.push("session-lost")}
+      onListLost={() => calls.push("list-lost")}
     />,
   );
   return userEvent.setup();
@@ -56,8 +62,37 @@ async function addItems(user: User, ...texts: string[]) {
 }
 
 describe("App", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    calls.length = 0;
+  });
   afterEach(cleanup);
+
+  it("mostra a lista atual no topo e troca de lista", async () => {
+    const user = renderApp();
+    await user.click(screen.getByRole("button", { name: "Lista Casa. Trocar de lista" }));
+    const sheet = await screen.findByRole("dialog", { name: "Suas listas" });
+    expect((within(sheet).getByRole("radio", { name: /Casa/ }) as HTMLInputElement).checked).toBe(true);
+    await user.click(within(sheet).getByRole("radio", { name: /Pousada/ }));
+    expect(calls).toEqual(["switch:l2"]);
+  });
+
+  it("cria uma lista nova pelo seletor", async () => {
+    const user = renderApp();
+    await user.click(screen.getByRole("button", { name: "Lista Casa. Trocar de lista" }));
+    await user.type(await screen.findByLabelText("Nova lista"), "Pousada da praia");
+    await user.click(screen.getByRole("button", { name: "Criar" }));
+    expect(calls).toEqual(["create:Pousada da praia"]);
+  });
+
+  it("abre a conta e sai", async () => {
+    const user = renderApp();
+    await user.click(screen.getByRole("button", { name: "Sua conta" }));
+    const sheet = await screen.findByRole("dialog", { name: "Sua conta" });
+    expect(within(sheet).getByText("Usuário: renan")).toBeTruthy();
+    await user.click(within(sheet).getByRole("button", { name: "Sair da conta neste aparelho" }));
+    expect(calls).toEqual(["logout"]);
+  });
 
   it("adiciona vários itens sem fechar o painel", async () => {
     const user = renderApp();

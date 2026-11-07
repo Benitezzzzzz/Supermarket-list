@@ -1,12 +1,12 @@
 // @vitest-environment node
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { Item, SessionInfo } from "../shared/contract.ts";
+import type { Item, ListMember, ListSummary, MeResponse, Purchase, Snapshot } from "../shared/contract.ts";
 import { createApp } from "./app.ts";
 import type { Database } from "./db/database.ts";
 import { openTestDatabase } from "./db/sqliteAdapter.ts";
 import type { Notifier } from "./http/notifier.ts";
-import { FamilyService } from "./services/families.ts";
+import { hashToken } from "./services/tokens.ts";
 
 type App = ReturnType<typeof createApp>;
 
@@ -14,16 +14,18 @@ type App = ReturnType<typeof createApp>;
 class RecordingNotifier implements Notifier {
   broadcasts: string[] = [];
   disconnects: string[] = [];
-  async broadcast(familyId: string) {
-    this.broadcasts.push(familyId);
+  async broadcast(listId: string) {
+    this.broadcasts.push(listId);
   }
-  async disconnectMember(familyId: string, memberId: string) {
-    this.disconnects.push(`${familyId}/${memberId}`);
+  async disconnectMember(listId: string, userId: string) {
+    this.disconnects.push(`${listId}/${userId}`);
   }
   async connect() {
     return new Response("conectado");
   }
 }
+
+const key = () => randomBytes(32).toString("hex");
 
 function item(overrides: Partial<Item> = {}): Item {
   return {
@@ -37,220 +39,328 @@ function item(overrides: Partial<Item> = {}): Item {
   };
 }
 
-/** Aparelho de teste: guarda o cookie como um navegador faria. */
+/** Aparelho de teste: guarda os cookies como um navegador faria. */
 class Device {
-  cookie = "";
+  cookies = new Map<string, string>();
+  passwordKey = key();
+  me?: MeResponse;
   private app: App;
 
   constructor(app: App) {
     this.app = app;
   }
 
-  async call(method: string, path: string, body?: unknown) {
-    const headers: Record<string, string> = {};
-    if (this.cookie) headers.cookie = this.cookie;
+  get cookie() {
+    return [...this.cookies].map(([name, value]) => `${name}=${value}`).join("; ");
+  }
+
+  async call(method: string, path: string, body?: unknown, extraHeaders: Record<string, string> = {}) {
+    const headers: Record<string, string> = { ...extraHeaders };
+    if (this.cookies.size) headers.cookie = this.cookie;
     if (body !== undefined) headers["content-type"] = "application/json";
     const response = await this.app.request(`/api${path}`, {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    const setCookie = response.headers.get("set-cookie");
-    if (setCookie) this.cookie = setCookie.split(";")[0];
+    for (const line of response.headers.getSetCookie()) {
+      const [pair] = line.split(";");
+      const [name, value] = pair.split("=");
+      if (value && !/Max-Age=0/i.test(line)) this.cookies.set(name, value);
+      else this.cookies.delete(name);
+    }
     return response;
   }
 
-  async join(inviteToken: string, name: string): Promise<SessionInfo> {
-    const response = await this.call("POST", "/session", { inviteToken, name });
-    expect(response.ok).toBe(true);
-    return response.json() as Promise<SessionInfo>;
+  async signup(username: string, displayName: string) {
+    const response = await this.call("POST", "/auth/signup", { username, displayName, passwordKey: this.passwordKey });
+    expect(response.status).toBe(201);
+    this.me = (await response.json()) as MeResponse;
+    return this.me;
   }
 
-  async items(): Promise<Item[]> {
-    const response = await this.call("GET", "/list");
+  async createList(name: string): Promise<ListSummary> {
+    const response = await this.call("POST", "/lists", { name });
+    expect(response.status).toBe(201);
+    return response.json() as Promise<ListSummary>;
+  }
+
+  async snapshot(listId: string): Promise<Snapshot> {
+    const response = await this.call("GET", `/lists/${listId}`);
     expect(response.status).toBe(200);
-    return ((await response.json()) as { items: Item[] }).items;
+    return response.json() as Promise<Snapshot>;
   }
 }
 
-describe("API", () => {
-  let db: Database;
-  let app: App;
-  let inviteA: string;
-  let inviteB: string;
-  let admin: Device;
-  let member: Device;
-  let outsider: Device;
-  let notifier: RecordingNotifier;
-  let familyA: string;
+let db: Database;
+let app: App;
+let notifier: RecordingNotifier;
 
-  beforeEach(async () => {
-    db = openTestDatabase();
-    notifier = new RecordingNotifier();
-    app = createApp(db, notifier);
-    const families = new FamilyService(db);
-    const a = await families.create("Família A");
-    familyA = a.familyId;
-    inviteA = a.inviteToken;
-    inviteB = (await families.create("Família B")).inviteToken;
-    admin = new Device(app);
-    member = new Device(app);
-    outsider = new Device(app);
-    await admin.join(inviteA, "Renan");
-    await member.join(inviteA, "Mãe");
-    await outsider.join(inviteB, "Vizinho");
+beforeEach(() => {
+  db = openTestDatabase();
+  notifier = new RecordingNotifier();
+  app = createApp(db, notifier);
+});
+
+describe("contas", () => {
+  it("cria conta e já entra", async () => {
+    const renan = new Device(app);
+    const me = await renan.signup("Renan", "Renan Benitez");
+    expect(me.user.username).toBe("renan");
+    expect(me.lists).toEqual([]);
+    const again = (await (await renan.call("GET", "/auth/me")).json()) as MeResponse;
+    expect(again.user.displayName).toBe("Renan Benitez");
   });
 
-  describe("autenticação", () => {
+  it("não deixa repetir usuário, nem com maiúsculas", async () => {
+    await new Device(app).signup("renan", "Renan");
+    const other = new Device(app);
+    const response = await other.call("POST", "/auth/signup", { username: "RENAN", displayName: "Outro", passwordKey: key() });
+    expect(response.status).toBe(409);
+  });
+
+  it.each([
+    ["usuário curto", { username: "ab" }],
+    ["usuário com espaço", { username: "meu pai" }],
+    ["usuário com acento", { username: "joão" }],
+    ["nome vazio", { displayName: "  " }],
+    ["senha em texto puro", { passwordKey: "minhasenha" }],
+  ])("recusa %s", async (_name, overrides) => {
+    const response = await new Device(app).call("POST", "/auth/signup", {
+      username: "valido",
+      displayName: "Válido",
+      passwordKey: key(),
+      ...overrides,
+    });
+    expect(response.status).toBe(422);
+  });
+
+  it("entra com usuário e senha em outro aparelho", async () => {
+    const celular = new Device(app);
+    await celular.signup("pai", "Pai");
+    const computador = new Device(app);
+    const response = await computador.call("POST", "/auth/login", { username: "PAI", passwordKey: celular.passwordKey });
+    expect(response.status).toBe(200);
+    expect(((await response.json()) as MeResponse).user.username).toBe("pai");
+  });
+
+  it("a mesma mensagem para usuário inexistente e senha errada", async () => {
+    await new Device(app).signup("pai", "Pai");
+    const errada = await new Device(app).call("POST", "/auth/login", { username: "pai", passwordKey: key() });
+    const inexistente = await new Device(app).call("POST", "/auth/login", { username: "ninguem", passwordKey: key() });
+    expect(errada.status).toBe(401);
+    expect(inexistente.status).toBe(401);
+    expect(await errada.json()).toEqual(await inexistente.json());
+  });
+
+  it("bloqueia depois de 5 senhas erradas, mesmo com a senha certa", async () => {
+    const pai = new Device(app);
+    await pai.signup("pai", "Pai");
+    const intruso = new Device(app);
+    for (let i = 0; i < 4; i++) {
+      expect((await intruso.call("POST", "/auth/login", { username: "pai", passwordKey: key() })).status).toBe(401);
+    }
+    expect((await intruso.call("POST", "/auth/login", { username: "pai", passwordKey: key() })).status).toBe(429);
+    const certa = await new Device(app).call("POST", "/auth/login", { username: "pai", passwordKey: pai.passwordKey });
+    expect(certa.status).toBe(429);
+  });
+
+  it("acertar a senha zera as tentativas erradas", async () => {
+    const pai = new Device(app);
+    await pai.signup("pai", "Pai");
+    for (let i = 0; i < 4; i++) await new Device(app).call("POST", "/auth/login", { username: "pai", passwordKey: key() });
+    expect((await new Device(app).call("POST", "/auth/login", { username: "pai", passwordKey: pai.passwordKey })).status).toBe(200);
+    for (let i = 0; i < 4; i++) {
+      expect((await new Device(app).call("POST", "/auth/login", { username: "pai", passwordKey: key() })).status).toBe(401);
+    }
+  });
+
+  it("sair encerra a sessão", async () => {
+    const pai = new Device(app);
+    await pai.signup("pai", "Pai");
+    const antigo = pai.cookie;
+    expect((await pai.call("POST", "/auth/logout")).status).toBe(204);
+    const reuse = await app.request("/api/auth/me", { headers: { cookie: antigo } });
+    expect(reuse.status).toBe(401);
+  });
+
+  it("trocar a senha desconecta os outros aparelhos e vale no próximo login", async () => {
+    const celular = new Device(app);
+    await celular.signup("pai", "Pai");
+    const tablet = new Device(app);
+    await tablet.call("POST", "/auth/login", { username: "pai", passwordKey: celular.passwordKey });
+
+    const nova = key();
+    expect((await celular.call("PUT", "/auth/password", { currentKey: key(), newKey: nova })).status).toBe(403);
+    expect((await celular.call("PUT", "/auth/password", { currentKey: celular.passwordKey, newKey: nova })).status).toBe(204);
+
+    expect((await celular.call("GET", "/auth/me")).status).toBe(200);
+    expect((await tablet.call("GET", "/auth/me")).status).toBe(401);
+    expect((await new Device(app).call("POST", "/auth/login", { username: "pai", passwordKey: celular.passwordKey })).status).toBe(401);
+    expect((await new Device(app).call("POST", "/auth/login", { username: "pai", passwordKey: nova })).status).toBe(200);
+  });
+
+  it("guarda senha e sessão só como hash", async () => {
+    const pai = new Device(app);
+    await pai.signup("pai", "Pai");
+    const users = JSON.stringify(await db.prepare("SELECT * FROM users").all());
+    expect(users).not.toContain(pai.passwordKey);
+    const sessions = JSON.stringify(await db.prepare("SELECT * FROM sessions").all());
+    expect(sessions).not.toContain(pai.cookies.get("lista_conta"));
+  });
+
+  it("cookie httpOnly, SameSite Strict e Secure em HTTPS", async () => {
+    const response = await app.request("/api/auth/signup", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-proto": "https" },
+      body: JSON.stringify({ username: "pai", displayName: "Pai", passwordKey: key() }),
+    });
+    const cookie = response.headers.get("set-cookie") ?? "";
+    expect(cookie).toContain("HttpOnly");
+    expect(cookie).toContain("SameSite=Strict");
+    expect(cookie).toContain("Secure");
+  });
+
+  it("recusa cookie forjado", async () => {
+    const response = await app.request("/api/auth/me", { headers: { cookie: `lista_conta=${"a".repeat(64)}` } });
+    expect(response.status).toBe(401);
+  });
+});
+
+describe("listas", () => {
+  let renan: Device;
+  let pai: Device;
+  let casa: ListSummary;
+
+  beforeEach(async () => {
+    renan = new Device(app);
+    pai = new Device(app);
+    await renan.signup("renan", "Renan");
+    await pai.signup("pai", "Pai");
+    casa = await renan.createList("Casa");
+  });
+
+  it("quem cria vira administrador e a lista aparece no /me", async () => {
+    expect(casa.role).toBe("admin");
+    const me = (await (await renan.call("GET", "/auth/me")).json()) as MeResponse;
+    expect(me.lists).toEqual([casa]);
+  });
+
+  it("uma pessoa pode ter várias listas, cada uma com dados próprios", async () => {
+    const pousada = await pai.createList("Pousada");
+    const casaDoPai = await pai.createList("Casa do pai");
+    await pai.call("PUT", `/lists/${pousada.id}/items`, { items: [item({ text: "Lençol" })] });
+    const me = (await (await pai.call("GET", "/auth/me")).json()) as MeResponse;
+    expect(me.lists.map((l) => l.name)).toEqual(["Pousada", "Casa do pai"]);
+    expect((await pai.snapshot(pousada.id)).items.map((i) => i.text)).toEqual(["Lençol"]);
+    expect((await pai.snapshot(casaDoPai.id)).items).toEqual([]);
+  });
+
+  describe("quem não participa", () => {
     it.each([
-      ["GET", "/list"],
-      ["GET", "/events"],
+      ["GET", ""],
+      ["PATCH", ""],
+      ["DELETE", ""],
+      ["GET", "/members"],
+      ["POST", "/members"],
       ["PUT", "/items"],
       ["POST", "/items/delete"],
       ["POST", "/categories"],
       ["POST", "/purchases"],
-      ["GET", "/family/members"],
-      ["GET", "/family"],
-      ["PUT", "/family/entry"],
-      ["GET", "/session"],
-    ])("%s %s exige sessão", async (method, path) => {
-      const response = await new Device(app).call(method, path);
-      expect(response.status).toBe(401);
-    });
-
-    it("recusa cookie forjado", async () => {
-      const device = new Device(app);
-      device.cookie = `lista_sessao=${"a".repeat(64)}`;
-      expect((await device.call("GET", "/list")).status).toBe(401);
-    });
-
-    it("recusa convite inválido", async () => {
-      const response = await new Device(app).call("POST", "/session", {
-        inviteToken: "f".repeat(64),
-        name: "Intruso",
-      });
+      ["GET", "/events"],
+    ])("%s /lists/:id%s responde que a lista não existe", async (method, path) => {
+      const response = await pai.call(method, `/lists/${casa.id}${path}`, method === "GET" || method === "DELETE" ? undefined : {});
       expect(response.status).toBe(404);
+      expect(((await response.json()) as { code: string }).code).toBe("list_access");
     });
 
-    it("sem convite, não entra quando o app tem mais de uma família", async () => {
-      const response = await new Device(app).call("POST", "/session", { name: "Intruso" });
-      expect(response.status).toBe(404);
-    });
-
-    it("usa cookie httpOnly e SameSite Strict", async () => {
-      const response = await new Device(app).call("POST", "/session", {
-        inviteToken: inviteA,
-        name: "Pai",
-      });
-      const cookie = response.headers.get("set-cookie")!;
-      expect(cookie).toContain("HttpOnly");
-      expect(cookie).toContain("SameSite=Strict");
-    });
-
-    it("marca o cookie como Secure atrás de proxy HTTPS", async () => {
-      const response = await app.request("/api/session", {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-forwarded-proto": "https" },
-        body: JSON.stringify({ inviteToken: inviteA, name: "Pai" }),
-      });
-      expect(response.headers.get("set-cookie")).toContain("Secure");
-    });
-
-    it("não guarda convite nem sessão em texto puro", async () => {
-      const rows = await db.prepare("SELECT invite_hash FROM families").all();
-      expect(JSON.stringify(rows)).not.toContain(inviteA);
-      const token = admin.cookie.split("=")[1];
-      const sessions = await db.prepare("SELECT session_hash FROM members").all();
-      expect(JSON.stringify(sessions)).not.toContain(token);
-    });
-
-    it("não duplica o membro quando o aparelho reabre o link", async () => {
-      await admin.join(inviteA, "Renan");
-      const members = (await (await admin.call("GET", "/family/members")).json()) as unknown[];
-      expect(members).toHaveLength(2);
-    });
-  });
-
-  describe("isolamento entre famílias", () => {
-    it("família não vê itens de outra", async () => {
-      await admin.call("PUT", "/items", { items: [item()] });
-      expect(await outsider.items()).toEqual([]);
-    });
-
-    it("não altera item de outra família usando o mesmo id", async () => {
+    it("não altera item de outra lista usando o mesmo id", async () => {
       const original = item({ text: "Original" });
-      await admin.call("PUT", "/items", { items: [original] });
-      await outsider.call("PUT", "/items", { items: [{ ...original, text: "Hackeado" }] });
-      expect((await admin.items())[0].text).toBe("Original");
+      await renan.call("PUT", `/lists/${casa.id}/items`, { items: [original] });
+      const pousada = await pai.createList("Pousada");
+      await pai.call("PUT", `/lists/${pousada.id}/items`, { items: [{ ...original, text: "Outro" }] });
+      expect((await renan.snapshot(casa.id)).items[0].text).toBe("Original");
     });
 
-    it("não apaga item de outra família", async () => {
-      const original = item();
-      await admin.call("PUT", "/items", { items: [original] });
-      await outsider.call("POST", "/items/delete", { ids: [original.id] });
-      expect(await admin.items()).toHaveLength(1);
-    });
-
-    it("não vê nem remove membros de outra família", async () => {
-      const list = (await (await admin.call("GET", "/family/members")).json()) as { id: string }[];
-      expect(list).toHaveLength(2);
-
-      const other = await new Device(app).join(inviteB, "Segundo");
-      const response = await admin.call("DELETE", `/family/members/${other.memberId}`);
-      expect(response.status).toBe(404);
+    it("sem login, nada funciona", async () => {
+      for (const path of ["/lists", `/lists/${casa.id}`]) {
+        expect((await new Device(app).call("GET", path)).status).toBe(401);
+      }
+      expect((await new Device(app).call("POST", "/lists", { name: "X" })).status).toBe(401);
     });
   });
 
-  describe("lista", () => {
-    it("compartilha itens entre membros da família", async () => {
-      const novo = item({ text: "Feijão", quantity: 3 });
-      expect((await admin.call("PUT", "/items", { items: [novo] })).status).toBe(204);
-      expect(await member.items()).toEqual([novo]);
+  describe("participantes", () => {
+    it("o administrador adiciona pelo nome de usuário e a lista aparece para a pessoa", async () => {
+      const response = await renan.call("POST", `/lists/${casa.id}/members`, { username: "PAI" });
+      expect(response.status).toBe(201);
+      const me = (await (await pai.call("GET", "/auth/me")).json()) as MeResponse;
+      expect(me.lists).toEqual([{ id: casa.id, name: "Casa", role: "member" }]);
+      await renan.call("PUT", `/lists/${casa.id}/items`, { items: [item({ text: "Café" })] });
+      expect((await pai.snapshot(casa.id)).items.map((i) => i.text)).toEqual(["Café"]);
     });
 
-    it("é idempotente: reenviar não duplica", async () => {
-      const novo = item();
-      await admin.call("PUT", "/items", { items: [novo] });
-      await admin.call("PUT", "/items", { items: [novo] });
-      await admin.call("POST", "/items/delete", { ids: [novo.id] });
-      const again = await admin.call("POST", "/items/delete", { ids: [novo.id] });
-      expect(again.status).toBe(204);
+    it("usuário que não existe ou que já participa", async () => {
+      expect((await renan.call("POST", `/lists/${casa.id}/members`, { username: "fantasma" })).status).toBe(404);
+      await renan.call("POST", `/lists/${casa.id}/members`, { username: "pai" });
+      expect((await renan.call("POST", `/lists/${casa.id}/members`, { username: "pai" })).status).toBe(409);
     });
 
-    it("ignora categoria repetida com maiúsculas diferentes", async () => {
-      await admin.call("POST", "/categories", { name: "Pet" });
-      await admin.call("POST", "/categories", { name: "PET" });
-      const snapshot = (await (await admin.call("GET", "/list")).json()) as {
-        customCategories: string[];
-      };
-      expect(snapshot.customCategories).toEqual(["Pet"]);
+    it("lista os participantes com o papel de cada um", async () => {
+      await renan.call("POST", `/lists/${casa.id}/members`, { username: "pai" });
+      const members = (await (await pai.call("GET", `/lists/${casa.id}/members`)).json()) as ListMember[];
+      expect(members.map((m) => [m.username, m.role])).toEqual([
+        ["renan", "admin"],
+        ["pai", "member"],
+      ]);
     });
 
-    it.each([
-      ["texto vazio", { text: "   " }],
-      ["texto longo", { text: "x".repeat(81) }],
-      ["quantidade zero", { quantity: 0 }],
-      ["quantidade fracionada", { quantity: 1.5 }],
-      ["id inválido", { id: "1 OR 1=1" }],
-      ["data inválida", { createdAt: "ontem" }],
-    ])("recusa %s", async (_name, overrides) => {
-      const response = await admin.call("PUT", "/items", { items: [item(overrides)] });
-      expect(response.status).toBe(422);
-      expect(await admin.items()).toEqual([]);
+    it("membro comum não adiciona, não remove, não renomeia e não exclui", async () => {
+      await renan.call("POST", `/lists/${casa.id}/members`, { username: "pai" });
+      const tio = new Device(app);
+      await tio.signup("tio", "Tio");
+      expect((await pai.call("POST", `/lists/${casa.id}/members`, { username: "tio" })).status).toBe(403);
+      expect((await pai.call("DELETE", `/lists/${casa.id}/members/${renan.me?.user.id}`)).status).toBe(403);
+      expect((await pai.call("PATCH", `/lists/${casa.id}`, { name: "Minha" })).status).toBe(403);
+      expect((await pai.call("DELETE", `/lists/${casa.id}`)).status).toBe(403);
     });
 
-    it("recusa escrita que não seja JSON", async () => {
-      const response = await app.request("/api/items", {
-        method: "PUT",
-        headers: { cookie: admin.cookie, "content-type": "text/plain" },
-        body: "{}",
-      });
-      expect(response.status).toBe(415);
+    it("removido perde o acesso na hora e é desconectado", async () => {
+      await renan.call("POST", `/lists/${casa.id}/members`, { username: "pai" });
+      const paiId = pai.me?.user.id;
+      expect((await renan.call("DELETE", `/lists/${casa.id}/members/${paiId}`)).status).toBe(204);
+      expect((await pai.call("GET", `/lists/${casa.id}`)).status).toBe(404);
+      expect(notifier.disconnects).toEqual([`${casa.id}/${paiId}`]);
+    });
+
+    it("membro pode sair; administrador não", async () => {
+      await renan.call("POST", `/lists/${casa.id}/members`, { username: "pai" });
+      expect((await pai.call("POST", `/lists/${casa.id}/leave`)).status).toBe(204);
+      expect((await pai.call("GET", `/lists/${casa.id}`)).status).toBe(404);
+      expect((await renan.call("POST", `/lists/${casa.id}/leave`)).status).toBe(400);
+    });
+
+    it("administrador não remove a si mesmo", async () => {
+      expect((await renan.call("DELETE", `/lists/${casa.id}/members/${renan.me?.user.id}`)).status).toBe(400);
     });
   });
 
-  describe("finalizar compra", () => {
-    const purchase = (overrides: Record<string, unknown> = {}) => ({
+  it("renomear e excluir a lista", async () => {
+    const renamed = await renan.call("PATCH", `/lists/${casa.id}`, { name: "Casa da praia" });
+    expect(((await renamed.json()) as ListSummary).name).toBe("Casa da praia");
+
+    await renan.call("POST", `/lists/${casa.id}/members`, { username: "pai" });
+    await renan.call("PUT", `/lists/${casa.id}/items`, { items: [item()] });
+    expect((await renan.call("DELETE", `/lists/${casa.id}`)).status).toBe(204);
+    expect((await renan.call("GET", `/lists/${casa.id}`)).status).toBe(404);
+    const me = (await (await pai.call("GET", "/auth/me")).json()) as MeResponse;
+    expect(me.lists).toEqual([]);
+    const leftovers = await db.prepare("SELECT count(*) AS n FROM items").first<{ n: number }>();
+    expect(leftovers?.n).toBe(0);
+  });
+
+  describe("itens e compras", () => {
+    const purchase = (overrides: Partial<Purchase> & Record<string, unknown> = {}) => ({
       id: randomUUID(),
       amountCents: 15290,
       method: "credito",
@@ -258,277 +368,133 @@ describe("API", () => {
       itemCount: 1,
       memberName: "Quem mandou",
       createdAt: new Date().toISOString(),
+      items: [],
       ...overrides,
     });
-    const purchases = async (device: Device) =>
-      ((await (await device.call("GET", "/list")).json()) as { purchases: { id: string; memberName: string }[] }).purchases;
 
-    it("guarda a compra e tira só os itens informados", async () => {
+    beforeEach(async () => {
+      await renan.call("POST", `/lists/${casa.id}/members`, { username: "pai" });
+    });
+
+    it("reenviar não duplica", async () => {
+      const novo = item();
+      await renan.call("PUT", `/lists/${casa.id}/items`, { items: [novo] });
+      await renan.call("PUT", `/lists/${casa.id}/items`, { items: [novo] });
+      expect((await renan.snapshot(casa.id)).items).toHaveLength(1);
+    });
+
+    it.each([
+      ["texto vazio", { text: "   " }],
+      ["quantidade zero", { quantity: 0 }],
+      ["id inválido", { id: "1 OR 1=1" }],
+    ])("recusa item com %s", async (_name, overrides) => {
+      const response = await renan.call("PUT", `/lists/${casa.id}/items`, { items: [item(overrides)] });
+      expect(response.status).toBe(422);
+    });
+
+    it("finaliza a compra registrando quem é da conta, não o que o aparelho mandou", async () => {
       const antigo = item({ text: "Arroz" });
-      const novo = item({ text: "Feijão" });
-      await admin.call("PUT", "/items", { items: [antigo, novo] });
+      await renan.call("PUT", `/lists/${casa.id}/items`, { items: [antigo] });
+      const compra = purchase({ items: [{ text: "Arroz", quantity: 1, category: "Outros", done: true }] });
+      expect((await pai.call("POST", `/lists/${casa.id}/purchases`, { purchase: compra, itemIds: [antigo.id] })).status).toBe(204);
+      const snap = await renan.snapshot(casa.id);
+      expect(snap.items).toEqual([]);
+      expect(snap.purchases.map((p) => [p.id, p.memberName, p.items.length])).toEqual([[compra.id, "Pai", 1]]);
+    });
 
+    it("gastos ficam separados por lista", async () => {
+      const pousada = await pai.createList("Pousada");
+      await pai.call("POST", `/lists/${pousada.id}/purchases`, { purchase: purchase(), itemIds: [] });
+      expect((await pai.snapshot(pousada.id)).purchases).toHaveLength(1);
+      expect((await renan.snapshot(casa.id)).purchases).toEqual([]);
+    });
+
+    it("corrige, exclui e desfaz", async () => {
       const compra = purchase();
-      const response = await member.call("POST", "/purchases", { purchase: compra, itemIds: [antigo.id] });
-      expect(response.status).toBe(204);
-
-      expect((await admin.items()).map((i) => i.text)).toEqual(["Feijão"]);
-      const saved = await purchases(admin);
-      expect(saved.map((p) => p.id)).toEqual([compra.id]);
-      // Quem registrou vem da sessão, não do que o aparelho mandou.
-      expect(saved[0].memberName).toBe("Mãe");
+      await renan.call("POST", `/lists/${casa.id}/purchases`, { purchase: compra, itemIds: [] });
+      expect((await pai.call("PUT", `/lists/${casa.id}/purchases/${compra.id}`, { amountCents: 100, method: "pix", installments: 1 })).status).toBe(204);
+      expect((await renan.call("DELETE", `/lists/${casa.id}/purchases/${compra.id}`)).status).toBe(204);
+      expect((await renan.snapshot(casa.id)).purchases).toEqual([]);
+      expect((await renan.call("POST", `/lists/${casa.id}/purchases/${compra.id}/restore`)).status).toBe(204);
+      const [saved] = (await renan.snapshot(casa.id)).purchases;
+      expect([saved.amountCents, saved.method, saved.memberName]).toEqual([100, "pix", "Renan"]);
     });
 
-    it("reenviar a mesma compra não duplica", async () => {
-      const compra = purchase();
-      await admin.call("POST", "/purchases", { purchase: compra, itemIds: [] });
-      await admin.call("POST", "/purchases", { purchase: compra, itemIds: [] });
-      expect(await purchases(admin)).toHaveLength(1);
-    });
-
-    it("outra família não vê nem apaga", async () => {
-      const meu = item();
-      await admin.call("PUT", "/items", { items: [meu] });
-      await outsider.call("POST", "/purchases", { purchase: purchase(), itemIds: [meu.id] });
-      expect(await admin.items()).toHaveLength(1);
-      expect(await purchases(admin)).toEqual([]);
-    });
-
-    it.each([
-      ["PIX parcelado", { method: "pix", installments: 2 }],
-      ["dinheiro parcelado", { method: "dinheiro", installments: 2 }],
-      ["débito parcelado", { method: "debito", installments: 3 }],
-      ["valor zero", { amountCents: 0 }],
-      ["valor fracionado", { amountCents: 10.5 }],
-      ["forma desconhecida", { method: "boleto" }],
-      ["parcelas demais", { installments: 25 }],
-    ])("recusa %s", async (_name, overrides) => {
-      const response = await admin.call("POST", "/purchases", { purchase: purchase(overrides), itemIds: [] });
-      expect(response.status).toBe(422);
-      expect(await purchases(admin)).toEqual([]);
-    });
-
-    it("guarda a lista de itens da compra", async () => {
-      const itens = [
-        { text: "Frangos", quantity: 2, category: "Congelados", done: true },
-        { text: "Sal", quantity: 1, category: "Outros", done: false },
-      ];
-      await admin.call("POST", "/purchases", { purchase: purchase({ items: itens }), itemIds: [] });
-      const [saved] = (await (await member.call("GET", "/list")).json()).purchases;
-      expect(saved.items).toEqual(itens);
-    });
-
-    it("aceita compra sem lista de itens, como as versões anteriores mandavam", async () => {
-      const response = await admin.call("POST", "/purchases", { purchase: purchase(), itemIds: [] });
-      expect(response.status).toBe(204);
-      const [saved] = (await (await admin.call("GET", "/list")).json()).purchases;
-      expect(saved.items).toEqual([]);
-    });
-
-    it("recusa item inválido na lista da compra", async () => {
-      const response = await admin.call("POST", "/purchases", {
-        purchase: purchase({ items: [{ text: "", quantity: 1, category: "Outros", done: true }] }),
-        itemIds: [],
-      });
+    it("recusa PIX parcelado", async () => {
+      const response = await renan.call("POST", `/lists/${casa.id}/purchases`, { purchase: purchase({ method: "pix", installments: 2 }), itemIds: [] });
       expect(response.status).toBe(422);
     });
 
-    it("exclui e desfaz a exclusão, mantendo quem finalizou", async () => {
-      const compra = purchase();
-      await member.call("POST", "/purchases", { purchase: compra, itemIds: [] });
-
-      expect((await admin.call("DELETE", `/purchases/${compra.id}`)).status).toBe(204);
-      expect(await purchases(member)).toEqual([]);
-      // Repetir a exclusão não dá erro.
-      expect((await admin.call("DELETE", `/purchases/${compra.id}`)).status).toBe(204);
-
-      expect((await admin.call("POST", `/purchases/${compra.id}/restore`)).status).toBe(204);
-      const restored = await purchases(member);
-      expect(restored.map((p) => [p.id, p.memberName])).toEqual([[compra.id, "Mãe"]]);
-    });
-
-    it("outra família não exclui a compra", async () => {
-      const compra = purchase();
-      await admin.call("POST", "/purchases", { purchase: compra, itemIds: [] });
-      await outsider.call("DELETE", `/purchases/${compra.id}`);
-      expect(await purchases(admin)).toHaveLength(1);
-    });
-
-    it("aceita dinheiro em espécie", async () => {
-      const response = await admin.call("POST", "/purchases", {
-        purchase: purchase({ method: "dinheiro", installments: 1 }),
-        itemIds: [],
-      });
-      expect(response.status).toBe(204);
-    });
-
-    it("corrige valor e forma de pagamento", async () => {
-      const compra = purchase();
-      await admin.call("POST", "/purchases", { purchase: compra, itemIds: [] });
-      const response = await member.call("PUT", `/purchases/${compra.id}`, {
-        amountCents: 9850,
-        method: "dinheiro",
-        installments: 1,
-      });
-      expect(response.status).toBe(204);
-      const [saved] = (await (await admin.call("GET", "/list")).json()).purchases;
-      expect([saved.amountCents, saved.method, saved.installments, saved.id]).toEqual([9850, "dinheiro", 1, compra.id]);
-    });
-
-    it("não corrige compra de outra família", async () => {
-      const compra = purchase();
-      await admin.call("POST", "/purchases", { purchase: compra, itemIds: [] });
-      const response = await outsider.call("PUT", `/purchases/${compra.id}`, {
-        amountCents: 1,
-        method: "pix",
-        installments: 1,
-      });
-      expect(response.status).toBe(404);
-      const [saved] = (await (await admin.call("GET", "/list")).json()).purchases;
-      expect(saved.amountCents).toBe(15290);
-    });
-
-    it.each([
-      ["valor zero", { amountCents: 0, method: "pix", installments: 1 }],
-      ["débito parcelado", { amountCents: 100, method: "debito", installments: 2 }],
-    ])("recusa correção com %s", async (_name, payment) => {
-      const compra = purchase();
-      await admin.call("POST", "/purchases", { purchase: compra, itemIds: [] });
-      expect((await admin.call("PUT", `/purchases/${compra.id}`, payment)).status).toBe(422);
-    });
-
-    it("avisa a família em tempo real", async () => {
+    it("avisa em tempo real só a lista que mudou", async () => {
+      const pousada = await pai.createList("Pousada");
       notifier.broadcasts = [];
-      await admin.call("POST", "/purchases", { purchase: purchase(), itemIds: [] });
-      expect(notifier.broadcasts).toEqual([familyA]);
-    });
-  });
-
-  describe("tempo real", () => {
-    it("avisa só a família que mudou", async () => {
-      notifier.broadcasts = [];
-      await admin.call("PUT", "/items", { items: [item()] });
-      await admin.call("POST", "/categories", { name: "Pet" });
-      expect(notifier.broadcasts).toEqual([familyA, familyA]);
+      await renan.call("PUT", `/lists/${casa.id}/items`, { items: [item()] });
+      await pai.call("POST", `/lists/${pousada.id}/categories`, { name: "Quartos" });
+      expect(notifier.broadcasts).toEqual([casa.id, pousada.id]);
     });
 
-    it("escrita recusada não gera aviso", async () => {
-      notifier.broadcasts = [];
-      await admin.call("PUT", "/items", { items: [item({ text: "" })] });
-      expect(notifier.broadcasts).toEqual([]);
-    });
-
-    it("exige WebSocket para abrir o canal", async () => {
-      expect((await admin.call("GET", "/events")).status).toBe(426);
-    });
-
-    it("entrega o canal com o membro da sessão", async () => {
-      const response = await app.request("/api/events", {
-        headers: { cookie: admin.cookie, upgrade: "websocket" },
-      });
+    it("abre o canal em tempo real só com WebSocket", async () => {
+      expect((await pai.call("GET", `/lists/${casa.id}/events`)).status).toBe(426);
+      const response = await pai.call("GET", `/lists/${casa.id}/events`, undefined, { upgrade: "websocket" });
       expect(await response.text()).toBe("conectado");
-    });
-
-    it("desconecta na hora o membro removido", async () => {
-      const session = (await (await member.call("GET", "/session")).json()) as SessionInfo;
-      await admin.call("DELETE", `/family/members/${session.memberId}`);
-      expect(notifier.disconnects).toEqual([`${familyA}/${session.memberId}`]);
-    });
-  });
-
-  describe("gestão da família", () => {
-    it("o primeiro a entrar é admin e os demais são membros", async () => {
-      const list = (await (await member.call("GET", "/family/members")).json()) as {
-        name: string;
-        role: string;
-      }[];
-      expect(list.map((m) => [m.name, m.role])).toEqual([
-        ["Renan", "admin"],
-        ["Mãe", "member"],
-      ]);
-    });
-
-    it("membro comum não remove ninguém nem mexe na entrada", async () => {
-      const session = (await (await admin.call("GET", "/session")).json()) as SessionInfo;
-      expect((await member.call("DELETE", `/family/members/${session.memberId}`)).status).toBe(403);
-      expect((await member.call("PUT", "/family/entry", { open: false })).status).toBe(403);
-    });
-
-    it("membro removido perde o acesso na hora", async () => {
-      const session = (await (await member.call("GET", "/session")).json()) as SessionInfo;
-      const response = await admin.call("DELETE", `/family/members/${session.memberId}`);
-      expect(response.status).toBe(204);
-      expect((await member.call("GET", "/list")).status).toBe(401);
-    });
-
-    it("admin não remove a si mesmo", async () => {
-      const session = (await (await admin.call("GET", "/session")).json()) as SessionInfo;
-      expect((await admin.call("DELETE", `/family/members/${session.memberId}`)).status).toBe(400);
-    });
-
-    it("fechar a entrada barra gente nova sem derrubar quem já entrou", async () => {
-      const closed = await admin.call("PUT", "/family/entry", { open: false });
-      expect(await closed.json()).toEqual({ openJoin: false });
-
-      const late = new Device(app);
-      const refused = await late.call("POST", "/session", { inviteToken: inviteA, name: "Atrasado" });
-      expect(refused.status).toBe(403);
-      expect((await member.call("GET", "/list")).status).toBe(200);
-
-      await admin.call("PUT", "/family/entry", { open: true });
-      expect((await late.call("POST", "/session", { inviteToken: inviteA, name: "Novo" })).status).toBe(201);
-    });
-
-    it("fechar a entrada de uma família não afeta outra", async () => {
-      await admin.call("PUT", "/family/entry", { open: false });
-      const settings = (await (await outsider.call("GET", "/family")).json()) as { openJoin: boolean };
-      expect(settings.openJoin).toBe(true);
     });
   });
 });
 
-/** O app publicado tem uma família só: entra-se pelo endereço, sem convite. */
-describe("entrada pelo endereço", () => {
-  let app: App;
-  let db: Database;
+describe("aparelhos da versão anterior", () => {
+  const legacyToken = "b".repeat(64);
+  let listId: string;
 
   beforeEach(async () => {
-    db = openTestDatabase();
-    app = createApp(db, new RecordingNotifier());
-    await new FamilyService(db).create("Família Benitez");
+    const now = new Date().toISOString();
+    listId = randomUUID();
+    await db.batch([
+      db.prepare("INSERT INTO families (id, name, invite_hash, created_at) VALUES ('f1', 'Família', 'h', ?)").bind(now),
+      db.prepare("INSERT INTO lists (id, family_id, name, created_at) VALUES (?, 'f1', 'Casa', ?)").bind(listId, now),
+      db
+        .prepare(
+          "INSERT INTO members (id, family_id, name, role, session_hash, joined_at, last_seen_at) VALUES ('m1', 'f1', 'Renan', 'admin', ?, ?, ?)",
+        )
+        .bind(await hashToken(legacyToken), now, now),
+      db
+        .prepare("INSERT INTO items (list_id, id, text, quantity, done, category, created_at) VALUES (?, ?, 'Café', 1, 0, 'Outros', ?)")
+        .bind(listId, randomUUID(), now),
+    ]);
   });
 
-  const joinByName = (device: Device, name: string) => device.call("POST", "/session", { name });
-
-  it("o primeiro a entrar só com o nome vira admin", async () => {
-    const first = new Device(app);
-    const response = await joinByName(first, "Renan");
-    expect(response.status).toBe(201);
-    expect(((await response.json()) as SessionInfo).role).toBe("admin");
-
-    const second = await joinByName(new Device(app), "Mãe");
-    expect(((await second.json()) as SessionInfo).role).toBe("member");
-  });
-
-  it("o mesmo aparelho entrando de novo não duplica", async () => {
+  it("o /me reconhece o aparelho antigo pelo nome", async () => {
     const device = new Device(app);
-    await joinByName(device, "Renan");
-    await joinByName(device, "Renan");
-    const members = (await (await device.call("GET", "/family/members")).json()) as unknown[];
-    expect(members).toHaveLength(1);
+    device.cookies.set("lista_sessao", legacyToken);
+    const response = await device.call("GET", "/auth/me");
+    expect(await response.json()).toEqual({ legacy: { name: "Renan" } });
   });
 
-  it("com a entrada fechada, ninguém novo entra", async () => {
-    const admin = new Device(app);
-    await joinByName(admin, "Renan");
-    await admin.call("PUT", "/family/entry", { open: false });
+  it("cria a conta levando o acesso de administrador à lista, com os itens", async () => {
+    const device = new Device(app);
+    device.cookies.set("lista_sessao", legacyToken);
+    const response = await device.call("POST", "/auth/claim", { username: "renan", displayName: "Renan", passwordKey: device.passwordKey });
+    expect(response.status).toBe(201);
+    const me = (await response.json()) as MeResponse;
+    expect(me.lists).toEqual([{ id: listId, name: "Casa", role: "admin" }]);
+    expect((await device.snapshot(listId)).items.map((i) => i.text)).toEqual(["Café"]);
 
-    const response = await joinByName(new Device(app), "Estranho");
-    expect(response.status).toBe(403);
-    expect(((await response.json()) as { error: string }).error).toContain("fechada");
+    // O cookie antigo deixa de valer.
+    expect(device.cookies.has("lista_sessao")).toBe(false);
+    const reuse = new Device(app);
+    reuse.cookies.set("lista_sessao", legacyToken);
+    expect((await reuse.call("GET", "/auth/me")).status).toBe(401);
   });
 
-  it("valida o nome", async () => {
-    expect((await joinByName(new Device(app), "   ")).status).toBe(422);
+  it("sem o cookie antigo, não há o que transferir", async () => {
+    const response = await new Device(app).call("POST", "/auth/claim", { username: "renan", displayName: "Renan", passwordKey: key() });
+    expect(response.status).toBe(404);
+  });
+
+  it("usuário já usado mantém o aparelho antigo válido para tentar de novo", async () => {
+    await new Device(app).signup("renan", "Outro Renan");
+    const device = new Device(app);
+    device.cookies.set("lista_sessao", legacyToken);
+    expect((await device.call("POST", "/auth/claim", { username: "renan", displayName: "Renan", passwordKey: key() })).status).toBe(409);
+    expect(await (await device.call("GET", "/auth/me")).json()).toEqual({ legacy: { name: "Renan" } });
   });
 });

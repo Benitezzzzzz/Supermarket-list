@@ -29,17 +29,37 @@ export const deleteItemsSchema = z.object({
 
 export const addCategorySchema = z.object({ name: categoryName });
 
-/** Sem convite, a pessoa entra na única família do app, se a entrada estiver aberta. */
-export const joinSchema = z.object({
-  inviteToken: z.string().regex(/^[0-9a-f]{64}$/).optional(),
-  name: z.string().trim().min(1).max(MAX_NAME),
+export const MAX_LIST_NAME = 40;
+
+/** Usuário: letras minúsculas, números, ponto, hífen ou sublinhado. */
+export const usernameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9._-]{3,30}$/);
+
+/** Chave derivada da senha no aparelho (PBKDF2). A senha em si nunca é enviada. */
+export const passwordKeySchema = z.string().regex(/^[0-9a-f]{64}$/);
+
+export const signupSchema = z.object({
+  username: usernameSchema,
+  displayName: z.string().trim().min(1).max(MAX_NAME),
+  passwordKey: passwordKeySchema,
 });
 
-export const entrySchema = z.object({ open: z.boolean() });
+export const loginSchema = z.object({
+  username: usernameSchema,
+  passwordKey: passwordKeySchema,
+});
 
-export interface FamilySettings {
-  openJoin: boolean;
-}
+export const changePasswordSchema = z.object({
+  currentKey: passwordKeySchema,
+  newKey: passwordKeySchema,
+});
+
+export const listNameSchema = z.object({ name: z.string().trim().min(1).max(MAX_LIST_NAME) });
+
+export const addMemberSchema = z.object({ username: usernameSchema });
 
 export const MAX_INSTALLMENTS = 24;
 export const MAX_AMOUNT_CENTS = 100_000_000;
@@ -113,18 +133,28 @@ export type Op =
 
 export type Role = "admin" | "member";
 
-export interface SessionInfo {
-  memberId: string;
-  name: string;
-  role: Role;
-  familyId: string;
-  familyName: string;
+export interface UserInfo {
+  id: string;
+  username: string;
+  displayName: string;
 }
 
-export interface Member {
+export interface ListSummary {
   id: string;
   name: string;
   role: Role;
+}
+
+/** Resposta de /auth/me para quem está logado. */
+export interface MeResponse {
+  user: UserInfo;
+  lists: ListSummary[];
+}
+
+export interface ListMember {
+  userId: string;
+  username: string;
+  displayName: string;
+  role: Role;
   joinedAt: string;
-  lastSeenAt: string;
 }

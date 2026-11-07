@@ -2,76 +2,130 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import {
   addCategorySchema,
+  addMemberSchema,
   deleteItemsSchema,
   finishSchema,
+  listNameSchema,
   paymentSchema,
   upsertItemsSchema,
 } from "../../shared/contract.ts";
-import type { FamilyService } from "../services/families.ts";
+import type { AccountService } from "../services/accounts.ts";
 import type { ListService } from "../services/lists.ts";
-import { type Env, readJson, requireSession } from "./context.ts";
+import type { MembershipService } from "../services/memberships.ts";
+import { type Env, readJson, requireListAccess, requireListAdmin, requireUser } from "./context.ts";
 import type { Notifier } from "./notifier.ts";
 
-export function listRoutes(families: FamilyService, lists: ListService, notifier: Notifier) {
-  const routes = new Hono<Env>();
-  routes.use("*", requireSession(families));
+interface Deps {
+  accounts: AccountService;
+  lists: ListService;
+  memberships: MembershipService;
+  notifier: Notifier;
+}
 
-  routes.get("/list", async (c) => c.json(await lists.snapshot(c.get("session").familyId)));
+/** Rotas de uma lista: /api/lists/:listId/... Só entra quem participa dela. */
+function oneList({ lists, memberships, notifier }: Deps) {
+  const routes = new Hono<Env>();
+  routes.use("*", requireListAccess(memberships));
+
+  /** Toda escrita avisa os outros aparelhos da mesma lista. */
+  const changed = async (listId: string) => notifier.broadcast(listId);
+
+  routes.get("/", async (c) => c.json(await lists.snapshot(c.get("listId"))));
+
+  routes.patch("/", requireListAdmin, async (c) => {
+    const { name } = await readJson(c, listNameSchema);
+    await lists.rename(c.get("listId"), name);
+    return c.json({ id: c.get("listId"), name, role: c.get("role") });
+  });
+
+  routes.delete("/", requireListAdmin, async (c) => {
+    const listId = c.get("listId");
+    const members = await memberships.members(listId);
+    await lists.delete(listId);
+    await Promise.all(members.map((member) => notifier.disconnectMember(listId, member.userId)));
+    return c.body(null, 204);
+  });
+
+  routes.post("/leave", async (c) => {
+    if (c.get("role") === "admin") {
+      throw new HTTPException(400, { message: "Quem administra não pode sair. Para encerrar, exclua a lista." });
+    }
+    await memberships.remove(c.get("listId"), c.get("user").id);
+    return c.body(null, 204);
+  });
+
+  routes.get("/members", async (c) => c.json(await memberships.members(c.get("listId"))));
+
+  routes.post("/members", requireListAdmin, async (c) => {
+    const { username } = await readJson(c, addMemberSchema);
+    const result = await memberships.add(c.get("listId"), username);
+    if (!result.ok && result.reason === "not_found") {
+      throw new HTTPException(404, { message: "Não encontrei esse usuário. Confira como a pessoa escreveu." });
+    }
+    if (!result.ok) throw new HTTPException(409, { message: "Essa pessoa já participa da lista." });
+    return c.json(result.member, 201);
+  });
+
+  routes.delete("/members/:userId", requireListAdmin, async (c) => {
+    const listId = c.get("listId");
+    const target = c.req.param("userId");
+    if (target === c.get("user").id) {
+      throw new HTTPException(400, { message: "Quem administra não pode remover a si mesmo" });
+    }
+    if (!(await memberships.remove(listId, target))) {
+      throw new HTTPException(404, { message: "Participante não encontrado" });
+    }
+    await notifier.disconnectMember(listId, target);
+    return c.body(null, 204);
+  });
 
   routes.put("/items", async (c) => {
-    const { familyId } = c.get("session");
     const { items } = await readJson(c, upsertItemsSchema);
-    await lists.upsertItems(familyId, items);
-    await notifier.broadcast(familyId);
+    await lists.upsertItems(c.get("listId"), items);
+    await changed(c.get("listId"));
     return c.body(null, 204);
   });
 
   routes.post("/items/delete", async (c) => {
-    const { familyId } = c.get("session");
     const { ids } = await readJson(c, deleteItemsSchema);
-    await lists.deleteItems(familyId, ids);
-    await notifier.broadcast(familyId);
+    await lists.deleteItems(c.get("listId"), ids);
+    await changed(c.get("listId"));
     return c.body(null, 204);
   });
 
   routes.post("/categories", async (c) => {
-    const { familyId } = c.get("session");
     const { name } = await readJson(c, addCategorySchema);
-    await lists.addCategory(familyId, name);
-    await notifier.broadcast(familyId);
+    await lists.addCategory(c.get("listId"), name);
+    await changed(c.get("listId"));
     return c.body(null, 204);
   });
 
   routes.post("/purchases", async (c) => {
-    const { familyId, name } = c.get("session");
     const { purchase, itemIds } = await readJson(c, finishSchema);
-    // Quem registrou vem da sessão, nunca do que o aparelho mandou.
-    await lists.finish(familyId, name, purchase, itemIds);
-    await notifier.broadcast(familyId);
+    // Quem registrou vem da conta, nunca do que o aparelho mandou.
+    await lists.finish(c.get("listId"), c.get("user").displayName, purchase, itemIds);
+    await changed(c.get("listId"));
     return c.body(null, 204);
   });
 
   routes.put("/purchases/:id", async (c) => {
-    const { familyId } = c.get("session");
     const payment = await readJson(c, paymentSchema);
-    if (!(await lists.updatePurchase(familyId, c.req.param("id"), payment))) {
+    if (!(await lists.updatePurchase(c.get("listId"), c.req.param("id"), payment))) {
       throw new HTTPException(404, { message: "Compra não encontrada" });
     }
-    await notifier.broadcast(familyId);
+    await changed(c.get("listId"));
     return c.body(null, 204);
   });
 
   routes.delete("/purchases/:id", async (c) => {
-    const { familyId } = c.get("session");
-    await lists.deletePurchase(familyId, c.req.param("id"));
-    await notifier.broadcast(familyId);
+    await lists.deletePurchase(c.get("listId"), c.req.param("id"));
+    await changed(c.get("listId"));
     return c.body(null, 204);
   });
 
   routes.post("/purchases/:id/restore", async (c) => {
-    const { familyId } = c.get("session");
-    await lists.restorePurchase(familyId, c.req.param("id"));
-    await notifier.broadcast(familyId);
+    await lists.restorePurchase(c.get("listId"), c.req.param("id"));
+    await changed(c.get("listId"));
     return c.body(null, 204);
   });
 
@@ -79,9 +133,21 @@ export function listRoutes(families: FamilyService, lists: ListService, notifier
     if (c.req.header("upgrade") !== "websocket") {
       throw new HTTPException(426, { message: "Esperado WebSocket" });
     }
-    const { familyId, memberId } = c.get("session");
-    return notifier.connect(familyId, memberId, c.req.raw);
+    return notifier.connect(c.get("listId"), c.get("user").id, c.req.raw);
   });
 
+  return routes;
+}
+
+export function listRoutes(deps: Deps) {
+  const routes = new Hono<Env>();
+  routes.use("*", requireUser(deps.accounts));
+
+  routes.post("/", async (c) => {
+    const { name } = await readJson(c, listNameSchema);
+    return c.json(await deps.lists.create(c.get("user").id, name), 201);
+  });
+
+  routes.route("/:listId", oneList(deps));
   return routes;
 }

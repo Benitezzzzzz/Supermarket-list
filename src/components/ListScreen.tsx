@@ -1,17 +1,19 @@
 import type { ListState } from "../data/syncedList";
 import { groupByCategory } from "../domain/categories";
 import { categoryStyle } from "../domain/categoryStyle";
-import type { Item, SessionInfo } from "../domain/types";
+import type { Item, ListSummary, UserInfo } from "../domain/types";
 import { Icon } from "../ui/Icon";
 import { ItemRow } from "./ItemRow";
 
 interface ListScreenProps {
   state: ListState;
-  session: SessionInfo;
+  user: UserInfo;
+  current: ListSummary;
+  onOpenLists: () => void;
+  onOpenAccount: () => void;
   onToggle: (item: Item) => void;
   onEdit: (item: Item) => void;
   onAskClearAll: () => void;
-  onFinish: () => void;
 }
 
 function firstName(name: string): string {
@@ -47,11 +49,13 @@ function LoadingList() {
 
 export function ListScreen({
   state,
-  session,
+  user,
+  current,
+  onOpenLists,
+  onOpenAccount,
   onToggle,
   onEdit,
   onAskClearAll,
-  onFinish,
 }: ListScreenProps) {
   const toBuy = state.items.filter((item) => !item.done);
   const loading = state.connection === "loading" && state.items.length === 0;
@@ -61,21 +65,31 @@ export function ListScreen({
       <header className="screen-header">
         <div className="screen-header__meta">
           <SyncStatus state={state} />
-          {state.items.length > 0 && (
-            <button
-              type="button"
-              className="icon-btn"
-              aria-label="Limpar a lista"
-              title="Limpar a lista"
-              onClick={onAskClearAll}
-            >
-              <Icon name="trash" size={22} />
+          <span className="header-actions">
+            {state.items.length > 0 && (
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Limpar a lista"
+                title="Limpar a lista"
+                onClick={onAskClearAll}
+              >
+                <Icon name="trash" size={22} />
+              </button>
+            )}
+            <button type="button" className="icon-btn icon-btn--account" aria-label="Sua conta" onClick={onOpenAccount}>
+              {user.displayName.charAt(0).toUpperCase()}
             </button>
-          )}
+          </span>
         </div>
-        <h1 className="title">Lista do Mercado</h1>
+        <h1 className="title">
+          <button type="button" className="list-switch" onClick={onOpenLists} aria-label={`Lista ${current.name}. Trocar de lista`}>
+            <span className="list-switch__name">{current.name}</span>
+            <Icon name="chevron" size={26} strokeWidth={2.6} />
+          </button>
+        </h1>
         <p className="subtitle" aria-live="polite">
-          {loading ? "Carregando a lista…" : greeting(session.name, state.items.length, toBuy.length)}
+          {loading ? "Carregando a lista…" : greeting(user.displayName, state.items.length, toBuy.length)}
         </p>
       </header>
 
@@ -133,12 +147,6 @@ export function ListScreen({
         })}
       </div>
 
-      {state.items.length > 0 && (
-        <button type="button" className="btn btn--accent btn--block btn--xl" onClick={onFinish}>
-          <Icon name="bag" size={24} />
-          Finalizar compra
-        </button>
-      )}
     </div>
   );
 }

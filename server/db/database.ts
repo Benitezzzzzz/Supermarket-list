@@ -17,7 +17,3 @@ export interface Database {
   /** Executa tudo numa transação: ou todas as instruções valem, ou nenhuma. */
   batch(statements: Statement[]): Promise<unknown[]>;
 }
-
-/** A lista da família, resolvida no próprio banco a partir da sessão. */
-export const FAMILY_LIST =
-  "(SELECT id FROM lists WHERE family_id = ? ORDER BY created_at LIMIT 1)";

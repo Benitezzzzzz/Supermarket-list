@@ -8,32 +8,38 @@ const MAX_RETRY_MS = 30_000;
 const ACCESS_REMOVED = 4001;
 
 export class ApiBackend implements ListBackend {
+  private base: string;
+
+  constructor(listId: string) {
+    this.base = `/lists/${encodeURIComponent(listId)}`;
+  }
+
   async load(): Promise<Snapshot> {
-    return (await api("/list")).json() as Promise<Snapshot>;
+    return (await api(this.base)).json() as Promise<Snapshot>;
   }
 
   async apply(op: Op): Promise<void> {
     switch (op.kind) {
       case "upsert":
-        await api("/items", "PUT", { items: op.items });
+        await api(`${this.base}/items`, "PUT", { items: op.items });
         return;
       case "delete":
-        await api("/items/delete", "POST", { ids: op.ids });
+        await api(`${this.base}/items/delete`, "POST", { ids: op.ids });
         return;
       case "addCategory":
-        await api("/categories", "POST", { name: op.name });
+        await api(`${this.base}/categories`, "POST", { name: op.name });
         return;
       case "updatePurchase":
-        await api(`/purchases/${op.id}`, "PUT", op.payment);
+        await api(`${this.base}/purchases/${op.id}`, "PUT", op.payment);
         return;
       case "deletePurchase":
-        await api(`/purchases/${op.id}`, "DELETE");
+        await api(`${this.base}/purchases/${op.id}`, "DELETE");
         return;
       case "restorePurchase":
-        await api(`/purchases/${op.purchase.id}/restore`, "POST");
+        await api(`${this.base}/purchases/${op.purchase.id}/restore`, "POST");
         return;
       case "finish":
-        await api("/purchases", "POST", { purchase: op.purchase, itemIds: op.itemIds });
+        await api(`${this.base}/purchases`, "POST", { purchase: op.purchase, itemIds: op.itemIds });
         return;
     }
   }
@@ -47,7 +53,7 @@ export class ApiBackend implements ListBackend {
     let pingTimer: ReturnType<typeof setInterval> | undefined;
 
     const connect = () => {
-      const url = new URL("/api/events", location.href);
+      const url = new URL(`/api${this.base}/events`, location.href);
       url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
       socket = new WebSocket(url);
 

@@ -1,5 +1,34 @@
 # Changelog
 
+## 4.0.0 (2026-11-07)
+
+Contas com usuário e senha, e várias listas por pessoa.
+
+### Adicionado
+
+- **Contas:** criar conta, entrar, sair e trocar senha. A senha é derivada no aparelho (PBKDF2, 600 mil iterações) e nunca chega ao servidor; 5 tentativas erradas bloqueiam a conta por 15 minutos.
+- **Várias listas:** cada pessoa pode criar e participar de várias listas, como Casa e Pousada. Troca tocando no nome da lista no topo.
+- **Participantes por lista:** quem administra adiciona pelo usuário, remove, renomeia e exclui a lista; quem participa pode sair.
+- **Gastos separados por lista.**
+- **Transferência automática:** aparelhos da versão anterior, na primeira abertura, criam usuário e senha e levam a lista com itens e gastos.
+- Comando `npm run user:reset-password` para redefinir a senha de quem esqueceu.
+- Botão "Sua conta" no topo da lista.
+
+### Alterado
+
+- Finalizar e Adicionar ficam lado a lado numa barra fixa acima do menu, sempre visíveis. Antes o botão flutuante podia cobrir o Finalizar em listas curtas.
+- A lista que já existia passou a se chamar Casa.
+- A API passa a ser por lista: `/api/lists/:id/...`.
+
+### Removido
+
+- Entrada só pelo nome e o botão de fechar a entrada, substituídos pelas contas.
+- O comando `family:create` e o arquivo de importação inicial, que não são mais necessários.
+
+### Banco de dados
+
+- Migração `0006_contas.sql`: tabelas `users`, `sessions` e `list_members`. As tabelas antigas continuam para a transferência dos aparelhos.
+
 ## 3.8.0 (2026-11-07)
 
 ### Alterado

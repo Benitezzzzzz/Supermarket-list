@@ -1,34 +1,33 @@
 # Lista do Mercado
 
-Lista de compras compartilhada da família. Abre por um link, instala no celular como app, atualiza em tempo real entre os aparelhos e funciona sem internet dentro do mercado. Ninguém precisa criar senha.
+Listas de compras compartilhadas. Cada pessoa tem usuário e senha e pode participar de várias listas, como "Casa" e "Pousada", cada uma com seus participantes e seus gastos. Instala no celular como app, atualiza em tempo real entre os aparelhos e funciona sem internet dentro do mercado.
 
-**Stack:** React 19, TypeScript, Vite e PWA no frontend; Hono rodando em Cloudflare Workers, banco Cloudflare D1 (SQLite) e um Durable Object por família para o tempo real; Zod para validar o contrato entre os dois lados.
+**Stack:** React 19, TypeScript, Vite e PWA no frontend; Hono rodando em Cloudflare Workers, banco Cloudflare D1 (SQLite) e um Durable Object por lista para o tempo real; Zod para validar o contrato entre os dois lados.
 
-**No ar:** https://lista-do-mercado.lista-do-mercado.workers.dev. Para entrar, abra o endereço e digite seu nome.
+**No ar:** https://lista-do-mercado.lista-do-mercado.workers.dev. Para começar, crie uma conta.
 
-**Hospedagem:** tudo no plano gratuito da Cloudflare, sem servidor próprio para manter. As mudanças estão no [CHANGELOG](CHANGELOG.md), e a decisão está registrada em [docs/plano-publicacao-cloudflare.md](docs/plano-publicacao-cloudflare.md).
+**Hospedagem:** tudo no plano gratuito da Cloudflare, sem servidor próprio para manter. As mudanças estão no [CHANGELOG](CHANGELOG.md), a decisão de hospedagem em [docs/plano-publicacao-cloudflare.md](docs/plano-publicacao-cloudflare.md) e os próximos passos em [docs/proximas-funcionalidades.md](docs/proximas-funcionalidades.md).
 
 ## Rodando localmente
 
-Requer Node.js 24 ou mais novo. Tudo roda no simulador local da Cloudflare, sem conta.
+Requer Node.js 24 ou mais novo. Tudo roda no simulador local da Cloudflare, sem conta na Cloudflare.
 
 ```bash
 npm install
 npm run db:migrate
-npm run family:create -- "Minha Família" --importar server/seed/lista-familia.json
 npm run preview
 ```
 
-Abra o endereço que o `family:create` mostrar e digite seu nome. Quem entra primeiro vira administrador.
+Abra `http://localhost:8787`, crie uma conta e a primeira lista.
 
 | Comando | O que faz |
 |---|---|
 | `npm run preview` | Gera o site e sobe o app completo em `localhost:8787` |
-| `npm run dev` | API em `8787` e frontend com recarga automática em `5173` (use `--url http://localhost:5173` no `family:create`) |
+| `npm run dev` | API em `8787` e frontend com recarga automática em `5173` |
 | `npm test` | Roda os testes |
 | `npm run lint` | Roda o lint |
 | `npm run db:migrate` | Aplica as migrações no banco local |
-| `npm run family:create -- "Nome"` | Cria uma família e mostra o convite |
+| `npm run user:reset-password -- <usuario> [--remoto]` | Redefine a senha de quem esqueceu e mostra a nova |
 | `npm run deploy` | Publica na Cloudflare |
 
 O banco local fica em `.wrangler/`, fora do Git. Apagar essa pasta zera os dados de teste.
@@ -41,12 +40,11 @@ Precisa de uma conta gratuita na Cloudflare.
 npx wrangler login
 npx wrangler d1 create lista-do-mercado   # copie o database_id para o wrangler.jsonc
 npm run deploy
-npm run family:create -- "Minha Família" --importar server/seed/lista-familia.json --remoto --url https://lista-do-mercado.SEU-SUBDOMINIO.workers.dev
 ```
 
 ### Publicação automática
 
-O workflow `ci.yml` publica a cada push na `main` depois de os testes passarem, e também pode ser disparado pela aba Actions. Já está configurado neste repositório. Para ligar, configure no GitHub, em **Settings > Secrets and variables > Actions**:
+O workflow `ci.yml` publica a cada push na `main` depois de os testes passarem, e também pode ser disparado pela aba Actions. Já está configurado neste repositório. Para ligar em outro repositório, configure no GitHub, em **Settings > Secrets and variables > Actions**:
 
 - **Secrets:** `CLOUDFLARE_API_TOKEN`, um token com permissão de editar Workers e D1, e `CLOUDFLARE_ACCOUNT_ID`.
 - **Variável:** `DEPLOY_ENABLED` com o valor `true`.
@@ -74,24 +72,28 @@ O GitHub pausa workflows agendados em repositórios sem atividade por 60 dias. S
 ## Arquitetura
 
 ```
-shared/contract.ts      tipos e validação usados pelos dois lados
+shared/
+  contract.ts           tipos e validação usados pelos dois lados
+  password.ts           derivação da senha (PBKDF2), igual no app e no comando de senha
 server/
   worker.ts             entrada do Worker
   app.ts                monta a API
   db/                   interface do banco e migrações do D1
-  services/             regras de famílias, membros, convites e listas
+  services/
+    accounts.ts         contas, senhas, sessões e transferência dos aparelhos antigos
+    memberships.ts      quem participa de qual lista (a fonte de permissão)
+    lists.ts            itens, categorias e compras de uma lista
   http/                 rotas, autenticação e tempo real
-    familyEvents.ts     Durable Object que guarda os WebSockets de uma família
-  scripts/              criar família
-  seed/                 lista migrada da versão anterior
+    familyEvents.ts     Durable Object que guarda os WebSockets de uma lista
+  scripts/              redefinir senha
 src/
-  domain/               regras puras: itens, quantidade, categorias, importação
+  domain/               regras puras: itens, quantidade, categorias, dinheiro, importação
   data/
     syncedList.ts       escrita otimista e fila offline (o coração do app)
-    backend.ts          contrato entre a lista e o armazenamento
-    apiBackend.ts       implementação que fala com a API
-    session.ts          entrada na família e sessão do aparelho
-  hooks/  components/
+    apiBackend.ts       implementação que fala com a API de uma lista
+    auth.ts             entrar, criar conta, sair e trocar senha
+    listsApi.ts         criar, renomear, excluir listas e gerenciar participantes
+  hooks/  components/  ui/
 ```
 
 A Cloudflare serve o site direto. Só as rotas `/api/*` passam pelo Worker, então site e API ficam na mesma origem, sem CORS.
@@ -102,21 +104,30 @@ Nos testes, o banco é um adaptador sobre o SQLite do Node com a mesma interface
 
 | Método e rota | Função | Acesso |
 |---|---|---|
-| `POST /api/session` | Entra na família pelo nome (ou convite, com várias famílias) | Entrada aberta |
-| `GET /api/session` | Dados da sessão atual | Membro |
-| `GET /api/list` | Itens, categorias e últimas compras | Membro |
-| `PUT /api/items` | Cria ou altera itens | Membro |
-| `POST /api/items/delete` | Remove itens | Membro |
-| `POST /api/categories` | Cria categoria | Membro |
-| `POST /api/purchases` | Registra a compra e tira os itens da lista | Membro |
-| `PUT /api/purchases/:id` | Corrige valor e forma de pagamento | Membro |
-| `DELETE /api/purchases/:id` | Exclui a compra (só marca) | Membro |
-| `POST /api/purchases/:id/restore` | Desfaz a exclusão | Membro |
-| `GET /api/events` | Avisos em tempo real (WebSocket) | Membro |
-| `GET /api/family/members` | Lista os membros | Membro |
-| `DELETE /api/family/members/:id` | Remove um membro | Administrador |
-| `GET /api/family` | Mostra se a entrada está aberta | Membro |
-| `PUT /api/family/entry` | Abre ou fecha a entrada de pessoas novas | Administrador |
+| `POST /api/auth/signup` | Cria a conta e entra | Público |
+| `POST /api/auth/login` | Entra com usuário e senha | Público |
+| `POST /api/auth/logout` | Sai neste aparelho | Logado |
+| `GET /api/auth/me` | Conta e listas de quem está logado | Logado |
+| `POST /api/auth/claim` | Aparelho da versão anterior cria a conta levando a lista | Aparelho antigo |
+| `PUT /api/auth/password` | Troca a senha e desconecta os outros aparelhos | Logado |
+| `POST /api/lists` | Cria uma lista | Logado |
+| `GET /api/lists/:id` | Itens, categorias e últimas compras | Participante |
+| `PATCH /api/lists/:id` | Renomeia | Administrador |
+| `DELETE /api/lists/:id` | Exclui com tudo dentro | Administrador |
+| `POST /api/lists/:id/leave` | Sai da lista | Participante comum |
+| `GET /api/lists/:id/members` | Participantes | Participante |
+| `POST /api/lists/:id/members` | Adiciona pelo usuário | Administrador |
+| `DELETE /api/lists/:id/members/:userId` | Remove e desconecta | Administrador |
+| `PUT /api/lists/:id/items` | Cria ou altera itens | Participante |
+| `POST /api/lists/:id/items/delete` | Remove itens | Participante |
+| `POST /api/lists/:id/categories` | Cria categoria | Participante |
+| `POST /api/lists/:id/purchases` | Registra a compra e tira os itens da lista | Participante |
+| `PUT /api/lists/:id/purchases/:pid` | Corrige valor e forma de pagamento | Participante |
+| `DELETE /api/lists/:id/purchases/:pid` | Exclui a compra (só marca) | Participante |
+| `POST /api/lists/:id/purchases/:pid/restore` | Desfaz a exclusão | Participante |
+| `GET /api/lists/:id/events` | Avisos em tempo real (WebSocket) | Participante |
+
+Para quem não participa, qualquer rota de uma lista responde 404, como se ela não existisse.
 
 ### Sincronização
 
@@ -126,30 +137,30 @@ Cada alteração é uma operação pequena e idempotente que mexe só nos itens 
 - Sem internet, as alterações ficam salvas no aparelho e são enviadas quando a conexão volta, mesmo que o app tenha sido fechado.
 - Duas pessoas mexendo ao mesmo tempo não apagam o trabalho uma da outra. Se as duas alterarem o mesmo item, vale a última.
 
-Cada família tem um Durable Object que guarda os WebSockets abertos. Quando algo muda, ele envia um aviso sem dados, e cada aparelho relê a lista pela API autenticada. Com a API de hibernação, conexões paradas não consomem a cota de tempo de execução. O app também relê ao voltar para a tela e ao recuperar a conexão.
+Cada lista tem um Durable Object que guarda os WebSockets abertos. Quando algo muda, ele envia um aviso sem dados, e cada aparelho relê a lista pela API autenticada. Com a API de hibernação, conexões paradas não consomem a cota de tempo de execução. O app também relê ao voltar para a tela e ao recuperar a conexão.
 
 ### Segurança
 
-- **Sem cadastro público:** famílias só nascem pelo comando `family:create`.
-- **Isolamento:** a família vem sempre da sessão, nunca de um id enviado pelo cliente. A chave dos itens inclui a lista, então o id de um item de outra família não alcança a linha dela.
-- **Sessão:** um token aleatório de 256 bits por aparelho, em cookie `HttpOnly`, `SameSite=Strict` e `Secure`. O banco guarda só o hash.
-- **Entrada:** com uma família só no app, basta abrir o endereço e digitar o nome. Enquanto a entrada estiver aberta, qualquer pessoa que descobrir o endereço consegue entrar; por isso o administrador pode fechá-la na tela Participantes depois que todos entraram. Ele também vê quem está na lista e remove aparelhos, que são desconectados na hora. Se o mesmo app tiver mais de uma família, a entrada passa a exigir o convite de cada uma.
+- **Senha:** nunca sai do aparelho. Ela vira uma chave com PBKDF2-SHA256 (600 mil iterações) e o servidor guarda só SHA-256 de um sal aleatório com essa chave. Assim o trabalho pesado fica no celular, e o servidor cabe no limite de 10 ms de CPU do plano gratuito.
+- **Tentativas:** depois de 5 senhas erradas, a conta fica bloqueada por 15 minutos. A mensagem de erro é a mesma para usuário inexistente e senha errada.
+- **Sessão:** um token aleatório de 256 bits por aparelho, em cookie `HttpOnly`, `SameSite=Strict` e `Secure`. O banco guarda só o hash. Trocar a senha desconecta os outros aparelhos.
+- **Isolamento:** toda rota de uma lista confere em `list_members` se a pessoa participa. A chave dos itens e das compras inclui a lista, então um id de outra lista não alcança a linha.
+- **Sem e-mail:** quem esquecer a senha pede a quem administra o app, que roda `npm run user:reset-password -- <usuario> --remoto` e passa a senha nova.
 - **Validação:** todo dado de entrada passa pelo Zod no servidor, e o banco repete os limites com `CHECK`.
-
-Como não há senha, o administrador não recupera o acesso se perder o aparelho: para isso, a tabela `members` precisa ser ajustada com `wrangler d1 execute`.
 
 ## Funcionalidades
 
+- Contas com usuário e senha; trocar senha e sair em "Sua conta"
+- Várias listas por pessoa, com troca pelo nome da lista no topo
+- Participantes por lista: adicionar pelo usuário, remover, renomear e excluir a lista, ou sair dela
 - Adicionar item com categoria e criar categorias novas
 - Quantidade: digite "2 frangos" ou ajuste depois no lápis (medidas como "2 kg arroz" ficam no nome)
 - Marcar como comprado tocando na linha: o item fica riscado no mesmo lugar
-- Trocar a categoria de um item
 - Importar vários itens colando texto; uma linha com o nome de uma categoria vira título
 - Lixeira no topo: limpar só os riscados ou a lista toda
 - Finalizar compra: valor, forma de pagamento (PIX, dinheiro, débito ou crédito, à vista ou parcelado) e limpeza da lista
-- Aba Gastos: últimas compras com a lista de itens de cada uma, total do mês, correção de valor ou forma de pagamento e exclusão com Desfazer
-- Tela Participantes: ver quem está na lista, copiar o endereço e, para o administrador, remover aparelhos e fechar a entrada
-- Desfazer depois de remover ou limpar o carrinho
+- Aba Gastos, separada por lista: últimas compras com os itens de cada uma, total do mês, correção e exclusão com Desfazer
+- Desfazer depois de remover ou limpar
 - Tema claro e escuro automático
 
 ## Design System
@@ -158,10 +169,10 @@ Proposta "Friendly & Family": pensada para uma família com pessoas de várias i
 
 - **Tokens:** tudo em `src/styles/tokens.css`, entre cores, tipografia, espaçamento, bordas, sombras e camadas, com tema claro e escuro. Os componentes em `src/styles/app.css` só usam esses tokens.
 - **Tipografia:** Fredoka nos títulos, Atkinson Hyperlegible no texto (feita para leitura fácil). Itens com 19px; campos com 20px.
-- **Cores:** creme quente, verde-folha para ação, girassol para quantidade e desfazer, tomate só para remover. Cada categoria tem cor e ícone próprios.
-- **Toque:** alvos de 48 a 68px; barra inferior com Lista, Gastos e Participantes, e o botão de adicionar flutuando no alcance do polegar.
+- **Cores:** creme quente, verde-folha para ação, girassol para quantidade, finalizar e desfazer, tomate só para remover. Cada categoria tem cor e ícone próprios.
+- **Toque:** alvos de 48 a 68px; barra inferior com Lista, Gastos e Participantes, e acima dela os botões Finalizar e Adicionar, no alcance do polegar.
 - **Componentes compartilhados** em `src/ui/`: `BottomSheet`, `ConfirmSheet`, `Toast` e `Icon`.
 
 ## Histórico
 
-A primeira versão era um Claude Artifact, que exigia conta Claude para editar e guardava os dados dentro do próprio HTML. Cada salvamento reescrevia a página inteira, e o link compartilhado podia ficar preso numa versão antiga. O código dessa fase está no histórico do Git, e a lista dela foi migrada para `server/seed/lista-familia.json`.
+A primeira versão era um Claude Artifact, que exigia conta Claude para editar e guardava os dados dentro do próprio HTML. Depois vieram o acesso por link e, na versão 4, as contas com várias listas. Os aparelhos das versões anteriores criam a conta na primeira abertura e levam a lista junto.

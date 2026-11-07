@@ -3,18 +3,19 @@ import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
 import type { Database } from "./db/database.ts";
-import { familyRoutes } from "./http/familyRoutes.ts";
+import { authRoutes } from "./http/authRoutes.ts";
 import { listRoutes } from "./http/listRoutes.ts";
 import type { Notifier } from "./http/notifier.ts";
-import { sessionRoutes } from "./http/sessionRoutes.ts";
-import { FamilyService } from "./services/families.ts";
+import { AccountService } from "./services/accounts.ts";
 import { ListService } from "./services/lists.ts";
+import { MembershipService } from "./services/memberships.ts";
 
 const MAX_BODY_BYTES = 512 * 1024;
 
 export function createApp(db: Database, notifier: Notifier) {
-  const families = new FamilyService(db);
+  const accounts = new AccountService(db);
   const lists = new ListService(db);
+  const memberships = new MembershipService(db);
 
   const api = new Hono();
   api.use(
@@ -24,13 +25,13 @@ export function createApp(db: Database, notifier: Notifier) {
       onError: (c) => c.json({ error: "Envio grande demais" }, 413),
     }),
   );
-  api.route("/session", sessionRoutes(families));
-  api.route("/family", familyRoutes(families, notifier));
-  api.route("/", listRoutes(families, lists, notifier));
+  api.route("/auth", authRoutes(accounts, memberships));
+  api.route("/lists", listRoutes({ accounts, lists, memberships, notifier }));
 
   const app = new Hono();
   app.use("*", secureHeaders({ crossOriginResourcePolicy: "same-origin" }));
   app.route("/api", api);
+  app.notFound((c) => c.json({ error: "Rota não encontrada" }, 404));
   app.onError((error, c) => {
     if (error instanceof HTTPException) {
       return c.json({ error: error.message }, error.status);

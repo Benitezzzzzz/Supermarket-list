@@ -1,24 +1,24 @@
-/** Avisa os aparelhos conectados de uma família. Os avisos não levam dados. */
+/** Avisa os aparelhos conectados a uma lista. Os avisos não levam dados. */
 export interface Notifier {
-  broadcast(familyId: string): Promise<void>;
-  disconnectMember(familyId: string, memberId: string): Promise<void>;
+  broadcast(listId: string): Promise<void>;
+  disconnectMember(listId: string, userId: string): Promise<void>;
   /** Abre o canal em tempo real de um membro. */
-  connect(familyId: string, memberId: string, request: Request): Promise<Response>;
+  connect(listId: string, userId: string, request: Request): Promise<Response>;
 }
 
-/** Implementação com um Durable Object por família, que guarda as conexões abertas. */
+/** Implementação com um Durable Object por lista, que guarda as conexões abertas. */
 export function durableObjectNotifier(namespace: DurableObjectNamespace): Notifier {
-  const stub = (familyId: string) => namespace.get(namespace.idFromName(familyId));
-  const call = async (familyId: string, path: string) => {
-    await stub(familyId).fetch(new Request(`https://eventos${path}`, { method: "POST" }));
+  const stub = (listId: string) => namespace.get(namespace.idFromName(listId));
+  const call = async (listId: string, path: string) => {
+    await stub(listId).fetch(new Request(`https://eventos${path}`, { method: "POST" }));
   };
 
   return {
-    broadcast: (familyId) => call(familyId, "/notify"),
-    disconnectMember: (familyId, memberId) =>
-      call(familyId, `/disconnect?member=${encodeURIComponent(memberId)}`),
-    connect: async (familyId, memberId, request) => {
-      const response = await stub(familyId).fetch(
+    broadcast: (listId) => call(listId, "/notify"),
+    disconnectMember: (listId, memberId) =>
+      call(listId, `/disconnect?member=${encodeURIComponent(memberId)}`),
+    connect: async (listId, memberId, request) => {
+      const response = await stub(listId).fetch(
         new Request(`https://eventos/connect?member=${encodeURIComponent(memberId)}`, request),
       );
       // A resposta do Durable Object tem cabeçalhos imutáveis; a cópia deixa os
