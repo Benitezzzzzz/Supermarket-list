@@ -308,6 +308,52 @@ describe("API", () => {
       expect(await purchases(admin)).toEqual([]);
     });
 
+    it("guarda a lista de itens da compra", async () => {
+      const itens = [
+        { text: "Frangos", quantity: 2, category: "Congelados", done: true },
+        { text: "Sal", quantity: 1, category: "Outros", done: false },
+      ];
+      await admin.call("POST", "/purchases", { purchase: purchase({ items: itens }), itemIds: [] });
+      const [saved] = (await (await member.call("GET", "/list")).json()).purchases;
+      expect(saved.items).toEqual(itens);
+    });
+
+    it("aceita compra sem lista de itens, como as versões anteriores mandavam", async () => {
+      const response = await admin.call("POST", "/purchases", { purchase: purchase(), itemIds: [] });
+      expect(response.status).toBe(204);
+      const [saved] = (await (await admin.call("GET", "/list")).json()).purchases;
+      expect(saved.items).toEqual([]);
+    });
+
+    it("recusa item inválido na lista da compra", async () => {
+      const response = await admin.call("POST", "/purchases", {
+        purchase: purchase({ items: [{ text: "", quantity: 1, category: "Outros", done: true }] }),
+        itemIds: [],
+      });
+      expect(response.status).toBe(422);
+    });
+
+    it("exclui e desfaz a exclusão, mantendo quem finalizou", async () => {
+      const compra = purchase();
+      await member.call("POST", "/purchases", { purchase: compra, itemIds: [] });
+
+      expect((await admin.call("DELETE", `/purchases/${compra.id}`)).status).toBe(204);
+      expect(await purchases(member)).toEqual([]);
+      // Repetir a exclusão não dá erro.
+      expect((await admin.call("DELETE", `/purchases/${compra.id}`)).status).toBe(204);
+
+      expect((await admin.call("POST", `/purchases/${compra.id}/restore`)).status).toBe(204);
+      const restored = await purchases(member);
+      expect(restored.map((p) => [p.id, p.memberName])).toEqual([[compra.id, "Mãe"]]);
+    });
+
+    it("outra família não exclui a compra", async () => {
+      const compra = purchase();
+      await admin.call("POST", "/purchases", { purchase: compra, itemIds: [] });
+      await outsider.call("DELETE", `/purchases/${compra.id}`);
+      expect(await purchases(admin)).toHaveLength(1);
+    });
+
     it("aceita dinheiro em espécie", async () => {
       const response = await admin.call("POST", "/purchases", {
         purchase: purchase({ method: "dinheiro", installments: 1 }),

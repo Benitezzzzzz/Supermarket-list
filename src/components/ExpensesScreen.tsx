@@ -1,5 +1,5 @@
 import { describePayment, formatMoney, monthTotal } from "../domain/money";
-import type { Purchase } from "../domain/types";
+import type { Purchase, PurchasedItem } from "../domain/types";
 import { Icon } from "../ui/Icon";
 
 interface ExpensesScreenProps {
@@ -14,6 +14,51 @@ const dateFormat = new Intl.DateTimeFormat("pt-BR", {
   minute: "2-digit",
 });
 const monthFormat = new Intl.DateTimeFormat("pt-BR", { month: "long" });
+
+function ItemLines({ items }: { items: PurchasedItem[] }) {
+  return (
+    <ul className="purchase__list">
+      {items.map((item, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: lista fixa de uma compra passada; nunca muda de ordem.
+        <li key={`${item.text}-${index}`}>
+          {item.quantity > 1 && <span className="qty">{item.quantity}×</span>}
+          <span>{item.text}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** A lista que estava na compra: o que foi comprado e o que ficou para trás. */
+function PurchaseItems({ purchase }: { purchase: Purchase }) {
+  if (purchase.items.length === 0) {
+    return purchase.itemCount > 0 ? (
+      <p className="purchase__note">Esta compra foi feita antes de o app guardar a lista de itens.</p>
+    ) : null;
+  }
+  const bought = purchase.items.filter((item) => item.done);
+  const left = purchase.items.filter((item) => !item.done);
+
+  return (
+    <details className="purchase__items">
+      <summary>
+        {purchase.items.length === 1 ? "Ver o item" : `Ver os ${purchase.items.length} itens`}
+      </summary>
+      {bought.length > 0 && (
+        <>
+          <h3 className="purchase__group">Comprados · {bought.length}</h3>
+          <ItemLines items={bought} />
+        </>
+      )}
+      {left.length > 0 && (
+        <>
+          <h3 className="purchase__group">Estavam na lista sem marcar · {left.length}</h3>
+          <ItemLines items={left} />
+        </>
+      )}
+    </details>
+  );
+}
 
 export function ExpensesScreen({ purchases, onEdit }: ExpensesScreenProps) {
   const month = monthTotal(purchases);
@@ -69,6 +114,7 @@ export function ExpensesScreen({ purchases, onEdit }: ExpensesScreenProps) {
                   Corrigir
                 </button>
               </div>
+              <PurchaseItems purchase={purchase} />
             </li>
           ))}
         </ul>

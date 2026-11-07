@@ -194,6 +194,48 @@ describe("App", () => {
     expect(screen.queryByText(/R\$\s100,00/)).toBeNull();
   });
 
+  it("mostra em Gastos a lista do que foi comprado", async () => {
+    const user = renderApp();
+    await addItems(user, "2 frangos", "Sal");
+    await user.click(screen.getByRole("button", { name: "Marcar Frangos como comprado" }));
+    await user.click(screen.getByRole("button", { name: "Finalizar compra" }));
+    await user.type(screen.getByLabelText("Valor da compra"), "50");
+    await user.click(screen.getByRole("radio", { name: "PIX" }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await user.click(await screen.findByRole("button", { name: "Sim, finalizar" }));
+    await user.click(screen.getByRole("button", { name: "Gastos" }));
+
+    await user.click(screen.getByText("Ver os 2 itens"));
+    expect(screen.getByRole("heading", { name: "Comprados · 1" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Estavam na lista sem marcar · 1" })).toBeTruthy();
+    expect(screen.getByText("Frangos")).toBeTruthy();
+    expect(screen.getByText("Sal")).toBeTruthy();
+  });
+
+  it("exclui a compra pelo painel de corrigir e desfaz", async () => {
+    const user = renderApp();
+    await addItems(user, "Arroz");
+    await user.click(screen.getByRole("button", { name: "Finalizar compra" }));
+    await user.type(screen.getByLabelText("Valor da compra"), "30");
+    await user.click(screen.getByRole("radio", { name: "Dinheiro (espécie)" }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await user.click(await screen.findByRole("button", { name: "Sim, finalizar" }));
+    await user.click(screen.getByRole("button", { name: "Gastos" }));
+
+    await user.click(screen.getByRole("button", { name: /^Corrigir compra de R\$\s30,00/ }));
+    await user.click(screen.getByRole("button", { name: "Excluir compra" }));
+    const confirm = await screen.findByRole("dialog", { name: "Excluir esta compra?" });
+    await user.click(within(confirm).getByRole("button", { name: "Cancelar" }));
+    expect(screen.getByRole("dialog", { name: "Corrigir compra" })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Excluir compra" }));
+    await user.click(screen.getByRole("button", { name: "Excluir" }));
+    expect(await screen.findByText("Nenhuma compra ainda")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Desfazer" }));
+    expect(await screen.findByRole("button", { name: /^Corrigir compra de R\$\s30,00/ })).toBeTruthy();
+  });
+
   it("parcelamento só aparece no crédito", async () => {
     const user = renderApp();
     await addItems(user, "Sal");

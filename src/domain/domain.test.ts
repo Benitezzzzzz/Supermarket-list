@@ -92,7 +92,7 @@ describe("forma de pagamento", () => {
 
   it("soma só as compras do mês", () => {
     const purchase = (createdAt: string, amountCents: number): Purchase => ({
-      id: crypto.randomUUID(), amountCents, method: "pix", installments: 1, itemCount: 1, memberName: "Renan", createdAt,
+      id: crypto.randomUUID(), amountCents, method: "pix", installments: 1, itemCount: 1, memberName: "Renan", createdAt, items: [],
     });
     const total = monthTotal(
       [purchase("2026-11-03T12:00:00.000Z", 10000), purchase("2026-11-20T12:00:00.000Z", 5050), purchase("2026-10-30T12:00:00.000Z", 9999)],

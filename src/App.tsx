@@ -165,6 +165,12 @@ export function App({ list, session, onRejoined }: AppProps) {
                 itemCount: itemIds.length,
                 memberName: session.name,
                 createdAt: new Date().toISOString(),
+                items: state.items.map(({ text, quantity, category, done }) => ({
+                  text,
+                  quantity,
+                  category,
+                  done,
+                })),
               },
               itemIds,
             );
@@ -182,6 +188,12 @@ export function App({ list, session, onRejoined }: AppProps) {
             list.updatePurchase(editingPurchase.id, payment);
             close();
             show("Compra corrigida");
+          }}
+          onDelete={() => {
+            const removed = editingPurchase;
+            list.deletePurchase(removed.id);
+            close();
+            show("Compra excluída", { label: "Desfazer", onAction: () => list.restorePurchase(removed) });
           }}
           onClose={close}
         />

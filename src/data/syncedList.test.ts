@@ -151,7 +151,7 @@ describe("SyncedList", () => {
     const novo = createItem("Feijão", "Outros", new Date(2));
     const purchase = {
       id: crypto.randomUUID(), amountCents: 5000, method: "pix" as const, installments: 1,
-      itemCount: 1, memberName: "Renan", createdAt: new Date().toISOString(),
+      itemCount: 1, memberName: "Renan", createdAt: new Date().toISOString(), items: [],
     };
     server.online = false;
     list.finishShopping(purchase, [antigo.id]);

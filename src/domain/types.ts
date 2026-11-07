@@ -5,6 +5,7 @@ export type {
   Payment,
   PaymentMethod,
   Purchase,
+  PurchasedItem,
   SessionInfo,
   Snapshot,
 } from "../../shared/contract.ts";

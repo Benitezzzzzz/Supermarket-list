@@ -57,6 +57,14 @@ const paymentFields = {
   installments: z.number().int().min(1).max(MAX_INSTALLMENTS),
 };
 
+/** Como o item estava na lista na hora de finalizar. */
+export const purchasedItemSchema = z.object({
+  text: z.string().trim().min(1).max(MAX_ITEM_TEXT),
+  quantity: z.number().int().min(1).max(MAX_QUANTITY),
+  category: categoryName,
+  done: z.boolean(),
+});
+
 /** Compra finalizada. O valor fica em centavos para não haver erro de arredondamento. */
 export const purchaseSchema = z
   .object({
@@ -65,6 +73,8 @@ export const purchaseSchema = z
     itemCount: z.number().int().min(0).max(MAX_BATCH),
     memberName: z.string().max(MAX_NAME),
     createdAt: z.iso.datetime({ offset: true }),
+    // Versões anteriores do app não mandam a lista; vira lista vazia.
+    items: z.array(purchasedItemSchema).max(MAX_BATCH).default([]),
   })
   .refine(onlyCreditSplits.check, { message: onlyCreditSplits.message });
 
@@ -82,6 +92,7 @@ export type Item = z.infer<typeof itemSchema>;
 export type Purchase = z.infer<typeof purchaseSchema>;
 export type PaymentMethod = Purchase["method"];
 export type Payment = z.infer<typeof paymentSchema>;
+export type PurchasedItem = z.infer<typeof purchasedItemSchema>;
 
 export interface Snapshot {
   items: Item[];
@@ -96,7 +107,9 @@ export type Op =
   | { kind: "delete"; ids: string[] }
   | { kind: "addCategory"; name: string }
   | { kind: "finish"; purchase: Purchase; itemIds: string[] }
-  | { kind: "updatePurchase"; id: string; payment: Payment };
+  | { kind: "updatePurchase"; id: string; payment: Payment }
+  | { kind: "deletePurchase"; id: string }
+  | { kind: "restorePurchase"; purchase: Purchase };
 
 export type Role = "admin" | "member";
 

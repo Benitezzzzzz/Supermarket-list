@@ -31,6 +31,15 @@ export function applyOp(snapshot: Snapshot, op: Op): Snapshot {
           purchase.id === op.id ? { ...purchase, ...op.payment } : purchase,
         ),
       };
+    case "deletePurchase":
+      return { ...snapshot, purchases: snapshot.purchases.filter((purchase) => purchase.id !== op.id) };
+    case "restorePurchase": {
+      const others = snapshot.purchases.filter((purchase) => purchase.id !== op.purchase.id);
+      return {
+        ...snapshot,
+        purchases: [op.purchase, ...others].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      };
+    }
     case "addCategory": {
       const name = op.name.toLowerCase();
       if (snapshot.customCategories.some((c) => c.toLowerCase() === name)) return snapshot;

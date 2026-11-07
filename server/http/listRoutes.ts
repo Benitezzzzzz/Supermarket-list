@@ -61,6 +61,20 @@ export function listRoutes(families: FamilyService, lists: ListService, notifier
     return c.body(null, 204);
   });
 
+  routes.delete("/purchases/:id", async (c) => {
+    const { familyId } = c.get("session");
+    await lists.deletePurchase(familyId, c.req.param("id"));
+    await notifier.broadcast(familyId);
+    return c.body(null, 204);
+  });
+
+  routes.post("/purchases/:id/restore", async (c) => {
+    const { familyId } = c.get("session");
+    await lists.restorePurchase(familyId, c.req.param("id"));
+    await notifier.broadcast(familyId);
+    return c.body(null, 204);
+  });
+
   routes.get("/events", (c) => {
     if (c.req.header("upgrade") !== "websocket") {
       throw new HTTPException(426, { message: "Esperado WebSocket" });

@@ -26,6 +26,12 @@ export class ApiBackend implements ListBackend {
       case "updatePurchase":
         await api(`/purchases/${op.id}`, "PUT", op.payment);
         return;
+      case "deletePurchase":
+        await api(`/purchases/${op.id}`, "DELETE");
+        return;
+      case "restorePurchase":
+        await api(`/purchases/${op.purchase.id}/restore`, "POST");
+        return;
       case "finish":
         await api("/purchases", "POST", { purchase: op.purchase, itemIds: op.itemIds });
         return;

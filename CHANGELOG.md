@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.7.0 (2026-11-07)
+
+### Adicionado
+
+- **Itens da compra em Gastos:** cada compra guarda a lista que estava nela. Em Gastos, "Ver os N itens" mostra os comprados e os que ficaram sem marcar, com a quantidade. Compras anteriores a esta versão não têm a lista.
+- **Excluir compra:** no painel de corrigir, com confirmação e Desfazer. A compra é só marcada como excluída, então o Desfazer a devolve exatamente como era.
+
+### Banco de dados
+
+- Migração `0005_itens_da_compra.sql`: colunas `items` e `deleted_at` em `purchases`. Testada com dados existentes.
+
 ## 3.6.0 (2026-11-07)
 
 ### Adicionado

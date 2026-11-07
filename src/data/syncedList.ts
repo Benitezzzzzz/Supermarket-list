@@ -147,6 +147,14 @@ export class SyncedList {
     this.dispatch({ kind: "updatePurchase", id, payment });
   }
 
+  deletePurchase(id: string) {
+    this.dispatch({ kind: "deletePurchase", id });
+  }
+
+  restorePurchase(purchase: Purchase) {
+    this.dispatch({ kind: "restorePurchase", purchase });
+  }
+
   addCategory(name: string) {
     this.dispatch({ kind: "addCategory", name });
   }

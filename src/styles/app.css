@@ -856,6 +856,75 @@ select.field {
   margin-right: 0;
 }
 
+.purchase__items {
+  width: 100%;
+  border-top: 1px solid var(--border-soft);
+  padding-top: var(--space-2);
+}
+
+.purchase__items > summary {
+  min-height: var(--touch);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--primary-strong);
+  cursor: pointer;
+  list-style: none;
+}
+
+.purchase__items > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Seta que gira ao abrir. */
+.purchase__items > summary::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-right: 3px solid currentColor;
+  border-bottom: 3px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--duration) var(--ease);
+}
+
+.purchase__items[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.purchase__group {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.purchase__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.purchase__list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  font-size: var(--text-md);
+  border-top: 1px solid var(--border-soft);
+}
+
+.purchase__list li:first-child {
+  border-top: none;
+}
+
+.purchase__note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
 .purchase__date,
 .purchase__meta {
   font-size: var(--text-sm);
