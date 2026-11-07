@@ -11,6 +11,7 @@ interface ListScreenProps {
   onToggle: (item: Item) => void;
   onEdit: (item: Item) => void;
   onAskClear: () => void;
+  onAskClearAll: () => void;
 }
 
 function firstName(name: string): string {
@@ -44,7 +45,14 @@ function LoadingList() {
   );
 }
 
-export function ListScreen({ state, session, onToggle, onEdit, onAskClear }: ListScreenProps) {
+export function ListScreen({
+  state,
+  session,
+  onToggle,
+  onEdit,
+  onAskClear,
+  onAskClearAll,
+}: ListScreenProps) {
   const toBuy = state.items.filter((item) => !item.done);
   const bought = state.items.filter((item) => item.done);
   const loading = state.connection === "loading" && state.items.length === 0;
@@ -54,7 +62,17 @@ export function ListScreen({ state, session, onToggle, onEdit, onAskClear }: Lis
       <header className="screen-header">
         <div className="screen-header__meta">
           <SyncStatus state={state} />
-          <span>{session.familyName}</span>
+          {state.items.length > 0 && (
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="Limpar a lista toda"
+              title="Limpar a lista toda"
+              onClick={onAskClearAll}
+            >
+              <Icon name="trash" size={22} />
+            </button>
+          )}
         </div>
         <h1 className="title">Lista do Mercado</h1>
         <p className="subtitle" aria-live="polite">

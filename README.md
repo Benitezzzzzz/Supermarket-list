@@ -141,7 +141,7 @@ Como não há senha, o administrador não recupera o acesso se perder o aparelho
 - Marcar como comprado tocando na linha
 - Trocar a categoria de um item
 - Importar vários itens colando texto; uma linha com o nome de uma categoria vira título
-- Limpar comprados
+- Limpar comprados, ou a lista toda pela lixeira no topo
 - Painel Família: ver membros, copiar o endereço e, para o administrador, remover aparelhos e fechar a entrada
 - Desfazer depois de remover ou limpar o carrinho
 - Tema claro e escuro automático

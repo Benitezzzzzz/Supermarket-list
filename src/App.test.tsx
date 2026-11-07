@@ -104,6 +104,23 @@ describe("App", () => {
     expect(await screen.findByRole("button", { name: "Tirar Arroz do carrinho" })).toBeTruthy();
   });
 
+  it("limpa a lista toda com confirmação e desfaz", async () => {
+    const user = renderApp();
+    expect(screen.queryByRole("button", { name: "Limpar a lista toda" })).toBeNull();
+    await addItems(user, "Arroz", "Feijão");
+    await user.click(screen.getByRole("button", { name: "Marcar Arroz como comprado" }));
+
+    await user.click(screen.getByRole("button", { name: "Limpar a lista toda" }));
+    const confirm = await screen.findByRole("dialog", { name: "Limpar a lista toda?" });
+    expect(within(confirm).getByText(/Todos os 2 itens/)).toBeTruthy();
+    await user.click(within(confirm).getByRole("button", { name: "Limpar tudo" }));
+    expect(await screen.findByText("Oi, Renan! Sua lista está vazia.")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Desfazer" }));
+    expect(await screen.findByRole("button", { name: "Editar Feijão" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Tirar Arroz do carrinho" })).toBeTruthy();
+  });
+
   it("cancelar a confirmação não apaga nada", async () => {
     const user = renderApp();
     await addItems(user, "Sal");
@@ -181,7 +198,7 @@ describe("App", () => {
     const user = renderApp();
     await user.click(screen.getByRole("button", { name: "Família" }));
 
-    expect(screen.getByRole("heading", { name: "Família Benitez" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Família" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Família" }).getAttribute("aria-current")).toBe("page");
   });
 });

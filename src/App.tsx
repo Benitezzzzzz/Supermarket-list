@@ -24,6 +24,7 @@ type Sheet =
   | { kind: "import" }
   | { kind: "edit"; id: string }
   | { kind: "clear" }
+  | { kind: "clear-all" }
   | null;
 
 export function App({ list, session, onRejoined }: AppProps) {
@@ -62,6 +63,7 @@ export function App({ list, session, onRejoined }: AppProps) {
           onToggle={(item) => list.updateItem(item.id, { done: !item.done })}
           onEdit={(item) => setSheet({ kind: "edit", id: item.id })}
           onAskClear={() => setSheet({ kind: "clear" })}
+          onAskClearAll={() => setSheet({ kind: "clear-all" })}
         />
       ) : (
         <FamilyScreen session={session} />
@@ -132,6 +134,20 @@ export function App({ list, session, onRejoined }: AppProps) {
             const bought = state.items.filter((item) => item.done);
             close();
             removeWithUndo(bought, bought.length === 1 ? "1 item saiu da lista" : `${bought.length} itens saíram da lista`);
+          }}
+          onClose={close}
+        />
+      )}
+
+      {sheet?.kind === "clear-all" && (
+        <ConfirmSheet
+          title="Limpar a lista toda?"
+          message={`Todos os ${state.items.length} itens saem da lista, comprados ou não. Dá para desfazer logo depois.`}
+          confirmLabel="Limpar tudo"
+          onConfirm={() => {
+            const all = state.items;
+            close();
+            removeWithUndo(all, "Lista limpa");
           }}
           onClose={close}
         />

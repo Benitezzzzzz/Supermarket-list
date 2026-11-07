@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.4.0 (2026-11-07)
+
+### Alterado
+
+- O nome da família saiu do topo da lista; a tela Família passa a se chamar só "Família".
+
+### Adicionado
+
+- Botão quadrado com lixeira no canto do topo da lista, para limpar a lista toda. Pede confirmação e oferece Desfazer.
+
 ## 3.3.1 (2026-11-07)
 
 ### Corrigido

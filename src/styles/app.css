@@ -105,6 +105,24 @@ button:disabled {
   color: var(--ink-soft);
 }
 
+/* Botão quadrado só com ícone, no canto do cabeçalho. */
+.icon-btn {
+  width: var(--touch);
+  height: var(--touch);
+  flex: none;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--danger);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn:active {
+  transform: scale(0.95);
+}
+
 .sync {
   display: inline-flex;
   align-items: center;

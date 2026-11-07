@@ -49,7 +49,7 @@ export function FamilyScreen({ session }: FamilyScreenProps) {
   return (
     <div className="page">
       <header className="screen-header">
-        <h1 className="title">{session.familyName}</h1>
+        <h1 className="title">Família</h1>
         <p className="subtitle">Todo mundo aqui vê e edita a mesma lista.</p>
       </header>
 
