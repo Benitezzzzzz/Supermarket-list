@@ -57,6 +57,9 @@ export const changePasswordSchema = z.object({
   newKey: passwordKeySchema,
 });
 
+/** O administrador geral define a senha de alguém: chega só a chave derivada. */
+export const adminPasswordSchema = z.object({ passwordKey: passwordKeySchema });
+
 export const listNameSchema = z.object({ name: z.string().trim().min(1).max(MAX_LIST_NAME) });
 
 export const addMemberSchema = z.object({ username: usernameSchema });
@@ -137,6 +140,8 @@ export interface UserInfo {
   id: string;
   username: string;
   displayName: string;
+  /** Vê todas as contas e listas e redefine senhas. Só o comando do servidor dá esse papel. */
+  isSuperAdmin?: boolean;
 }
 
 export interface ListSummary {
@@ -149,6 +154,31 @@ export interface ListSummary {
 export interface MeResponse {
   user: UserInfo;
   lists: ListSummary[];
+}
+
+/** Visão do administrador geral. */
+export interface AdminUser {
+  id: string;
+  username: string;
+  displayName: string;
+  isSuperAdmin: boolean;
+  createdAt: string;
+  lastSeenAt: string | null;
+  lockedUntil: string | null;
+  devices: number;
+}
+
+export interface AdminList {
+  id: string;
+  name: string;
+  createdAt: string;
+  items: number;
+  members: { userId: string; displayName: string; role: Role }[];
+}
+
+export interface AdminOverview {
+  users: AdminUser[];
+  lists: AdminList[];
 }
 
 export interface ListMember {

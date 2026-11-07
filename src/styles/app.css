@@ -1188,6 +1188,39 @@ select.field {
   font-size: 1rem;
 }
 
+/* ---------- Administração geral ---------- */
+
+.admin__user {
+  flex-wrap: wrap;
+}
+
+.admin__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.admin__confirm {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.admin__result {
+  margin: 0;
+  font-weight: 400;
+}
+
+.admin__password {
+  margin: var(--space-2) 0;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  user-select: all;
+}
+
 /* ---------- Telas largas ---------- */
 
 @media (min-width: 960px) {

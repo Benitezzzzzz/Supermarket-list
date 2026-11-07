@@ -460,6 +460,91 @@ describe("listas", () => {
   });
 });
 
+describe("administrador geral", () => {
+  let renan: Device;
+  let pai: Device;
+  let pousada: ListSummary;
+
+  beforeEach(async () => {
+    renan = new Device(app);
+    pai = new Device(app);
+    await renan.signup("renan", "Renan");
+    await pai.signup("pai", "Pai");
+    await renan.createList("Casa");
+    pousada = await pai.createList("Pousada");
+    await db.prepare("UPDATE users SET is_superadmin = 1 WHERE username = 'renan'").run();
+  });
+
+  it("quem não é administrador geral não acessa o painel", async () => {
+    expect((await pai.call("GET", "/admin/overview")).status).toBe(403);
+    expect((await pai.call("PUT", `/admin/users/${renan.me?.user.id}/password`, { passwordKey: key() })).status).toBe(403);
+    expect((await new Device(app).call("GET", "/admin/overview")).status).toBe(401);
+  });
+
+  it("ninguém se torna administrador geral pela API", async () => {
+    const espertinho = new Device(app);
+    const response = await espertinho.call("POST", "/auth/signup", {
+      username: "esperto",
+      displayName: "Esperto",
+      passwordKey: espertinho.passwordKey,
+      isSuperAdmin: true,
+      is_superadmin: 1,
+    });
+    expect(response.status).toBe(201);
+    expect((await espertinho.call("GET", "/admin/overview")).status).toBe(403);
+  });
+
+  it("vê todas as contas e listas, com participantes", async () => {
+    const me = (await (await renan.call("GET", "/auth/me")).json()) as MeResponse;
+    expect(me.user.isSuperAdmin).toBe(true);
+    expect(me.lists.map((l) => [l.name, l.role])).toEqual([
+      ["Casa", "admin"],
+      ["Pousada", "admin"],
+    ]);
+    const overview = (await (await renan.call("GET", "/admin/overview")).json()) as {
+      users: { username: string; isSuperAdmin: boolean }[];
+      lists: { name: string; members: { displayName: string }[] }[];
+    };
+    expect(overview.users.map((u) => [u.username, u.isSuperAdmin])).toEqual([
+      ["renan", true],
+      ["pai", false],
+    ]);
+    expect(overview.lists.map((l) => [l.name, l.members.map((m) => m.displayName)])).toEqual([
+      ["Casa", ["Renan"]],
+      ["Pousada", ["Pai"]],
+    ]);
+    // Nenhuma senha ou hash sai pelo painel.
+    expect(JSON.stringify(overview)).not.toMatch(/password|hash|salt/i);
+  });
+
+  it("abre e edita uma lista em que não participa", async () => {
+    expect((await renan.call("PUT", `/lists/${pousada.id}/items`, { items: [item({ text: "Sabonete" })] })).status).toBe(204);
+    expect((await pai.snapshot(pousada.id)).items.map((i) => i.text)).toEqual(["Sabonete"]);
+  });
+
+  it("lista que não existe continua inexistente, mesmo para ele", async () => {
+    expect((await renan.call("GET", `/lists/${randomUUID()}`)).status).toBe(404);
+  });
+
+  it("redefine a senha de alguém: destrava, desconecta e a senha antiga para de valer", async () => {
+    for (let i = 0; i < 5; i++) await new Device(app).call("POST", "/auth/login", { username: "pai", passwordKey: key() });
+    const nova = key();
+    expect((await renan.call("PUT", `/admin/users/${pai.me?.user.id}/password`, { passwordKey: nova })).status).toBe(204);
+    expect((await pai.call("GET", "/auth/me")).status).toBe(401);
+    expect((await new Device(app).call("POST", "/auth/login", { username: "pai", passwordKey: pai.passwordKey })).status).toBe(401);
+    expect((await new Device(app).call("POST", "/auth/login", { username: "pai", passwordKey: nova })).status).toBe(200);
+  });
+
+  it("desconecta todos os aparelhos de alguém", async () => {
+    expect((await renan.call("POST", `/admin/users/${pai.me?.user.id}/logout`)).status).toBe(204);
+    expect((await pai.call("GET", "/auth/me")).status).toBe(401);
+  });
+
+  it("conta inexistente", async () => {
+    expect((await renan.call("PUT", `/admin/users/${randomUUID()}/password`, { passwordKey: key() })).status).toBe(404);
+  });
+});
+
 describe("aparelhos da versão anterior", () => {
   const legacyToken = "b".repeat(64);
   let listId: string;

@@ -3,6 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
 import type { Database } from "./db/database.ts";
+import { adminRoutes } from "./http/adminRoutes.ts";
 import { authRoutes } from "./http/authRoutes.ts";
 import { listRoutes } from "./http/listRoutes.ts";
 import type { Notifier } from "./http/notifier.ts";
@@ -26,6 +27,7 @@ export function createApp(db: Database, notifier: Notifier) {
     }),
   );
   api.route("/auth", authRoutes(accounts, memberships));
+  api.route("/admin", adminRoutes(accounts));
   api.route("/lists", listRoutes({ accounts, lists, memberships, notifier }));
 
   const app = new Hono();

@@ -55,7 +55,9 @@ export function requireUser(accounts: AccountService) {
 export function requireListAccess(memberships: MembershipService) {
   return createMiddleware<Env>(async (c, next) => {
     const listId = c.req.param("listId") ?? "";
-    const role = await memberships.role(listId, c.get("user").id);
+    const user = c.get("user");
+    // O administrador geral abre qualquer lista com poderes de administrador.
+    const role = (await memberships.role(listId, user.id)) ?? (user.isSuperAdmin && (await memberships.exists(listId)) ? "admin" : null);
     if (!role) return c.json({ error: "Lista não encontrada", code: "list_access" }, 404);
     c.set("listId", listId);
     c.set("role", role);

@@ -1,5 +1,17 @@
 # Changelog
 
+## 4.1.0 (2026-11-07)
+
+### Adicionado
+
+- **Administrador geral:** vê todas as contas e listas (inclusive as que não participa), abre e edita qualquer lista, gera senha nova para quem esqueceu e desconecta aparelhos. Fica em Sua conta → Administração geral.
+- O papel só é dado pelo comando `npm run user:set-superadmin -- <usuario> --remoto`; a API não tem como promover ninguém.
+- As senhas continuam sem ficar guardadas: o painel gera uma senha nova no aparelho do administrador e manda só a chave derivada ao servidor.
+
+### Banco de dados
+
+- Migração `0007_admin_geral.sql`: coluna `is_superadmin` em `users`.
+
 ## 4.0.0 (2026-11-07)
 
 Contas com usuário e senha, e várias listas por pessoa.

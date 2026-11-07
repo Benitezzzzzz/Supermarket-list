@@ -1,7 +1,7 @@
 {
   "name": "lista-do-mercado",
   "private": true,
-  "version": "4.0.0",
+  "version": "4.1.0",
   "type": "module",
   "scripts": {
     "dev": "concurrently -n api,web -c green,blue \"wrangler dev\" \"vite\"",
@@ -13,7 +13,8 @@
     "db:migrate": "wrangler d1 migrations apply lista-do-mercado --local",
     "db:migrate:remote": "wrangler d1 migrations apply lista-do-mercado --remote",
     "deploy": "npm run build && npm run db:migrate:remote && wrangler deploy",
-    "user:reset-password": "node server/scripts/reset-password.ts"
+    "user:reset-password": "node server/scripts/reset-password.ts",
+    "user:set-superadmin": "node server/scripts/set-superadmin.ts"
   },
   "dependencies": {
     "hono": "^4.13.16",

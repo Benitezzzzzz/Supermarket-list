@@ -11,6 +11,10 @@ export class MembershipService {
     this.db = db;
   }
 
+  async exists(listId: string): Promise<boolean> {
+    return (await this.db.prepare("SELECT 1 AS x FROM lists WHERE id = ?").bind(listId).first()) !== null;
+  }
+
   async role(listId: string, userId: string): Promise<Role | null> {
     const row = await this.db
       .prepare("SELECT role FROM list_members WHERE list_id = ? AND user_id = ?")
@@ -26,6 +30,22 @@ export class MembershipService {
         `SELECT l.id, l.name, m.role
          FROM list_members m JOIN lists l ON l.id = m.list_id
          WHERE m.user_id = ? ORDER BY m.joined_at, m.rowid`,
+      )
+      .bind(userId)
+      .all<ListSummary>();
+    return results;
+  }
+
+/**
+   * O administrador geral vê todas as listas. Nas que ele não participa,
+   * entra como administrador; as dele vêm primeiro.
+   */
+  async allLists(userId: string): Promise<ListSummary[]> {
+    const { results } = await this.db
+      .prepare(
+        `SELECT l.id, l.name, coalesce(m.role, 'admin') AS role
+         FROM lists l LEFT JOIN list_members m ON m.list_id = l.id AND m.user_id = ?
+         ORDER BY m.user_id IS NULL, m.joined_at, l.created_at, l.rowid`,
       )
       .bind(userId)
       .all<ListSummary>();

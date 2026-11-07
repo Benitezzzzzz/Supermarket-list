@@ -28,6 +28,7 @@ Abra `http://localhost:8787`, crie uma conta e a primeira lista.
 | `npm run lint` | Roda o lint |
 | `npm run db:migrate` | Aplica as migrações no banco local |
 | `npm run user:reset-password -- <usuario> [--remoto]` | Redefine a senha de quem esqueceu e mostra a nova |
+| `npm run user:set-superadmin -- <usuario> [--remoto] [--remover]` | Dá ou tira o papel de administrador geral |
 | `npm run deploy` | Publica na Cloudflare |
 
 O banco local fica em `.wrangler/`, fora do Git. Apagar essa pasta zera os dados de teste.
@@ -110,6 +111,9 @@ Nos testes, o banco é um adaptador sobre o SQLite do Node com a mesma interface
 | `GET /api/auth/me` | Conta e listas de quem está logado | Logado |
 | `POST /api/auth/claim` | Aparelho da versão anterior cria a conta levando a lista | Aparelho antigo |
 | `PUT /api/auth/password` | Troca a senha e desconecta os outros aparelhos | Logado |
+| `GET /api/admin/overview` | Todas as contas e listas | Administrador geral |
+| `PUT /api/admin/users/:id/password` | Define senha nova, destrava e desconecta | Administrador geral |
+| `POST /api/admin/users/:id/logout` | Desconecta todos os aparelhos da pessoa | Administrador geral |
 | `POST /api/lists` | Cria uma lista | Logado |
 | `GET /api/lists/:id` | Itens, categorias e últimas compras | Participante |
 | `PATCH /api/lists/:id` | Renomeia | Administrador |
@@ -127,7 +131,7 @@ Nos testes, o banco é um adaptador sobre o SQLite do Node com a mesma interface
 | `POST /api/lists/:id/purchases/:pid/restore` | Desfaz a exclusão | Participante |
 | `GET /api/lists/:id/events` | Avisos em tempo real (WebSocket) | Participante |
 
-Para quem não participa, qualquer rota de uma lista responde 404, como se ela não existisse.
+Para quem não participa, qualquer rota de uma lista responde 404, como se ela não existisse. O administrador geral é a exceção: abre qualquer lista com poderes de administrador.
 
 ### Sincronização
 
@@ -145,7 +149,8 @@ Cada lista tem um Durable Object que guarda os WebSockets abertos. Quando algo m
 - **Tentativas:** depois de 5 senhas erradas, a conta fica bloqueada por 15 minutos. A mensagem de erro é a mesma para usuário inexistente e senha errada.
 - **Sessão:** um token aleatório de 256 bits por aparelho, em cookie `HttpOnly`, `SameSite=Strict` e `Secure`. O banco guarda só o hash. Trocar a senha desconecta os outros aparelhos.
 - **Isolamento:** toda rota de uma lista confere em `list_members` se a pessoa participa. A chave dos itens e das compras inclui a lista, então um id de outra lista não alcança a linha.
-- **Sem e-mail:** quem esquecer a senha pede a quem administra o app, que roda `npm run user:reset-password -- <usuario> --remoto` e passa a senha nova.
+- **Administrador geral:** vê todas as contas e listas e gera senha nova para quem esqueceu, pelo painel em Sua conta. Nem ele vê senhas: elas não ficam guardadas. O papel só é dado pelo comando `user:set-superadmin`.
+- **Sem e-mail:** quem esquecer a senha pede ao administrador geral, pelo painel ou pelo comando `npm run user:reset-password -- <usuario> --remoto`.
 - **Validação:** todo dado de entrada passa pelo Zod no servidor, e o banco repete os limites com `CHECK`.
 
 ## Funcionalidades

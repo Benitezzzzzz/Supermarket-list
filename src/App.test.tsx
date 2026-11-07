@@ -85,6 +85,13 @@ describe("App", () => {
     expect(calls).toEqual(["create:Pousada da praia"]);
   });
 
+  it("só o administrador geral vê o botão de administração", async () => {
+    const user = renderApp();
+    await user.click(screen.getByRole("button", { name: "Sua conta" }));
+    const sheet = await screen.findByRole("dialog", { name: "Sua conta" });
+    expect(within(sheet).queryByRole("button", { name: "Administração geral" })).toBeNull();
+  });
+
   it("abre a conta e sai", async () => {
     const user = renderApp();
     await user.click(screen.getByRole("button", { name: "Sua conta" }));

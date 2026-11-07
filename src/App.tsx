@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { AccountSheet } from "./components/AccountSheet";
 import { AddSheet } from "./components/AddSheet";
+import { AdminSheet } from "./components/AdminSheet";
 import { BottomNav, type Screen } from "./components/BottomNav";
 import { ClearSheet } from "./components/ClearSheet";
 import { EditItemSheet } from "./components/EditItemSheet";
@@ -42,6 +43,7 @@ type Sheet =
   | { kind: "edit-purchase"; id: string }
   | { kind: "lists" }
   | { kind: "account" }
+  | { kind: "admin" }
   | null;
 
 export function App({
@@ -202,7 +204,11 @@ export function App({
         />
       )}
 
-      {sheet?.kind === "account" && <AccountSheet user={user} onLogout={onLogout} onClose={close} />}
+      {sheet?.kind === "account" && (
+        <AccountSheet user={user} onLogout={onLogout} onOpenAdmin={() => setSheet({ kind: "admin" })} onClose={close} />
+      )}
+
+      {sheet?.kind === "admin" && <AdminSheet user={user} onClose={close} />}
 
       {sheet?.kind === "clear" && (
         <ClearSheet

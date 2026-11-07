@@ -1,4 +1,4 @@
-import type { Role, UserInfo } from "../../shared/contract.ts";
+import type { AdminList, AdminOverview, AdminUser, Role, UserInfo } from "../../shared/contract.ts";
 import type { Database } from "../db/database.ts";
 import { generateToken, hashToken } from "./tokens.ts";
 
@@ -92,8 +92,10 @@ export class AccountService {
       .prepare("UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = ?")
       .bind(row.id)
       .run();
-    const user = { id: row.id, username: row.username, displayName: row.displayName };
-    return { ok: true, user, sessionToken: await this.createSession(row.id) };
+    const sessionToken = await this.createSession(row.id);
+    // Relê pela sessão para trazer o papel de administrador geral, se houver.
+    const user = (await this.findUser(sessionToken)) ?? { id: row.id, username: row.username, displayName: row.displayName };
+    return { ok: true, user, sessionToken };
   }
 
   private async createSession(userId: string): Promise<string> {
@@ -107,14 +109,71 @@ export class AccountService {
   }
 
   async findUser(sessionToken: string): Promise<UserInfo | null> {
-    return this.db
+    const row = await this.db
       .prepare(
-        `SELECT u.id, u.username, u.display_name AS displayName
+        `SELECT u.id, u.username, u.display_name AS displayName, u.is_superadmin AS superAdmin
          FROM sessions s JOIN users u ON u.id = s.user_id
          WHERE s.token_hash = ?`,
       )
       .bind(await hashToken(sessionToken))
-      .first<UserInfo>();
+      .first<Omit<UserInfo, "isSuperAdmin"> & { superAdmin: number }>();
+    if (!row) return null;
+    const { superAdmin, ...user } = row;
+    return superAdmin === 1 ? { ...user, isSuperAdmin: true } : user;
+  }
+
+  /** Todas as contas e listas, para o painel do administrador geral. */
+  async overview(): Promise<AdminOverview> {
+    const [users, lists, members] = await Promise.all([
+      this.db
+        .prepare(
+          `SELECT u.id, u.username, u.display_name AS displayName, u.is_superadmin AS superAdmin,
+             u.created_at AS createdAt, u.locked_until AS lockedUntil,
+             (SELECT max(last_seen_at) FROM sessions s WHERE s.user_id = u.id) AS lastSeenAt,
+             (SELECT count(*) FROM sessions s WHERE s.user_id = u.id) AS devices
+           FROM users u ORDER BY u.created_at, u.rowid`,
+        )
+        .all<Omit<AdminUser, "isSuperAdmin"> & { superAdmin: number }>(),
+      this.db
+        .prepare(
+          `SELECT l.id, l.name, l.created_at AS createdAt,
+             (SELECT count(*) FROM items i WHERE i.list_id = l.id) AS items
+           FROM lists l ORDER BY l.created_at, l.rowid`,
+        )
+        .all<Omit<AdminList, "members">>(),
+      this.db
+        .prepare(
+          `SELECT m.list_id AS listId, u.id AS userId, u.display_name AS displayName, m.role
+           FROM list_members m JOIN users u ON u.id = m.user_id
+           ORDER BY m.role = 'admin' DESC, m.joined_at, m.rowid`,
+        )
+        .all<{ listId: string; userId: string; displayName: string; role: Role }>(),
+    ]);
+    return {
+      users: users.results.map(({ superAdmin, ...user }) => ({ ...user, isSuperAdmin: superAdmin === 1 })),
+      lists: lists.results.map((list) => ({
+        ...list,
+        members: members.results
+          .filter((member) => member.listId === list.id)
+          .map(({ userId, displayName, role }) => ({ userId, displayName, role })),
+      })),
+    };
+  }
+
+  /** Define a senha de alguém, destrava a conta e desconecta os aparelhos da pessoa. */
+  async adminSetPassword(userId: string, passwordKey: string): Promise<boolean> {
+    const salt = generateToken();
+    const [update] = (await this.db.batch([
+      this.db
+        .prepare("UPDATE users SET password_hash = ?, password_salt = ?, failed_attempts = 0, locked_until = NULL WHERE id = ?")
+        .bind(await hashPassword(salt, passwordKey), salt, userId),
+      this.db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(userId),
+    ])) as { meta: { changes: number } }[];
+    return update.meta.changes > 0;
+  }
+
+  async logoutEverywhere(userId: string) {
+    await this.db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(userId).run();
   }
 
   async touch(sessionToken: string) {

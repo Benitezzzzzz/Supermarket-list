@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
-import { changePasswordSchema, loginSchema, signupSchema } from "../../shared/contract.ts";
+import { changePasswordSchema, loginSchema, signupSchema, type UserInfo } from "../../shared/contract.ts";
 import type { AccountService, AuthResult } from "../services/accounts.ts";
 import type { MembershipService } from "../services/memberships.ts";
 import {
@@ -27,6 +27,8 @@ function fail(result: Extract<AuthResult, { ok: false }>): never {
 
 export function authRoutes(accounts: AccountService, memberships: MembershipService) {
   const routes = new Hono<Env>();
+  /** O administrador geral enxerga todas as listas. */
+  const listsFor = (user: UserInfo) => (user.isSuperAdmin ? memberships.allLists(user.id) : memberships.listsOf(user.id));
 
   routes.post("/signup", async (c) => {
     const { username, displayName, passwordKey } = await readJson(c, signupSchema);
@@ -41,7 +43,7 @@ export function authRoutes(accounts: AccountService, memberships: MembershipServ
     const result = await accounts.login(username, passwordKey);
     if (!result.ok) fail(result);
     setSessionCookie(c, result.sessionToken);
-    return c.json({ user: result.user, lists: await memberships.listsOf(result.user.id) });
+    return c.json({ user: result.user, lists: await listsFor(result.user) });
   });
 
   routes.post("/logout", async (c) => {
@@ -58,7 +60,7 @@ export function authRoutes(accounts: AccountService, memberships: MembershipServ
     if (token && user) {
       await accounts.touch(token);
       setSessionCookie(c, token); // renova a validade: quem usa o app nunca é desconectado
-      return c.json({ user, lists: await memberships.listsOf(user.id) });
+      return c.json({ user, lists: await listsFor(user) });
     }
     const legacyToken = getCookie(c, LEGACY_COOKIE);
     const legacy = legacyToken ? await accounts.findLegacyMember(legacyToken) : null;

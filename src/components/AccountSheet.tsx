@@ -8,10 +8,11 @@ import { PasswordField } from "./PasswordField";
 interface AccountSheetProps {
   user: UserInfo;
   onLogout: () => void;
+  onOpenAdmin: () => void;
   onClose: () => void;
 }
 
-export function AccountSheet({ user, onLogout, onClose }: AccountSheetProps) {
+export function AccountSheet({ user, onLogout, onOpenAdmin, onClose }: AccountSheetProps) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [repeat, setRepeat] = useState("");
@@ -50,6 +51,12 @@ export function AccountSheet({ user, onLogout, onClose }: AccountSheetProps) {
         <span className="summary__amount">{user.displayName}</span>
         <span className="summary__method">Usuário: {user.username}</span>
       </div>
+
+      {user.isSuperAdmin && (
+        <button type="button" className="btn btn--primary btn--block" onClick={onOpenAdmin}>
+          Administração geral
+        </button>
+      )}
 
       <form className="form" onSubmit={(event) => void submit(event)} noValidate>
         <h3 className="field-label">Trocar senha</h3>
