@@ -4,7 +4,7 @@ Lista de compras compartilhada da família. Abre por um link, instala no celular
 
 **Stack:** React 19, TypeScript, Vite e PWA no frontend; Hono rodando em Cloudflare Workers, banco Cloudflare D1 (SQLite) e um Durable Object por família para o tempo real; Zod para validar o contrato entre os dois lados.
 
-**No ar:** https://lista-do-mercado.lista-do-mercado.workers.dev (entrada só por convite).
+**No ar:** https://lista-do-mercado.lista-do-mercado.workers.dev. Para entrar, abra o endereço e digite seu nome.
 
 **Hospedagem:** tudo no plano gratuito da Cloudflare, sem servidor próprio para manter. As mudanças estão no [CHANGELOG](CHANGELOG.md), e a decisão está registrada em [docs/plano-publicacao-cloudflare.md](docs/plano-publicacao-cloudflare.md).
 
@@ -19,7 +19,7 @@ npm run family:create -- "Minha Família" --importar server/seed/lista-familia.j
 npm run preview
 ```
 
-Abra o link que o `family:create` mostrar e digite seu nome. Quem entra primeiro vira administrador.
+Abra o endereço que o `family:create` mostrar e digite seu nome. Quem entra primeiro vira administrador.
 
 | Comando | O que faz |
 |---|---|
@@ -102,7 +102,7 @@ Nos testes, o banco é um adaptador sobre o SQLite do Node com a mesma interface
 
 | Método e rota | Função | Acesso |
 |---|---|---|
-| `POST /api/session` | Entra na família com o convite | Convite válido |
+| `POST /api/session` | Entra na família pelo nome (ou convite, com várias famílias) | Entrada aberta |
 | `GET /api/session` | Dados da sessão atual | Membro |
 | `GET /api/list` | Itens e categorias | Membro |
 | `PUT /api/items` | Cria ou altera itens | Membro |
@@ -111,7 +111,8 @@ Nos testes, o banco é um adaptador sobre o SQLite do Node com a mesma interface
 | `GET /api/events` | Avisos em tempo real (WebSocket) | Membro |
 | `GET /api/family/members` | Lista os membros | Membro |
 | `DELETE /api/family/members/:id` | Remove um membro | Administrador |
-| `POST /api/family/invite` | Gera convite novo e invalida o anterior | Administrador |
+| `GET /api/family` | Mostra se a entrada está aberta | Membro |
+| `PUT /api/family/entry` | Abre ou fecha a entrada de pessoas novas | Administrador |
 
 ### Sincronização
 
@@ -128,7 +129,7 @@ Cada família tem um Durable Object que guarda os WebSockets abertos. Quando alg
 - **Sem cadastro público:** famílias só nascem pelo comando `family:create`.
 - **Isolamento:** a família vem sempre da sessão, nunca de um id enviado pelo cliente. A chave dos itens inclui a lista, então o id de um item de outra família não alcança a linha dela.
 - **Sessão:** um token aleatório de 256 bits por aparelho, em cookie `HttpOnly`, `SameSite=Strict` e `Secure`. O banco guarda só o hash.
-- **Convite:** também aleatório e guardado como hash. Quem tem o link consegue entrar, então compartilhe só com a família. O administrador vê quem entrou, remove aparelhos e troca o link no painel Família. Um aparelho removido é desconectado na hora.
+- **Entrada:** com uma família só no app, basta abrir o endereço e digitar o nome. Enquanto a entrada estiver aberta, qualquer pessoa que descobrir o endereço consegue entrar; por isso o administrador pode fechá-la na tela Família depois que todos entraram. Ele também vê quem está na lista e remove aparelhos, que são desconectados na hora. Se o mesmo app tiver mais de uma família, a entrada passa a exigir o convite de cada uma.
 - **Validação:** todo dado de entrada passa pelo Zod no servidor, e o banco repete os limites com `CHECK`.
 
 Como não há senha, o administrador não recupera o acesso se perder o aparelho: para isso, a tabela `members` precisa ser ajustada com `wrangler d1 execute`.
@@ -141,7 +142,7 @@ Como não há senha, o administrador não recupera o acesso se perder o aparelho
 - Trocar a categoria de um item
 - Importar vários itens colando texto; uma linha com o nome de uma categoria vira título
 - Limpar comprados
-- Painel Família: ver membros e, para o administrador, remover aparelhos e trocar o convite
+- Painel Família: ver membros, copiar o endereço e, para o administrador, remover aparelhos e fechar a entrada
 - Desfazer depois de remover ou limpar o carrinho
 - Tema claro e escuro automático
 

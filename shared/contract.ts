@@ -29,10 +29,17 @@ export const deleteItemsSchema = z.object({
 
 export const addCategorySchema = z.object({ name: categoryName });
 
+/** Sem convite, a pessoa entra na única família do app, se a entrada estiver aberta. */
 export const joinSchema = z.object({
-  inviteToken: z.string().regex(/^[0-9a-f]{64}$/),
+  inviteToken: z.string().regex(/^[0-9a-f]{64}$/).optional(),
   name: z.string().trim().min(1).max(MAX_NAME),
 });
+
+export const entrySchema = z.object({ open: z.boolean() });
+
+export interface FamilySettings {
+  openJoin: boolean;
+}
 
 export type Item = z.infer<typeof itemSchema>;
 

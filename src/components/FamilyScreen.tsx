@@ -1,34 +1,39 @@
-import { useState } from "react";
-import { rotateInvite } from "../data/familyApi";
-import { inviteLink } from "../data/session";
+import { useEffect, useState } from "react";
+import { fetchSettings, setEntryOpen } from "../data/familyApi";
+import { appLink } from "../data/session";
 import { memberTone } from "../domain/categoryStyle";
 import type { Member, SessionInfo } from "../domain/types";
 import { useFamilyMembers } from "../hooks/useFamilyMembers";
 import { ConfirmSheet } from "../ui/ConfirmSheet";
-import { Icon } from "../ui/Icon";
 
 interface FamilyScreenProps {
   session: SessionInfo;
 }
 
-type Pending = { kind: "remove"; member: Member } | { kind: "invite" } | null;
+type Pending = { kind: "remove"; member: Member } | { kind: "close" } | null;
 
 export function FamilyScreen({ session }: FamilyScreenProps) {
   const { members, error, remove } = useFamilyMembers();
+  const [openJoin, setOpenJoin] = useState<boolean | null>(null);
   const [pending, setPending] = useState<Pending>(null);
-  const [link, setLink] = useState("");
-  const [inviteError, setInviteError] = useState("");
+  const [entryError, setEntryError] = useState("");
   const [copied, setCopied] = useState(false);
   const isAdmin = session.role === "admin";
+  const link = appLink();
 
-  async function createInvite() {
+  useEffect(() => {
+    fetchSettings()
+      .then((settings) => setOpenJoin(settings.openJoin))
+      .catch(() => setOpenJoin(null));
+  }, []);
+
+  async function changeEntry(open: boolean) {
     setPending(null);
     try {
-      setLink(inviteLink(await rotateInvite()));
-      setInviteError("");
-      setCopied(false);
+      setOpenJoin((await setEntryOpen(open)).openJoin);
+      setEntryError("");
     } catch {
-      setInviteError("Não consegui gerar o link. Confira a internet e tente de novo.");
+      setEntryError("Não consegui mudar agora. Confira a internet e tente de novo.");
     }
   }
 
@@ -37,7 +42,7 @@ export function FamilyScreen({ session }: FamilyScreenProps) {
       await navigator.clipboard.writeText(link);
       setCopied(true);
     } catch {
-      setInviteError("Não consegui copiar. Toque no link e copie manualmente.");
+      setEntryError("Não consegui copiar. Toque no endereço e copie manualmente.");
     }
   }
 
@@ -45,7 +50,7 @@ export function FamilyScreen({ session }: FamilyScreenProps) {
     <div className="page">
       <header className="screen-header">
         <h1 className="title">{session.familyName}</h1>
-        <p className="subtitle">Quem entra pelo link vê e edita a mesma lista.</p>
+        <p className="subtitle">Todo mundo aqui vê e edita a mesma lista.</p>
       </header>
 
       {error && <p className="banner banner--danger">{error}</p>}
@@ -88,42 +93,47 @@ export function FamilyScreen({ session }: FamilyScreenProps) {
         </ul>
       )}
 
-      {isAdmin && (
-        <section className="invite" aria-label="Convite">
+      <section className="card invite" aria-labelledby="chamar">
+        <h2 id="chamar" className="card__header">
+          Chamar alguém
+        </h2>
+        <p className="hint">
+          {openJoin === false
+            ? "A entrada está fechada: ninguém novo consegue entrar."
+            : "Mande este endereço. A pessoa abre, digita o nome e já entra."}
+        </p>
+        <div className="invite__row">
+          <label htmlFor="link-lista" className="visually-hidden">
+            Endereço da lista
+          </label>
+          <input
+            id="link-lista"
+            className="field"
+            type="text"
+            readOnly
+            value={link}
+            onFocus={(event) => event.target.select()}
+          />
+          <button type="button" className="btn btn--secondary" onClick={() => void copyLink()}>
+            {copied ? "Copiado" : "Copiar"}
+          </button>
+        </div>
+        {entryError && <p className="banner banner--danger">{entryError}</p>}
+        {isAdmin && openJoin !== null && (
           <button
             type="button"
-            className="btn btn--primary btn--block btn--xl"
-            onClick={() => setPending({ kind: "invite" })}
+            className={openJoin ? "btn btn--secondary btn--block" : "btn btn--primary btn--block"}
+            onClick={() => (openJoin ? setPending({ kind: "close" }) : void changeEntry(true))}
           >
-            <Icon name="link" size={22} />
-            Gerar novo link de convite
+            {openJoin ? "Fechar a entrada" : "Abrir a entrada"}
           </button>
-          {inviteError && <p className="banner banner--danger">{inviteError}</p>}
-          {link && (
-            <div className="invite__row">
-              <label htmlFor="link-convite" className="visually-hidden">
-                Link de convite
-              </label>
-              <input
-                id="link-convite"
-                className="field"
-                type="text"
-                readOnly
-                value={link}
-                onFocus={(event) => event.target.select()}
-              />
-              <button type="button" className="btn btn--secondary" onClick={() => void copyLink()}>
-                {copied ? "Copiado" : "Copiar"}
-              </button>
-            </div>
-          )}
-        </section>
-      )}
+        )}
+      </section>
 
       {pending?.kind === "remove" && (
         <ConfirmSheet
           title="Remover da família?"
-          message={`${pending.member.name} deixa de ver e editar a lista. Para voltar, vai precisar de um link novo.`}
+          message={`${pending.member.name} deixa de ver e editar a lista.`}
           confirmLabel="Remover"
           onConfirm={() => {
             void remove(pending.member.id);
@@ -132,13 +142,13 @@ export function FamilyScreen({ session }: FamilyScreenProps) {
           onClose={() => setPending(null)}
         />
       )}
-      {pending?.kind === "invite" && (
+      {pending?.kind === "close" && (
         <ConfirmSheet
-          title="Gerar novo link?"
-          message="O link antigo para de funcionar. Quem já entrou continua na lista."
-          confirmLabel="Gerar link"
+          title="Fechar a entrada?"
+          message="Quem já está na lista continua. Ninguém novo consegue entrar até você abrir de novo."
+          confirmLabel="Fechar entrada"
           tone="primary"
-          onConfirm={() => void createInvite()}
+          onConfirm={() => void changeEntry(false)}
           onClose={() => setPending(null)}
         />
       )}

@@ -1,12 +1,15 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { entrySchema } from "../../shared/contract.ts";
 import type { FamilyService } from "../services/families.ts";
-import { type Env, requireAdmin, requireSession } from "./context.ts";
+import { type Env, readJson, requireAdmin, requireSession } from "./context.ts";
 import type { Notifier } from "./notifier.ts";
 
 export function familyRoutes(families: FamilyService, notifier: Notifier) {
   const routes = new Hono<Env>();
   routes.use("*", requireSession(families));
+
+  routes.get("/", async (c) => c.json(await families.settings(c.get("session").familyId)));
 
   routes.get("/members", async (c) => c.json(await families.listMembers(c.get("session").familyId)));
 
@@ -23,9 +26,11 @@ export function familyRoutes(families: FamilyService, notifier: Notifier) {
     return c.body(null, 204);
   });
 
-  routes.post("/invite", requireAdmin, async (c) => {
-    const inviteToken = await families.rotateInvite(c.get("session").familyId);
-    return c.json({ inviteToken });
+  routes.put("/entry", requireAdmin, async (c) => {
+    const { familyId } = c.get("session");
+    const { open } = await readJson(c, entrySchema);
+    await families.setOpenJoin(familyId, open);
+    return c.json(await families.settings(familyId));
   });
 
   return routes;

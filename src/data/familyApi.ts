@@ -1,4 +1,4 @@
-import type { Member } from "../domain/types";
+import type { FamilySettings, Member } from "../../shared/contract.ts";
 import { api } from "./http";
 
 export async function fetchMembers(): Promise<Member[]> {
@@ -9,9 +9,11 @@ export async function removeMember(id: string): Promise<void> {
   await api(`/family/members/${id}`, "DELETE");
 }
 
-export async function rotateInvite(): Promise<string> {
-  const { inviteToken } = (await (await api("/family/invite", "POST")).json()) as {
-    inviteToken: string;
-  };
-  return inviteToken;
+export async function fetchSettings(): Promise<FamilySettings> {
+  return (await api("/family")).json() as Promise<FamilySettings>;
+}
+
+/** Abre ou fecha a entrada de pessoas novas pelo endereço do app. */
+export async function setEntryOpen(open: boolean): Promise<FamilySettings> {
+  return (await api("/family/entry", "PUT", { open })).json() as Promise<FamilySettings>;
 }

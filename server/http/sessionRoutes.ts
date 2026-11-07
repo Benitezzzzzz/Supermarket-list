@@ -17,15 +17,20 @@ export function sessionRoutes(families: FamilyService) {
   routes.post("/", async (c) => {
     const { inviteToken, name } = await readJson(c, joinSchema);
 
-    // Aparelho já conectado que abre o link de novo não vira um membro duplicado.
+    // Aparelho que já está na lista não vira um membro duplicado.
     const cookie = getCookie(c, SESSION_COOKIE);
     const current = cookie ? await families.findSession(cookie) : null;
-    if (current && (await families.isInviteFor(inviteToken, current.familyId))) {
-      return c.json(current);
-    }
+    if (current) return c.json(current);
 
-    const joined = await families.join(inviteToken, name);
-    if (!joined) throw new HTTPException(404, { message: "Convite inválido" });
+    const joined = inviteToken
+      ? await families.join(inviteToken, name)
+      : await families.joinOpen(name);
+    if (!joined.ok && joined.reason === "closed") {
+      throw new HTTPException(403, {
+        message: "A entrada de pessoas novas está fechada. Peça para quem cuida da lista abrir, na tela Família.",
+      });
+    }
+    if (!joined.ok) throw new HTTPException(404, { message: "Lista não encontrada" });
     setSessionCookie(c, joined.sessionToken);
     return c.json(joined.session, 201);
   });

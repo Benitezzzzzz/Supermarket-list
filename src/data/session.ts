@@ -35,8 +35,9 @@ export function extractInvite(input: string): string | null {
   return match ? match[0].toLowerCase() : null;
 }
 
-export function inviteLink(token: string): string {
-  return `${location.origin}${location.pathname}#convite=${token}`;
+/** O endereço único da lista, que serve para qualquer pessoa da família entrar. */
+export function appLink(): string {
+  return `${location.origin}${location.pathname}`;
 }
 
 function clearInviteFromUrl() {
@@ -59,8 +60,10 @@ export async function resumeSession(): Promise<SessionInfo | null> {
   }
 }
 
-export async function joinFamily(inviteToken: string, name: string): Promise<SessionInfo> {
-  const session = (await (await api("/session", "POST", { inviteToken, name })).json()) as SessionInfo;
+/** Entra só com o nome. Um convite antigo no endereço ainda é aceito, se houver. */
+export async function joinFamily(name: string, inviteToken?: string | null): Promise<SessionInfo> {
+  const body = inviteToken ? { name, inviteToken } : { name };
+  const session = (await (await api("/session", "POST", body)).json()) as SessionInfo;
   remember(session);
   clearInviteFromUrl();
   return session;

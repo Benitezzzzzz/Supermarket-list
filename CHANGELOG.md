@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.3.0 (2026-11-07)
+
+Um link só para a família.
+
+### Alterado
+
+- Para entrar, basta abrir o endereço do app e digitar o nome; não existe mais link de convite.
+- Quem entra primeiro vira administrador.
+- A tela Família mostra o endereço com um botão Copiar, e o administrador pode **fechar a entrada** depois que todos entraram. Quem já está continua usando normalmente.
+- O botão de gerar novo convite foi removido.
+
+### Observação
+
+- Com a entrada aberta, qualquer pessoa que descobrir o endereço consegue entrar. Feche a entrada quando a família toda estiver dentro.
+
 ## 3.2.0 (2026-11-07)
 
 Novo Design System "Friendly & Family", escolhido entre três propostas prototipadas.

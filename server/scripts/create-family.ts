@@ -90,5 +90,7 @@ try {
 
 if (seed.items.length > 0) console.log(`${seed.items.length} itens importados.`);
 console.log(`Família "${name}" criada ${values.remoto ? "em produção" : "no banco local"}.`);
-console.log("Quem abrir este link primeiro vira administrador:");
-console.log(`${values.url.replace(/\/$/, "")}/#convite=${inviteToken}`);
+console.log("Abra o endereço abaixo e digite seu nome. Quem entra primeiro vira administrador.");
+console.log(values.url.replace(/\/$/, ""));
+// Só é necessário se o mesmo app tiver mais de uma família.
+console.log(`Convite, para quando houver mais de uma família: #convite=${inviteToken}`);

@@ -109,7 +109,8 @@ describe("API", () => {
       ["POST", "/items/delete"],
       ["POST", "/categories"],
       ["GET", "/family/members"],
-      ["POST", "/family/invite"],
+      ["GET", "/family"],
+      ["PUT", "/family/entry"],
       ["GET", "/session"],
     ])("%s %s exige sessão", async (method, path) => {
       const response = await new Device(app).call(method, path);
@@ -127,6 +128,11 @@ describe("API", () => {
         inviteToken: "f".repeat(64),
         name: "Intruso",
       });
+      expect(response.status).toBe(404);
+    });
+
+    it("sem convite, não entra quando o app tem mais de uma família", async () => {
+      const response = await new Device(app).call("POST", "/session", { name: "Intruso" });
       expect(response.status).toBe(404);
     });
 
@@ -286,10 +292,10 @@ describe("API", () => {
       ]);
     });
 
-    it("membro comum não remove ninguém nem troca o convite", async () => {
+    it("membro comum não remove ninguém nem mexe na entrada", async () => {
       const session = (await (await admin.call("GET", "/session")).json()) as SessionInfo;
       expect((await member.call("DELETE", `/family/members/${session.memberId}`)).status).toBe(403);
-      expect((await member.call("POST", "/family/invite")).status).toBe(403);
+      expect((await member.call("PUT", "/family/entry", { open: false })).status).toBe(403);
     });
 
     it("membro removido perde o acesso na hora", async () => {
@@ -304,16 +310,69 @@ describe("API", () => {
       expect((await admin.call("DELETE", `/family/members/${session.memberId}`)).status).toBe(400);
     });
 
-    it("convite novo invalida o antigo sem derrubar quem já entrou", async () => {
-      const response = await admin.call("POST", "/family/invite");
-      const { inviteToken } = (await response.json()) as { inviteToken: string };
+    it("fechar a entrada barra gente nova sem derrubar quem já entrou", async () => {
+      const closed = await admin.call("PUT", "/family/entry", { open: false });
+      expect(await closed.json()).toEqual({ openJoin: false });
 
       const late = new Device(app);
-      expect(
-        (await late.call("POST", "/session", { inviteToken: inviteA, name: "Atrasado" })).status,
-      ).toBe(404);
-      expect((await late.call("POST", "/session", { inviteToken, name: "Novo" })).status).toBe(201);
+      const refused = await late.call("POST", "/session", { inviteToken: inviteA, name: "Atrasado" });
+      expect(refused.status).toBe(403);
       expect((await member.call("GET", "/list")).status).toBe(200);
+
+      await admin.call("PUT", "/family/entry", { open: true });
+      expect((await late.call("POST", "/session", { inviteToken: inviteA, name: "Novo" })).status).toBe(201);
     });
+
+    it("fechar a entrada de uma família não afeta outra", async () => {
+      await admin.call("PUT", "/family/entry", { open: false });
+      const settings = (await (await outsider.call("GET", "/family")).json()) as { openJoin: boolean };
+      expect(settings.openJoin).toBe(true);
+    });
+  });
+});
+
+/** O app publicado tem uma família só: entra-se pelo endereço, sem convite. */
+describe("entrada pelo endereço", () => {
+  let app: App;
+  let db: Database;
+
+  beforeEach(async () => {
+    db = openTestDatabase();
+    app = createApp(db, new RecordingNotifier());
+    await new FamilyService(db).create("Família Benitez");
+  });
+
+  const joinByName = (device: Device, name: string) => device.call("POST", "/session", { name });
+
+  it("o primeiro a entrar só com o nome vira admin", async () => {
+    const first = new Device(app);
+    const response = await joinByName(first, "Renan");
+    expect(response.status).toBe(201);
+    expect(((await response.json()) as SessionInfo).role).toBe("admin");
+
+    const second = await joinByName(new Device(app), "Mãe");
+    expect(((await second.json()) as SessionInfo).role).toBe("member");
+  });
+
+  it("o mesmo aparelho entrando de novo não duplica", async () => {
+    const device = new Device(app);
+    await joinByName(device, "Renan");
+    await joinByName(device, "Renan");
+    const members = (await (await device.call("GET", "/family/members")).json()) as unknown[];
+    expect(members).toHaveLength(1);
+  });
+
+  it("com a entrada fechada, ninguém novo entra", async () => {
+    const admin = new Device(app);
+    await joinByName(admin, "Renan");
+    await admin.call("PUT", "/family/entry", { open: false });
+
+    const response = await joinByName(new Device(app), "Estranho");
+    expect(response.status).toBe(403);
+    expect(((await response.json()) as { error: string }).error).toContain("fechada");
+  });
+
+  it("valida o nome", async () => {
+    expect((await joinByName(new Device(app), "   ")).status).toBe(422);
   });
 });

@@ -1,6 +1,10 @@
-import type { Member, Role, SessionInfo } from "../../shared/contract.ts";
+import type { FamilySettings, Member, Role, SessionInfo } from "../../shared/contract.ts";
 import type { Database } from "../db/database.ts";
 import { generateToken, hashToken } from "./tokens.ts";
+
+export type JoinResult =
+  | { ok: true; session: SessionInfo; sessionToken: string }
+  | { ok: false; reason: "not_found" | "closed" };
 
 export interface NewFamily {
   familyId: string;
@@ -33,16 +37,34 @@ export class FamilyService {
     return { familyId, listId, inviteToken };
   }
 
-  /** Quem entra primeiro vira admin. Retorna null se o convite não vale. */
-  async join(
-    inviteToken: string,
-    name: string,
-  ): Promise<{ session: SessionInfo; sessionToken: string } | null> {
+  /** Entrada por convite: só a família daquele código. */
+  async join(inviteToken: string, name: string): Promise<JoinResult> {
     const family = await this.db
-      .prepare("SELECT id, name FROM families WHERE invite_hash = ?")
+      .prepare("SELECT id, name, open_join AS openJoin FROM families WHERE invite_hash = ?")
       .bind(await hashToken(inviteToken))
-      .first<{ id: string; name: string }>();
-    if (!family) return null;
+      .first<{ id: string; name: string; openJoin: number }>();
+    if (!family) return { ok: false, reason: "not_found" };
+    return this.addMember(family, name);
+  }
+
+  /**
+   * Entrada pelo endereço do app, sem convite. Só funciona quando o app tem uma
+   * única família; com várias, não há como saber qual é a da pessoa.
+   */
+  async joinOpen(name: string): Promise<JoinResult> {
+    const { results } = await this.db
+      .prepare("SELECT id, name, open_join AS openJoin FROM families LIMIT 2")
+      .all<{ id: string; name: string; openJoin: number }>();
+    if (results.length !== 1) return { ok: false, reason: "not_found" };
+    return this.addMember(results[0], name);
+  }
+
+  /** Quem entra primeiro vira admin. Com a entrada fechada, ninguém novo entra. */
+  private async addMember(
+    family: { id: string; name: string; openJoin: number },
+    name: string,
+  ): Promise<JoinResult> {
+    if (family.openJoin !== 1) return { ok: false, reason: "closed" };
 
     const memberId = crypto.randomUUID();
     const sessionToken = generateToken();
@@ -66,6 +88,7 @@ export class FamilyService {
       .first<{ role: Role }>();
 
     return {
+      ok: true,
       sessionToken,
       session: {
         memberId,
@@ -86,14 +109,6 @@ export class FamilyService {
       )
       .bind(await hashToken(sessionToken))
       .first<SessionInfo>();
-  }
-
-  async isInviteFor(inviteToken: string, familyId: string): Promise<boolean> {
-    const row = await this.db
-      .prepare("SELECT 1 AS ok FROM families WHERE id = ? AND invite_hash = ?")
-      .bind(familyId, await hashToken(inviteToken))
-      .first();
-    return row !== null;
   }
 
   async touch(memberId: string) {
@@ -123,13 +138,19 @@ export class FamilyService {
     return meta.changes > 0;
   }
 
-  /** Gera convite novo; o anterior para de funcionar na hora. */
-  async rotateInvite(familyId: string): Promise<string> {
-    const inviteToken = generateToken();
+  async settings(familyId: string): Promise<FamilySettings> {
+    const row = await this.db
+      .prepare("SELECT open_join AS openJoin FROM families WHERE id = ?")
+      .bind(familyId)
+      .first<{ openJoin: number }>();
+    return { openJoin: row?.openJoin === 1 };
+  }
+
+  /** Fechar a entrada não tira ninguém: só impede gente nova de entrar. */
+  async setOpenJoin(familyId: string, open: boolean) {
     await this.db
-      .prepare("UPDATE families SET invite_hash = ? WHERE id = ?")
-      .bind(await hashToken(inviteToken), familyId)
+      .prepare("UPDATE families SET open_join = ? WHERE id = ?")
+      .bind(open ? 1 : 0, familyId)
       .run();
-    return inviteToken;
   }
 }
