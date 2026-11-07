@@ -161,7 +161,8 @@ Cada lista tem um Durable Object que guarda os WebSockets abertos. Quando algo m
 - Adicionar item com categoria e criar categorias novas
 - Quantidade: digite "2 frangos" ou ajuste depois no lápis (medidas como "2 kg arroz" ficam no nome)
 - Marcar como comprado tocando na linha: o item fica riscado no mesmo lugar
-- Importar vários itens colando texto; uma linha com o nome de uma categoria vira título
+- Importar vários itens colando texto ou uma mensagem do WhatsApp (data, nome, emojis e marcadores são ignorados; "arroz, feijão" e "Arroz x2" funcionam), com prévia antes de importar; uma linha com o nome de uma categoria vira título
+- No Android, com o app instalado, compartilhar a mensagem do WhatsApp direto para a Lista do Mercado
 - Lixeira no topo: limpar só os riscados ou a lista toda
 - Finalizar compra: valor, forma de pagamento (PIX, dinheiro, débito ou crédito, à vista ou parcelado) e limpeza da lista
 - Aba Gastos, separada por lista: últimas compras com os itens de cada uma, total do mês, correção e exclusão com Desfazer

@@ -2,10 +2,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { keepAppUpdated } from "./pwa";
 import { Root } from "./Root";
+import { captureSharedText } from "./sharedText";
 import "./styles/tokens.css";
 import "./styles/app.css";
 
 keepAppUpdated();
+captureSharedText();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

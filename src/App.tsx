@@ -9,6 +9,7 @@ import { EditPurchaseSheet } from "./components/EditPurchaseSheet";
 import { ExpensesScreen } from "./components/ExpensesScreen";
 import { FinishSheet } from "./components/FinishSheet";
 import { ImportSheet } from "./components/ImportSheet";
+import { takeSharedText } from "./sharedText";
 import { ListScreen } from "./components/ListScreen";
 import { ListsSheet } from "./components/ListsSheet";
 import { ParticipantsScreen } from "./components/ParticipantsScreen";
@@ -36,7 +37,7 @@ interface AppProps {
 
 type Sheet =
   | { kind: "add" }
-  | { kind: "import" }
+  | { kind: "import"; text?: string }
   | { kind: "edit"; id: string }
   | { kind: "clear" }
   | { kind: "finish" }
@@ -61,7 +62,10 @@ export function App({
 }: AppProps) {
   const state = useSyncExternalStore(list.subscribe, list.getState);
   const [screen, setScreen] = useState<Screen>("list");
-  const [sheet, setSheet] = useState<Sheet>(null);
+  const [sheet, setSheet] = useState<Sheet>(() => {
+    const shared = takeSharedText();
+    return shared ? { kind: "import", text: shared } : null;
+  });
   const [category, setCategory] = useState(DEFAULT_CATEGORY);
   const { toast, show, dismiss } = useToast();
 
@@ -163,6 +167,8 @@ export function App({
         <ImportSheet
           categories={categories}
           initialCategory={category}
+          listName={current.name}
+          initialText={sheet.text}
           onImport={(items) => {
             list.addItems(items);
             close();

@@ -1,6 +1,6 @@
 # Próximas funcionalidades
 
-**Status:** etapa 2 (várias listas) e etapa 3 (contas) entregues em 2026-11-07, na versão 4.0.0. Faltam PDF, NFC-e, código de barras e a lista vinda do WhatsApp.
+**Status:** etapa 2 (várias listas) e etapa 3 (contas) entregues em 2026-11-07, na versão 4.0.0. A lista vinda do WhatsApp saiu na 4.2.0. Faltam PDF, NFC-e e código de barras.
 
 Pedido: contas individuais com login, várias listas por pessoa (o pai administra uma pousada e quer listas separadas), exportar os relatórios de compras para PDF e, mais adiante, trazer compras para o app lendo a NFC-e, o código de barras ou o QR code.
 
@@ -72,7 +72,7 @@ Hoje o acesso é por aparelho: quem limpa os dados do navegador ou troca de celu
 
 ## Próxima etapa
 
-**Lista vinda do WhatsApp:**
+**Lista vinda do WhatsApp (entregue na 4.2.0):**
 
 - Melhorar o "Colar vários itens" para entender o formato das mensagens do WhatsApp, como data e hora, nome de quem mandou, negrito, emojis e marcadores.
 - No Android, receber o texto pelo botão Compartilhar do WhatsApp, direto no app instalado (Web Share Target). O iPhone não permite isso para apps instalados pelo navegador, então lá continua o copiar e colar.

@@ -362,6 +362,30 @@ select.field {
   color: var(--ink-soft);
 }
 
+.import-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--primary-soft);
+}
+
+.import-preview__category {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.import-preview__items {
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  overflow-wrap: anywhere;
+}
+
 /* ---------- Categorias ---------- */
 
 .tone-horti { --tone-bg: var(--cat-horti-bg); --tone-fg: var(--cat-horti-fg); }

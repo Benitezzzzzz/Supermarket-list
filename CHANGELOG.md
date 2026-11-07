@@ -1,5 +1,18 @@
 # Changelog
 
+## 4.2.0 (2026-11-07)
+
+### Adicionado
+
+- **Lista do WhatsApp:** "Colar vários itens" entende mensagens copiadas do WhatsApp. Ignora data, hora e nome de quem mandou, emojis, marcadores, negrito, "<Mídia oculta>" e mensagens apagadas.
+- Vários itens na mesma linha separados por vírgula ("arroz, feijão, café"), sem quebrar "1,5 kg".
+- Quantidade no fim também vale: "Arroz x2", "Leite (3)", "Ovos - 2 un".
+- Títulos comuns viram categoria: "Frutas", "Verduras", "Feira" → Hortifruti; "Carnes" → Açougue e Peixaria; "Frios" → Laticínios e Frios; "Higiene" → Higiene e Farmácia; "Produtos de limpeza" → Limpeza.
+- Títulos como "*Compras do mês*" ou "Lista do mercado:" não viram item; itens repetidos entram uma vez.
+- Prévia do que vai entrar, separada por categoria, com o nome da lista que vai receber.
+- Botão "Colar o que copiei" lê a área de transferência.
+- **Android:** com o app instalado, o WhatsApp mostra "Lista do Mercado" em Compartilhar. O texto abre direto em "Colar vários itens", mesmo se antes for preciso entrar na conta.
+
 ## 4.1.0 (2026-11-07)
 
 ### Adicionado

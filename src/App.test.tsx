@@ -5,6 +5,7 @@ import { App } from "./App";
 import { applyOp } from "./data/applyOp";
 import type { ListBackend } from "./data/backend";
 import { SyncedList } from "./data/syncedList";
+import { captureSharedText } from "./sharedText";
 import type { ListSummary, Op, Snapshot, UserInfo } from "./domain/types";
 
 class MemoryBackend implements ListBackend {
@@ -384,6 +385,35 @@ describe("App", () => {
     expect(await screen.findByText("2 itens importados")).toBeTruthy();
     expect(screen.getByRole("heading", { name: /^Bebidas/ })).toBeTruthy();
     expect(screen.getByText("Águas")).toBeTruthy();
+  });
+
+  it("mostra o que vai entrar ao colar uma mensagem do WhatsApp", async () => {
+    const user = renderApp();
+    const dialog = await openAddSheet(user);
+    await user.click(within(dialog).getByRole("button", { name: "Colar vários itens de uma vez" }));
+
+    const sheet = await screen.findByRole("dialog", { name: "Colar vários itens" });
+    await user.click(within(sheet).getByLabelText("Itens"));
+    await user.paste("[07/11/26, 18:02:11] Elson: *Limpeza* 🧽\n[07/11/26, 18:02:12] Elson: detergente, sabão x2");
+
+    const preview = within(sheet).getByRole("region", { name: "O que vai entrar" });
+    expect(within(preview).getByText("Vai entrar na lista Casa")).toBeTruthy();
+    expect(within(preview).getByText("Limpeza")).toBeTruthy();
+    expect(within(preview).getByText("Detergente")).toBeTruthy();
+    expect(within(preview).getByText("2× Sabão")).toBeTruthy();
+    await user.click(within(sheet).getByRole("button", { name: "Importar 2 itens" }));
+    expect(await screen.findByText("2 itens importados")).toBeTruthy();
+  });
+
+  it("abre o texto compartilhado pelo WhatsApp", async () => {
+    history.replaceState(null, "", `/?text=${encodeURIComponent("Pão\nLeite x3")}`);
+    captureSharedText();
+    expect(window.location.search).toBe("");
+    renderApp();
+
+    const sheet = await screen.findByRole("dialog", { name: "Colar vários itens" });
+    expect((within(sheet).getByLabelText("Itens") as HTMLTextAreaElement).value).toBe("Pão\nLeite x3");
+    expect(within(sheet).getByRole("button", { name: "Importar 2 itens" })).toBeTruthy();
   });
 
   it("Esc fecha o painel e devolve o foco ao botão", async () => {
