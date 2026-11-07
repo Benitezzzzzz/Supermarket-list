@@ -21,6 +21,10 @@ const PATHS = {
   snow: "M12 2v20M4 6l16 12M20 6L4 18",
   basket: "M3 9h18l-2 11H5zM8 9l4-6 4 6",
   trash: "M4 7h16M10 11v6M14 11v6M5 7l1 13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1l1-13M9 7V4h6v3",
+  receipt: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3",
+  card: "M3 6h18v12H3zM3 10h18M7 15h3",
+  pix: "M12 3l9 9-9 9-9-9zM8.5 12h7",
+  bag: "M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2",
   tag: "M20.4 12.6 12 21l-9-9V4h8l9.4 9.4a2 2 0 0 1 0 2.6zM7.5 7.5h.01",
 };
 

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { CATEGORY_ORDER, groupByCategory, knownCategories } from "./categories";
 import { createItem, parseImport, parseQuantity } from "./items";
+import { describePayment, formatMoney, monthTotal, parseMoney } from "./money";
+import type { Purchase } from "./types";
 
 describe("parseImport", () => {
   it("usa linhas de categoria como título", () => {
@@ -45,6 +47,51 @@ describe("parseQuantity", () => {
     ["7", "7", 1],
   ])("%s", (input, text, quantity) => {
     expect(parseQuantity(input)).toEqual({ text, quantity });
+  });
+});
+
+describe("parseMoney", () => {
+  it.each([
+    ["152,90", 15290],
+    ["152.90", 15290],
+    ["R$ 80", 8000],
+    ["80", 8000],
+    ["1.234,56", 123456],
+    ["1.234", 123400],
+    ["0,5", 50],
+    [" 12,3 ", 1230],
+  ])("%s vira %i centavos", (input, cents) => {
+    expect(parseMoney(input)).toBe(cents);
+  });
+
+  it.each(["", "abc", "0", "0,00", "-5", "12,345", "1,2,3", "10e3"])("recusa %j", (input) => {
+    expect(parseMoney(input)).toBeNull();
+  });
+});
+
+describe("forma de pagamento", () => {
+  const base = { amountCents: 15290 };
+
+  it("descreve cada forma", () => {
+    expect(describePayment({ ...base, method: "pix", installments: 1 })).toBe("PIX");
+    expect(describePayment({ ...base, method: "debito", installments: 1 })).toBe("Débito");
+    expect(describePayment({ ...base, method: "credito", installments: 1 })).toBe("Crédito à vista");
+    expect(describePayment({ ...base, method: "credito", installments: 3 })).toMatch(/^Crédito em 3x de R\$\s50,97$/);
+  });
+
+  it("formata em reais", () => {
+    expect(formatMoney(123456)).toMatch(/^R\$\s1\.234,56$/);
+  });
+
+  it("soma só as compras do mês", () => {
+    const purchase = (createdAt: string, amountCents: number): Purchase => ({
+      id: crypto.randomUUID(), amountCents, method: "pix", installments: 1, itemCount: 1, memberName: "Renan", createdAt,
+    });
+    const total = monthTotal(
+      [purchase("2026-11-03T12:00:00.000Z", 10000), purchase("2026-11-20T12:00:00.000Z", 5050), purchase("2026-10-30T12:00:00.000Z", 9999)],
+      new Date("2026-11-25T12:00:00.000Z"),
+    );
+    expect(total).toEqual({ cents: 15050, count: 2 });
   });
 });
 

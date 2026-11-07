@@ -12,6 +12,7 @@ interface ListScreenProps {
   onEdit: (item: Item) => void;
   onAskClear: () => void;
   onAskClearAll: () => void;
+  onFinish: () => void;
 }
 
 function firstName(name: string): string {
@@ -52,6 +53,7 @@ export function ListScreen({
   onEdit,
   onAskClear,
   onAskClearAll,
+  onFinish,
 }: ListScreenProps) {
   const toBuy = state.items.filter((item) => !item.done);
   const bought = state.items.filter((item) => item.done);
@@ -155,6 +157,13 @@ export function ListScreen({
           </section>
         )}
       </div>
+
+      {state.items.length > 0 && (
+        <button type="button" className="btn btn--accent btn--block btn--xl" onClick={onFinish}>
+          <Icon name="bag" size={24} />
+          Finalizar compra
+        </button>
+      )}
     </div>
   );
 }

@@ -633,7 +633,7 @@ select.field {
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(108px + env(safe-area-inset-bottom));
+  bottom: calc(176px + env(safe-area-inset-bottom));
   z-index: var(--layer-toast);
   width: min(528px, calc(100% - 28px));
   transform: translateX(-50%);
@@ -704,19 +704,164 @@ select.field {
   color: var(--primary-soft-ink);
 }
 
-.nav-btn--add {
-  min-height: 68px;
-  margin-top: -18px;
-  border-radius: var(--radius-lg);
+/* ---------- Botão flutuante de adicionar ---------- */
+
+/* Espaço para o botão flutuante não cobrir o último item. */
+.app--with-fab {
+  padding-bottom: calc(184px + env(safe-area-inset-bottom));
+}
+
+.fab {
+  position: fixed;
+  right: max(var(--space-4), calc(50% - 280px + var(--space-4)));
+  bottom: calc(100px + env(safe-area-inset-bottom));
+  z-index: var(--layer-nav);
+  min-height: var(--touch-xl);
+  padding: 0 var(--space-6) 0 var(--space-5);
+  border: none;
+  border-radius: var(--radius-full);
   background: var(--primary);
   color: var(--on-primary);
   box-shadow: var(--shadow-raised);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-lg);
+  font-weight: 700;
   transition: transform var(--duration) var(--ease);
 }
 
-.nav-btn--add:active {
+.fab:active {
   transform: scale(0.96);
 }
+
+/* ---------- Finalizar compra e Gastos ---------- */
+
+.tiles--stack {
+  grid-template-columns: 1fr;
+}
+
+.tiles > legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+}
+
+.money {
+  position: relative;
+}
+
+.money__prefix {
+  position: absolute;
+  left: var(--space-4);
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: var(--field-text);
+  font-weight: 700;
+  color: var(--ink-soft);
+  pointer-events: none;
+}
+
+.money__input {
+  padding-left: 3.25rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.summary__amount,
+.total__amount,
+.purchase__amount {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+}
+
+.summary__amount {
+  font-size: var(--text-3xl);
+}
+
+.summary__method {
+  font-size: var(--text-lg);
+  color: var(--ink-soft);
+}
+
+.total {
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.total__label,
+.total__count {
+  font-size: var(--text-md);
+  color: var(--ink-soft);
+}
+
+.total__amount {
+  font-size: 2.25rem;
+}
+
+.purchases {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.purchase {
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.purchase__top {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.purchase__amount {
+  font-size: var(--text-2xl);
+}
+
+.purchase__date,
+.purchase__meta {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.purchase__method {
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--tone-bg);
+  color: var(--tone-fg);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.method--pix { --tone-bg: var(--cat-limpeza-bg); --tone-fg: var(--cat-limpeza-fg); }
+.method--debito { --tone-bg: var(--cat-padaria-bg); --tone-fg: var(--cat-padaria-fg); }
+.method--credito { --tone-bg: var(--cat-laticinios-bg); --tone-fg: var(--cat-laticinios-fg); }
 
 /* ---------- Painel de baixo ---------- */
 

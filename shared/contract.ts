@@ -41,18 +41,47 @@ export interface FamilySettings {
   openJoin: boolean;
 }
 
+export const MAX_INSTALLMENTS = 24;
+export const MAX_AMOUNT_CENTS = 100_000_000;
+
+/** Compra finalizada. O valor fica em centavos para não haver erro de arredondamento. */
+export const purchaseSchema = z
+  .object({
+    id: z.uuid(),
+    amountCents: z.number().int().min(1).max(MAX_AMOUNT_CENTS),
+    method: z.enum(["pix", "debito", "credito"]),
+    installments: z.number().int().min(1).max(MAX_INSTALLMENTS),
+    itemCount: z.number().int().min(0).max(MAX_BATCH),
+    memberName: z.string().max(MAX_NAME),
+    createdAt: z.iso.datetime({ offset: true }),
+  })
+  .refine((purchase) => purchase.method === "credito" || purchase.installments === 1, {
+    message: "Só o crédito pode ser parcelado",
+  });
+
+/** Finalizar registra a compra e tira da lista exatamente os itens que existiam naquela hora. */
+export const finishSchema = z.object({
+  purchase: purchaseSchema,
+  itemIds: z.array(z.uuid()).max(MAX_BATCH),
+});
+
 export type Item = z.infer<typeof itemSchema>;
+export type Purchase = z.infer<typeof purchaseSchema>;
+export type PaymentMethod = Purchase["method"];
 
 export interface Snapshot {
   items: Item[];
   customCategories: string[];
+  /** Compras mais recentes primeiro. */
+  purchases: Purchase[];
 }
 
 /** Alteração unitária e idempotente: pode ser reenviada sem efeito colateral. */
 export type Op =
   | { kind: "upsert"; items: Item[] }
   | { kind: "delete"; ids: string[] }
-  | { kind: "addCategory"; name: string };
+  | { kind: "addCategory"; name: string }
+  | { kind: "finish"; purchase: Purchase; itemIds: string[] };
 
 export type Role = "admin" | "member";
 

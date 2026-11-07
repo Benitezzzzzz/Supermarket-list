@@ -23,6 +23,9 @@ export class ApiBackend implements ListBackend {
       case "addCategory":
         await api("/categories", "POST", { name: op.name });
         return;
+      case "finish":
+        await api("/purchases", "POST", { purchase: op.purchase, itemIds: op.itemIds });
+        return;
     }
   }
 

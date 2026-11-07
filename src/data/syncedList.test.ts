@@ -7,7 +7,7 @@ import { SyncedList } from "./syncedList";
 
 /** Servidor em memória; vários SyncedList podem compartilhar o mesmo. */
 class FakeServer implements ListBackend {
-  snapshot: Snapshot = { items: [], customCategories: [] };
+  snapshot: Snapshot = { items: [], customCategories: [], purchases: [] };
   online = true;
   revoked = false;
   rejectNext = false;
@@ -102,7 +102,7 @@ describe("SyncedList", () => {
 
   it("alteração pendente continua visível quando chega versão do servidor", async () => {
     const outro = createItem("Feijão", "Outros", new Date(2));
-    server.snapshot = { items: [outro], customCategories: [] };
+    server.snapshot = { items: [outro], customCategories: [], purchases: [] };
     const list = new SyncedList(server, "a");
     await list.sync();
 
@@ -140,6 +140,38 @@ describe("SyncedList", () => {
 
     expect(list.getState().accessRevoked).toBe(true);
     expect(texts(list)).toEqual(["Arroz"]);
+  });
+
+  it("finalizar tira só os itens daquela hora e guarda a compra", async () => {
+    const list = new SyncedList(server, "a");
+    const antigo = createItem("Arroz", "Outros", new Date(1));
+    list.addItems([antigo]);
+    await list.sync();
+
+    const novo = createItem("Feijão", "Outros", new Date(2));
+    const purchase = {
+      id: crypto.randomUUID(), amountCents: 5000, method: "pix" as const, installments: 1,
+      itemCount: 1, memberName: "Renan", createdAt: new Date().toISOString(),
+    };
+    server.online = false;
+    list.finishShopping(purchase, [antigo.id]);
+    list.addItems([novo]);
+    await list.sync();
+    expect(texts(list)).toEqual(["Feijão"]);
+    expect(list.getState().purchases).toHaveLength(1);
+
+    server.online = true;
+    await list.sync();
+    // Reenviar a mesma compra não duplica.
+    await server.apply({ kind: "finish", purchase, itemIds: [antigo.id] });
+    await list.refresh();
+    expect(texts(list)).toEqual(["Feijão"]);
+    expect(list.getState().purchases).toEqual([purchase]);
+  });
+
+  it("abre cópias salvas por versões antigas, sem compras", () => {
+    localStorage.setItem("antiga", JSON.stringify({ base: { items: [], customCategories: [] }, queue: [] }));
+    expect(new SyncedList(server, "antiga").getState().purchases).toEqual([]);
   });
 
   it("recebe mudanças de outro aparelho pela assinatura", async () => {

@@ -2,7 +2,9 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { AddSheet } from "./components/AddSheet";
 import { BottomNav, type Screen } from "./components/BottomNav";
 import { EditItemSheet } from "./components/EditItemSheet";
+import { ExpensesScreen } from "./components/ExpensesScreen";
 import { FamilyScreen } from "./components/FamilyScreen";
+import { FinishSheet } from "./components/FinishSheet";
 import { ImportSheet } from "./components/ImportSheet";
 import { JoinScreen } from "./components/JoinScreen";
 import { ListScreen } from "./components/ListScreen";
@@ -11,6 +13,7 @@ import { DEFAULT_CATEGORY, knownCategories } from "./domain/categories";
 import { createItem } from "./domain/items";
 import type { Item, SessionInfo } from "./domain/types";
 import { ConfirmSheet } from "./ui/ConfirmSheet";
+import { Icon } from "./ui/Icon";
 import { Toast, useToast } from "./ui/Toast";
 
 interface AppProps {
@@ -25,6 +28,7 @@ type Sheet =
   | { kind: "edit"; id: string }
   | { kind: "clear" }
   | { kind: "clear-all" }
+  | { kind: "finish" }
   | null;
 
 export function App({ list, session, onRejoined }: AppProps) {
@@ -55,8 +59,8 @@ export function App({ list, session, onRejoined }: AppProps) {
   }
 
   return (
-    <main className="app">
-      {screen === "list" ? (
+    <main className={screen === "list" ? "app app--with-fab" : "app"}>
+      {screen === "list" && (
         <ListScreen
           state={state}
           session={session}
@@ -64,19 +68,20 @@ export function App({ list, session, onRejoined }: AppProps) {
           onEdit={(item) => setSheet({ kind: "edit", id: item.id })}
           onAskClear={() => setSheet({ kind: "clear" })}
           onAskClearAll={() => setSheet({ kind: "clear-all" })}
+          onFinish={() => setSheet({ kind: "finish" })}
         />
-      ) : (
-        <FamilyScreen session={session} />
+      )}
+      {screen === "expenses" && <ExpensesScreen purchases={state.purchases} />}
+      {screen === "family" && <FamilyScreen session={session} />}
+
+      {screen === "list" && (
+        <button type="button" className="fab" onClick={() => setSheet({ kind: "add" })}>
+          <Icon name="plus" size={26} strokeWidth={2.6} />
+          Adicionar
+        </button>
       )}
 
-      <BottomNav
-        screen={screen}
-        onNavigate={setScreen}
-        onAdd={() => {
-          setScreen("list");
-          setSheet({ kind: "add" });
-        }}
-      />
+      <BottomNav screen={screen} onNavigate={setScreen} />
 
       <Toast toast={toast} onDismiss={dismiss} />
 
@@ -134,6 +139,28 @@ export function App({ list, session, onRejoined }: AppProps) {
             const bought = state.items.filter((item) => item.done);
             close();
             removeWithUndo(bought, bought.length === 1 ? "1 item saiu da lista" : `${bought.length} itens saíram da lista`);
+          }}
+          onClose={close}
+        />
+      )}
+
+      {sheet?.kind === "finish" && (
+        <FinishSheet
+          itemCount={state.items.length}
+          onFinish={(details) => {
+            const itemIds = state.items.map((item) => item.id);
+            list.finishShopping(
+              {
+                id: crypto.randomUUID(),
+                ...details,
+                itemCount: itemIds.length,
+                memberName: session.name,
+                createdAt: new Date().toISOString(),
+              },
+              itemIds,
+            );
+            close();
+            show("Compra finalizada e guardada em Gastos");
           }}
           onClose={close}
         />

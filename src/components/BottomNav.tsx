@@ -1,40 +1,35 @@
-import { Icon } from "../ui/Icon";
+import { Icon, type IconName } from "../ui/Icon";
 
-export type Screen = "list" | "family";
+export type Screen = "list" | "expenses" | "family";
 
 interface BottomNavProps {
   screen: Screen;
   onNavigate: (screen: Screen) => void;
-  onAdd: () => void;
 }
 
-/** Sempre com texto embaixo do ícone, e o botão de adicionar no centro, no alcance do polegar. */
-export function BottomNav({ screen, onNavigate, onAdd }: BottomNavProps) {
+const TABS: { screen: Screen; label: string; icon: IconName }[] = [
+  { screen: "list", label: "Lista", icon: "list" },
+  { screen: "expenses", label: "Gastos", icon: "receipt" },
+  { screen: "family", label: "Participantes", icon: "family" },
+];
+
+/** Sempre com texto embaixo do ícone. Adicionar fica num botão flutuante, na tela da lista. */
+export function BottomNav({ screen, onNavigate }: BottomNavProps) {
   return (
     <nav className="bottom-nav" aria-label="Navegação principal">
       <div className="bottom-nav__inner">
-        <button
-          type="button"
-          className="nav-btn"
-          aria-current={screen === "list" ? "page" : undefined}
-          onClick={() => onNavigate("list")}
-        >
-          <Icon name="list" size={26} />
-          Lista
-        </button>
-        <button type="button" className="nav-btn nav-btn--add" onClick={onAdd}>
-          <Icon name="plus" size={28} strokeWidth={2.6} />
-          Adicionar
-        </button>
-        <button
-          type="button"
-          className="nav-btn"
-          aria-current={screen === "family" ? "page" : undefined}
-          onClick={() => onNavigate("family")}
-        >
-          <Icon name="family" size={26} />
-          Participantes
-        </button>
+        {TABS.map((tab) => (
+          <button
+            key={tab.screen}
+            type="button"
+            className="nav-btn"
+            aria-current={screen === tab.screen ? "page" : undefined}
+            onClick={() => onNavigate(tab.screen)}
+          >
+            <Icon name={tab.icon} size={26} />
+            {tab.label}
+          </button>
+        ))}
       </div>
     </nav>
   );

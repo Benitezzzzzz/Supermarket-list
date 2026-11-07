@@ -15,6 +15,15 @@ export function applyOp(snapshot: Snapshot, op: Op): Snapshot {
       const ids = new Set(op.ids);
       return { ...snapshot, items: snapshot.items.filter((item) => !ids.has(item.id)) };
     }
+    case "finish": {
+      const ids = new Set(op.itemIds);
+      const others = snapshot.purchases.filter((purchase) => purchase.id !== op.purchase.id);
+      return {
+        ...snapshot,
+        items: snapshot.items.filter((item) => !ids.has(item.id)),
+        purchases: [op.purchase, ...others].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      };
+    }
     case "addCategory": {
       const name = op.name.toLowerCase();
       if (snapshot.customCategories.some((c) => c.toLowerCase() === name)) return snapshot;

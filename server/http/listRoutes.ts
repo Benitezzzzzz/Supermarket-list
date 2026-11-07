@@ -3,6 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import {
   addCategorySchema,
   deleteItemsSchema,
+  finishSchema,
   upsertItemsSchema,
 } from "../../shared/contract.ts";
 import type { FamilyService } from "../services/families.ts";
@@ -36,6 +37,15 @@ export function listRoutes(families: FamilyService, lists: ListService, notifier
     const { familyId } = c.get("session");
     const { name } = await readJson(c, addCategorySchema);
     await lists.addCategory(familyId, name);
+    await notifier.broadcast(familyId);
+    return c.body(null, 204);
+  });
+
+  routes.post("/purchases", async (c) => {
+    const { familyId, name } = c.get("session");
+    const { purchase, itemIds } = await readJson(c, finishSchema);
+    // Quem registrou vem da sessão, nunca do que o aparelho mandou.
+    await lists.finish(familyId, name, purchase, itemIds);
     await notifier.broadcast(familyId);
     return c.body(null, 204);
   });

@@ -8,7 +8,7 @@ import { SyncedList } from "./data/syncedList";
 import type { Op, SessionInfo, Snapshot } from "./domain/types";
 
 class MemoryBackend implements ListBackend {
-  snapshot: Snapshot = { items: [], customCategories: [] };
+  snapshot: Snapshot = { items: [], customCategories: [], purchases: [] };
   async load() {
     return this.snapshot;
   }
@@ -119,6 +119,71 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Desfazer" }));
     expect(await screen.findByRole("button", { name: "Editar Feijão" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Tirar Arroz do carrinho" })).toBeTruthy();
+  });
+
+  it("finaliza a compra no crédito parcelado e mostra em Gastos", async () => {
+    const user = renderApp();
+    await addItems(user, "Arroz", "Feijão");
+
+    await user.click(screen.getByRole("button", { name: "Finalizar compra" }));
+    const form = await screen.findByRole("dialog", { name: "Finalizar compra" });
+    await user.click(within(form).getByRole("button", { name: "Continuar" }));
+    expect(within(form).getByRole("alert").textContent).toMatch(/valor da compra/);
+
+    await user.type(within(form).getByLabelText("Valor da compra"), "152,90");
+    await user.click(within(form).getByRole("radio", { name: "Cartão de crédito" }));
+    await user.click(within(form).getByRole("radio", { name: "Parcelado" }));
+    await user.click(within(form).getByRole("button", { name: "Mais parcelas" }));
+    expect(within(form).getByText(/3x de R\$\s50,97/)).toBeTruthy();
+    await user.click(within(form).getByRole("button", { name: "Continuar" }));
+
+    const confirm = await screen.findByRole("dialog", { name: "Finalizar lista?" });
+    expect(within(confirm).getByText(/Os 2 itens saem da lista/)).toBeTruthy();
+    await user.click(within(confirm).getByRole("button", { name: "Sim, finalizar" }));
+
+    expect(await screen.findByText("Oi, Renan! Sua lista está vazia.")).toBeTruthy();
+    expect(screen.getByText("Compra finalizada e guardada em Gastos")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Gastos" }));
+    expect(screen.getByRole("heading", { name: "Gastos" })).toBeTruthy();
+    expect(screen.getAllByText(/R\$\s152,90/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/Crédito em 3x de R\$\s50,97/)).toBeTruthy();
+    expect(screen.getByText("2 itens · por Renan")).toBeTruthy();
+  });
+
+  it("dizer Não na pergunta volta sem apagar nada", async () => {
+    const user = renderApp();
+    await addItems(user, "Sal");
+
+    await user.click(screen.getByRole("button", { name: "Finalizar compra" }));
+    await user.type(screen.getByLabelText("Valor da compra"), "10");
+    await user.click(screen.getByRole("radio", { name: "PIX" }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await user.click(await screen.findByRole("button", { name: "Não, voltar" }));
+
+    expect(screen.getByRole("dialog", { name: "Finalizar compra" })).toBeTruthy();
+    expect((screen.getByLabelText("Valor da compra") as HTMLInputElement).value).toBe("10");
+    await user.click(screen.getByRole("button", { name: "Fechar" }));
+    expect(screen.getByRole("button", { name: "Editar Sal" })).toBeTruthy();
+  });
+
+  it("parcelamento só aparece no crédito", async () => {
+    const user = renderApp();
+    await addItems(user, "Sal");
+    await user.click(screen.getByRole("button", { name: "Finalizar compra" }));
+
+    await user.click(screen.getByRole("radio", { name: "PIX" }));
+    expect(screen.queryByRole("radio", { name: "Parcelado" })).toBeNull();
+    await user.click(screen.getByRole("radio", { name: "Cartão de débito" }));
+    expect(screen.queryByRole("radio", { name: "Parcelado" })).toBeNull();
+    await user.click(screen.getByRole("radio", { name: "Cartão de crédito" }));
+    expect(screen.getByRole("radio", { name: "Parcelado" })).toBeTruthy();
+  });
+
+  it("Gastos vazio explica onde finalizar", async () => {
+    const user = renderApp();
+    await user.click(screen.getByRole("button", { name: "Gastos" }));
+    expect(screen.getByText("Nenhuma compra ainda")).toBeTruthy();
   });
 
   it("cancelar a confirmação não apaga nada", async () => {

@@ -1,4 +1,4 @@
-import type { Item, Op, Snapshot } from "../domain/types";
+import type { Item, Op, Purchase, Snapshot } from "../domain/types";
 import { applyOp } from "./applyOp";
 import { AccessRevokedError, type ListBackend, RejectedOpError } from "./backend";
 
@@ -7,6 +7,7 @@ export type ConnectionStatus = "loading" | "online" | "offline";
 export interface ListState {
   items: Item[];
   customCategories: string[];
+  purchases: Purchase[];
   connection: ConnectionStatus;
   pendingCount: number;
   /** Alguma alteração foi recusada pelo servidor e descartada. */
@@ -21,7 +22,7 @@ interface Persisted {
 }
 
 const RETRY_MS = 5000;
-const EMPTY: Snapshot = { items: [], customCategories: [] };
+const EMPTY: Snapshot = { items: [], customCategories: [], purchases: [] };
 
 /**
  * Lista com escrita otimista e fila offline.
@@ -116,7 +117,7 @@ export class SyncedList {
     try {
       const snapshot = await this.backend.load();
       if (seq !== this.loadSeq) return; // chegou uma resposta mais nova
-      this.base = snapshot;
+      this.base = { ...EMPTY, ...snapshot };
       this.commit({ connection: "online" });
     } catch (error) {
       if (seq === this.loadSeq) this.handleFailure(error);
@@ -134,6 +135,11 @@ export class SyncedList {
 
   removeItems(ids: string[]) {
     if (ids.length > 0) this.dispatch({ kind: "delete", ids });
+  }
+
+  /** Registra a compra e tira da lista os itens que existiam nesta hora. */
+  finishShopping(purchase: Purchase, itemIds: string[]) {
+    this.dispatch({ kind: "finish", purchase, itemIds });
   }
 
   addCategory(name: string) {
@@ -169,6 +175,7 @@ export class SyncedList {
       ...changes,
       items: [...view.items].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
       customCategories: view.customCategories,
+      purchases: view.purchases,
       pendingCount: this.queue.length,
     };
     for (const listener of this.listeners) listener();
@@ -188,7 +195,8 @@ export class SyncedList {
       const raw = localStorage.getItem(this.storageKey);
       if (!raw) return;
       const persisted = JSON.parse(raw) as Persisted;
-      this.base = persisted.base;
+      // Cópias salvas por versões antigas não têm todos os campos.
+      this.base = { ...EMPTY, ...persisted.base };
       this.queue = persisted.queue;
     } catch {
       // Cópia local ilegível: recomeça do que vier do servidor.

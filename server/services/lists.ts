@@ -1,4 +1,4 @@
-import type { Item, Snapshot } from "../../shared/contract.ts";
+import type { Item, Purchase, Snapshot } from "../../shared/contract.ts";
 import { type Database, FAMILY_LIST } from "../db/database.ts";
 
 interface ItemRow {
@@ -10,6 +10,8 @@ interface ItemRow {
   createdAt: string;
 }
 
+const RECENT_PURCHASES = 50;
+
 /** Todo método recebe a família da sessão, nunca um id de lista vindo do cliente. */
 export class ListService {
   private db: Database;
@@ -19,7 +21,7 @@ export class ListService {
   }
 
   async snapshot(familyId: string): Promise<Snapshot> {
-    const [items, categories] = await Promise.all([
+    const [items, categories, purchases] = await Promise.all([
       this.db
         .prepare(
           `SELECT id, text, quantity, done, category, created_at AS createdAt
@@ -31,11 +33,21 @@ export class ListService {
         .prepare(`SELECT name FROM categories WHERE list_id = ${FAMILY_LIST} ORDER BY created_at`)
         .bind(familyId)
         .all<{ name: string }>(),
+      this.db
+        .prepare(
+          `SELECT id, amount_cents AS amountCents, method, installments, item_count AS itemCount,
+             member_name AS memberName, created_at AS createdAt
+           FROM purchases WHERE list_id = ${FAMILY_LIST}
+           ORDER BY created_at DESC LIMIT ${RECENT_PURCHASES}`,
+        )
+        .bind(familyId)
+        .all<Purchase>(),
     ]);
 
     return {
       items: items.results.map((item) => ({ ...item, done: item.done === 1 })),
       customCategories: categories.results.map((category) => category.name),
+      purchases: purchases.results,
     };
   }
 
@@ -67,6 +79,34 @@ export class ListService {
   async deleteItems(familyId: string, ids: string[]) {
     const statement = this.db.prepare(`DELETE FROM items WHERE list_id = ${FAMILY_LIST} AND id = ?`);
     await this.db.batch(ids.map((id) => statement.bind(familyId, id)));
+  }
+
+  /**
+   * Registra a compra e tira os itens numa transação só. Repetir o envio
+   * (fila offline) não duplica a compra nem apaga itens novos.
+   */
+  async finish(familyId: string, memberName: string, purchase: Purchase, itemIds: string[]) {
+    const remove = this.db.prepare(`DELETE FROM items WHERE list_id = ${FAMILY_LIST} AND id = ?`);
+    await this.db.batch([
+      this.db
+        .prepare(
+          `INSERT INTO purchases
+             (list_id, id, amount_cents, method, installments, item_count, member_name, created_at)
+           VALUES (${FAMILY_LIST}, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT DO NOTHING`,
+        )
+        .bind(
+          familyId,
+          purchase.id,
+          purchase.amountCents,
+          purchase.method,
+          purchase.installments,
+          purchase.itemCount,
+          memberName,
+          purchase.createdAt,
+        ),
+      ...itemIds.map((id) => remove.bind(familyId, id)),
+    ]);
   }
 
   async addCategory(familyId: string, name: string) {

@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.5.0 (2026-11-07)
+
+### Adicionado
+
+- **Finalizar compra:** botão no fim da lista. Pede o valor e a forma de pagamento (PIX, débito ou crédito); no crédito, se foi à vista ou parcelado, e em quantas vezes (até 24).
+- Depois pergunta **"Finalizar lista?"**. No Sim, a compra é guardada e a lista inteira é limpa.
+- **Aba Gastos:** últimas 50 compras com valor, forma de pagamento, data, quantidade de itens e quem registrou, e o total do mês.
+- Finalizar funciona sem internet: entra na fila e é enviado quando a conexão volta, sem duplicar a compra nem apagar itens adicionados depois.
+
+### Alterado
+
+- A barra de baixo passa a ter Lista, Gastos e Participantes. Adicionar virou um botão flutuante no canto da tela da lista.
+
 ## 3.4.1 (2026-11-07)
 
 ### Alterado

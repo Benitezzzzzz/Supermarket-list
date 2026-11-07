@@ -104,10 +104,11 @@ Nos testes, o banco é um adaptador sobre o SQLite do Node com a mesma interface
 |---|---|---|
 | `POST /api/session` | Entra na família pelo nome (ou convite, com várias famílias) | Entrada aberta |
 | `GET /api/session` | Dados da sessão atual | Membro |
-| `GET /api/list` | Itens e categorias | Membro |
+| `GET /api/list` | Itens, categorias e últimas compras | Membro |
 | `PUT /api/items` | Cria ou altera itens | Membro |
 | `POST /api/items/delete` | Remove itens | Membro |
 | `POST /api/categories` | Cria categoria | Membro |
+| `POST /api/purchases` | Registra a compra e tira os itens da lista | Membro |
 | `GET /api/events` | Avisos em tempo real (WebSocket) | Membro |
 | `GET /api/family/members` | Lista os membros | Membro |
 | `DELETE /api/family/members/:id` | Remove um membro | Administrador |
@@ -142,6 +143,8 @@ Como não há senha, o administrador não recupera o acesso se perder o aparelho
 - Trocar a categoria de um item
 - Importar vários itens colando texto; uma linha com o nome de uma categoria vira título
 - Limpar comprados, ou a lista toda pela lixeira no topo
+- Finalizar compra: valor, forma de pagamento (PIX, débito ou crédito, à vista ou parcelado) e limpeza da lista
+- Aba Gastos: últimas compras e total do mês
 - Tela Participantes: ver quem está na lista, copiar o endereço e, para o administrador, remover aparelhos e fechar a entrada
 - Desfazer depois de remover ou limpar o carrinho
 - Tema claro e escuro automático
@@ -153,7 +156,7 @@ Proposta "Friendly & Family": pensada para uma família com pessoas de várias i
 - **Tokens:** tudo em `src/styles/tokens.css`, entre cores, tipografia, espaçamento, bordas, sombras e camadas, com tema claro e escuro. Os componentes em `src/styles/app.css` só usam esses tokens.
 - **Tipografia:** Fredoka nos títulos, Atkinson Hyperlegible no texto (feita para leitura fácil). Itens com 19px; campos com 20px.
 - **Cores:** creme quente, verde-folha para ação, girassol para quantidade e desfazer, tomate só para remover. Cada categoria tem cor e ícone próprios.
-- **Toque:** alvos de 48 a 68px; barra inferior com Lista, Adicionar e Participantes.
+- **Toque:** alvos de 48 a 68px; barra inferior com Lista, Gastos e Participantes, e o botão de adicionar flutuando no alcance do polegar.
 - **Componentes compartilhados** em `src/ui/`: `BottomSheet`, `ConfirmSheet`, `Toast` e `Icon`.
 
 ## Histórico

@@ -108,6 +108,7 @@ describe("API", () => {
       ["PUT", "/items"],
       ["POST", "/items/delete"],
       ["POST", "/categories"],
+      ["POST", "/purchases"],
       ["GET", "/family/members"],
       ["GET", "/family"],
       ["PUT", "/family/entry"],
@@ -245,6 +246,71 @@ describe("API", () => {
         body: "{}",
       });
       expect(response.status).toBe(415);
+    });
+  });
+
+  describe("finalizar compra", () => {
+    const purchase = (overrides: Record<string, unknown> = {}) => ({
+      id: randomUUID(),
+      amountCents: 15290,
+      method: "credito",
+      installments: 3,
+      itemCount: 1,
+      memberName: "Quem mandou",
+      createdAt: new Date().toISOString(),
+      ...overrides,
+    });
+    const purchases = async (device: Device) =>
+      ((await (await device.call("GET", "/list")).json()) as { purchases: { id: string; memberName: string }[] }).purchases;
+
+    it("guarda a compra e tira só os itens informados", async () => {
+      const antigo = item({ text: "Arroz" });
+      const novo = item({ text: "Feijão" });
+      await admin.call("PUT", "/items", { items: [antigo, novo] });
+
+      const compra = purchase();
+      const response = await member.call("POST", "/purchases", { purchase: compra, itemIds: [antigo.id] });
+      expect(response.status).toBe(204);
+
+      expect((await admin.items()).map((i) => i.text)).toEqual(["Feijão"]);
+      const saved = await purchases(admin);
+      expect(saved.map((p) => p.id)).toEqual([compra.id]);
+      // Quem registrou vem da sessão, não do que o aparelho mandou.
+      expect(saved[0].memberName).toBe("Mãe");
+    });
+
+    it("reenviar a mesma compra não duplica", async () => {
+      const compra = purchase();
+      await admin.call("POST", "/purchases", { purchase: compra, itemIds: [] });
+      await admin.call("POST", "/purchases", { purchase: compra, itemIds: [] });
+      expect(await purchases(admin)).toHaveLength(1);
+    });
+
+    it("outra família não vê nem apaga", async () => {
+      const meu = item();
+      await admin.call("PUT", "/items", { items: [meu] });
+      await outsider.call("POST", "/purchases", { purchase: purchase(), itemIds: [meu.id] });
+      expect(await admin.items()).toHaveLength(1);
+      expect(await purchases(admin)).toEqual([]);
+    });
+
+    it.each([
+      ["PIX parcelado", { method: "pix", installments: 2 }],
+      ["débito parcelado", { method: "debito", installments: 3 }],
+      ["valor zero", { amountCents: 0 }],
+      ["valor fracionado", { amountCents: 10.5 }],
+      ["forma desconhecida", { method: "boleto" }],
+      ["parcelas demais", { installments: 25 }],
+    ])("recusa %s", async (_name, overrides) => {
+      const response = await admin.call("POST", "/purchases", { purchase: purchase(overrides), itemIds: [] });
+      expect(response.status).toBe(422);
+      expect(await purchases(admin)).toEqual([]);
+    });
+
+    it("avisa a família em tempo real", async () => {
+      notifier.broadcasts = [];
+      await admin.call("POST", "/purchases", { purchase: purchase(), itemIds: [] });
+      expect(notifier.broadcasts).toEqual([familyA]);
     });
   });
 
