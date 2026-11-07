@@ -46,7 +46,7 @@ npm run family:create -- "Minha Família" --importar server/seed/lista-familia.j
 
 ### Publicação automática
 
-O workflow `ci.yml` publica a cada push na `main` depois de os testes passarem. Para ligar, configure no GitHub, em **Settings > Secrets and variables > Actions**:
+O workflow `ci.yml` publica a cada push na `main` depois de os testes passarem, e também pode ser disparado pela aba Actions. Já está configurado neste repositório. Para ligar, configure no GitHub, em **Settings > Secrets and variables > Actions**:
 
 - **Secrets:** `CLOUDFLARE_API_TOKEN`, um token com permissão de editar Workers e D1, e `CLOUDFLARE_ACCOUNT_ID`.
 - **Variável:** `DEPLOY_ENABLED` com o valor `true`.

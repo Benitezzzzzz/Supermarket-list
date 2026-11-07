@@ -47,5 +47,4 @@ Repetir lint, testes automáticos e o cenário de ponta a ponta com dois aparelh
 
 ## Pendências
 
-- Configurar os segredos do GitHub para o backup diário e a publicação automática (ver README).
 - Testar em celular físico.

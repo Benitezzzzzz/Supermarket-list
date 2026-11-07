@@ -28,9 +28,13 @@ Backend adaptado para o plano gratuito da Cloudflare, para publicar sem custo e 
 - Testado em produção: entrada pelo link, tempo real, quantidade, uso offline, remoção de membro, isolamento entre famílias e cabeçalhos de segurança.
 - URLs de pré-visualização desligadas, para existir só a versão oficial.
 
+### Automação
+
+- Backup diário ligado: testado com uma execução manual, e a cópia foi descriptografada com sucesso.
+- Publicação automática ligada: cada push na `main` testa e publica. Pode ser disparada também pela aba Actions.
+
 ### Ainda não verificado
 
-- Os workflows de backup e de publicação automática nunca rodaram.
 - O app não foi testado em celular físico.
 
 ## 3.0.0 (2026-11-06)
