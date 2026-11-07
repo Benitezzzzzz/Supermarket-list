@@ -13,6 +13,9 @@ permissions:
 
 jobs:
   backup:
+    # Desligado até a variável BACKUP_ENABLED valer "true" no repositório;
+    # o disparo manual sempre funciona.
+    if: vars.BACKUP_ENABLED == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

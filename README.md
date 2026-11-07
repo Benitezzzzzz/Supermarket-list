@@ -60,7 +60,7 @@ Por dia: 100 mil requisições ao Worker, 5 milhões de leituras e 100 mil escri
 São duas camadas:
 
 - **Time Travel do D1:** a Cloudflare permite voltar o banco para qualquer minuto dos últimos 7 dias, com `npx wrangler d1 time-travel restore lista-do-mercado --timestamp=<data>`.
-- **Cópia diária no GitHub:** o workflow `backup.yml` exporta o banco todo dia, criptografa e guarda por 30 dias nos artefatos da Action. Além dos dois segredos da Cloudflare, ele precisa do segredo `BACKUP_PASSPHRASE`. Guarde essa senha em outro lugar: sem ela, o backup não abre.
+- **Cópia diária no GitHub:** o workflow `backup.yml` exporta o banco todo dia, criptografa e guarda por 30 dias nos artefatos da Action. Além dos dois segredos da Cloudflare, ele precisa do segredo `BACKUP_PASSPHRASE` e da variável `BACKUP_ENABLED` com o valor `true`. Guarde essa senha em outro lugar: sem ela, o backup não abre.
 
 Para restaurar uma cópia do GitHub:
 
