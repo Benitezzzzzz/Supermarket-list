@@ -1,6 +1,6 @@
 # Plano: publicação gratuita na Cloudflare
 
-**Status:** publicado em 2026-11-07 em https://lista-do-mercado.lista-do-mercado.workers.dev.
+**Status:** publicado em 2026-11-07; desde 2026-11-08 em https://lista-mercado.benitez.workers.dev.
 
 ## Objetivo
 

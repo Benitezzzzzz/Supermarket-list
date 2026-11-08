@@ -11,6 +11,9 @@
   - cada item num card, com o ícone da categoria, que vira um visto ao marcar, e um lápis para editar.
 - **Barra de navegação** flutuante e escura, com a aba atual em laranja. Finalizar ficou laranja e Adicionar verde.
 - **Gastos:** o total do mês fica num card verde com a variação em selo; gráfico e compras em cards brancos arredondados.
+- **Cores do app** em Sua conta: Automático (igual ao aparelho), Claro ou Escuro. A escolha vale só no aparelho e é aplicada antes de a página aparecer, para não piscar.
+- Os modelos de lista ganharam um ícone de planilha.
+- **Endereço novo:** https://lista-mercado.benitez.workers.dev (o Worker passou a se chamar `lista-mercado`). O endereço antigo deixou de existir com a troca do subdomínio da conta; é preciso entrar de novo e reinstalar o app.
 - Painéis, campos, botões, participantes e modelos seguem o mesmo visual. Cor do tema, ícone e manifesto do app foram atualizados.
 ## 4.5.0 (2026-11-08)
 

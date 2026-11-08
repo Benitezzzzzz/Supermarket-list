@@ -113,7 +113,7 @@ export function TemplatesSheet({ templates, items, categoryFor, onUse, onSave, o
             })
           }
         >
-          <Icon name="copy" size={20} />
+          <Icon name="sheet" size={20} />
           Salvar a lista atual como modelo
         </button>
       )}

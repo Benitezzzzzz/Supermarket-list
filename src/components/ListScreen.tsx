@@ -93,7 +93,7 @@ export function ListScreen({
               title="Modelos de lista"
               onClick={onOpenTemplates}
             >
-              <Icon name="copy" size={20} />
+              <Icon name="sheet" size={20} />
             </button>
             {state.items.length > 0 && (
               <button
@@ -205,7 +205,7 @@ export function ListScreen({
             <>
               <p className="hint">Toque em Adicionar ou comece por um modelo.</p>
               <button type="button" className="btn btn--secondary" onClick={onOpenTemplates}>
-                <Icon name="copy" size={20} />
+                <Icon name="sheet" size={20} />
                 Escolher um modelo
               </button>
             </>

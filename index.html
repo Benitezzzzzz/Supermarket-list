@@ -3,8 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
-    <meta name="theme-color" content="#096B49" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0E1612" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#096B49" />
+    <script>
+      // Aplica o tema antes de a página aparecer, para não piscar a cor errada (mesma regra de src/theme.ts).
+      (function () {
+        var choice = "auto";
+        try {
+          choice = localStorage.getItem("lista-tema") || "auto";
+        } catch (e) {}
+        var dark = choice === "dark" || (choice !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+        document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#123826" : "#096B49");
+      })();
+    </script>
     <title>Lista do Mercado</title>
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />

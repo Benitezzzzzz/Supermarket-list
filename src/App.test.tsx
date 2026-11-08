@@ -110,6 +110,23 @@ describe("App", () => {
     expect(calls).toEqual(["switch:l2"]);
   });
 
+  it("escolhe as cores do app em Sua conta e guarda neste aparelho", async () => {
+    const user = renderApp();
+    await user.click(screen.getByRole("button", { name: "Sua conta" }));
+    const sheet = await screen.findByRole("dialog", { name: "Sua conta" });
+    expect((within(sheet).getByRole("radio", { name: /Automático/ }) as HTMLInputElement).checked).toBe(true);
+
+    await user.click(within(sheet).getByRole("radio", { name: /Escuro/ }));
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(localStorage.getItem("lista-tema")).toBe("dark");
+
+    await user.click(within(sheet).getByRole("radio", { name: /Claro/ }));
+    expect(document.documentElement.dataset.theme).toBe("light");
+
+    await user.click(within(sheet).getByRole("radio", { name: /Automático/ }));
+    expect(localStorage.getItem("lista-tema")).toBeNull();
+  });
+
   it("muda o nome da lista que a pessoa administra", async () => {
     const user = renderApp();
     await user.click(screen.getByRole("button", { name: "Lista Casa. Trocar de lista" }));

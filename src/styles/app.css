@@ -2315,3 +2315,71 @@ select.field {
   background: var(--surface);
   box-shadow: var(--shadow-card);
 }
+
+/* ---------- Cores do app (Sua conta) ---------- */
+
+.theme-picker {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.theme-picker > legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+}
+
+.theme-option {
+  min-height: 92px;
+  padding: var(--space-3) var(--space-2);
+  border: 2px solid transparent;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--duration) var(--ease), transform var(--duration) var(--ease);
+}
+
+.theme-option:active {
+  transform: scale(0.97);
+}
+
+.theme-option:has(input:checked) {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-soft-ink);
+}
+
+.theme-option:has(input:focus-visible) {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.theme-option__label {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-black);
+}
+
+.theme-option__note {
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
+.theme-option:has(input:checked) .theme-option__note {
+  color: inherit;
+}
+
+.theme-picker__hint {
+  grid-column: 1 / -1;
+}

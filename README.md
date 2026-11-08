@@ -4,7 +4,7 @@ Listas de compras compartilhadas. Cada pessoa tem usuário e senha e pode partic
 
 **Stack:** React 19, TypeScript, Vite e PWA no frontend; Hono rodando em Cloudflare Workers, banco Cloudflare D1 (SQLite) e um Durable Object por lista para o tempo real; Zod para validar o contrato entre os dois lados.
 
-**No ar:** https://lista-do-mercado.lista-do-mercado.workers.dev. Para começar, crie uma conta.
+**No ar:** https://lista-mercado.benitez.workers.dev. Para começar, crie uma conta.
 
 **Hospedagem:** tudo no plano gratuito da Cloudflare, sem servidor próprio para manter. As mudanças estão no [CHANGELOG](CHANGELOG.md), a decisão de hospedagem em [docs/plano-publicacao-cloudflare.md](docs/plano-publicacao-cloudflare.md) e os próximos passos em [docs/proximas-funcionalidades.md](docs/proximas-funcionalidades.md).
 
