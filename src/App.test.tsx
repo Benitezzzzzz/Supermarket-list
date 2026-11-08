@@ -6,7 +6,7 @@ import { applyOp } from "./data/applyOp";
 import type { ListBackend } from "./data/backend";
 import { SyncedList } from "./data/syncedList";
 import { captureSharedText } from "./sharedText";
-import type { ListSummary, Op, Snapshot, UserInfo } from "./domain/types";
+import type { ListSummary, Op, ReceiptReading, Snapshot, UserInfo } from "./domain/types";
 
 const receiptMocks = vi.hoisted(() => ({
   qr: "https://www5.receita.pb.gov.br/atf/seg/SEGf_AcessarFuncao.jsp?cdFuncao=FIS_1410&?p=25261107309087000122651110005414179346777270|2|1|04|17.38||1|C1D1",
@@ -20,7 +20,7 @@ const receiptMocks = vi.hoisted(() => ({
       { code: "7896", description: "LTE UHT ITALAC INT 1L", quantity: 1, unit: "UN", unitCents: 499, totalCents: 499 },
       { code: "", description: "SACOLA PLASTICA", quantity: 1, unit: "UN", unitCents: 15, totalCents: 15 },
     ],
-  },
+  } as ReceiptReading,
   sent: [] as string[][],
 }));
 
@@ -409,6 +409,40 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: "Lista" }));
     expect(screen.getByText("Café")).toBeTruthy();
+  });
+
+  it("cupom grande: soma a foto da continuação sem repetir produtos", async () => {
+    const user = renderApp();
+    await addItems(user, "Amendoim", "Café", "Leite");
+    await user.click(screen.getByRole("button", { name: "Finalizar compra" }));
+    await user.type(screen.getByLabelText("Valor da compra"), "20");
+    await user.click(screen.getByRole("radio", { name: "PIX" }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await user.click(await screen.findByRole("button", { name: "Sim, finalizar" }));
+    await user.click(screen.getByRole("button", { name: "Gastos" }));
+    await user.click(screen.getByRole("button", { name: /^Compra de R\$\s20,00/ }));
+    await user.click(screen.getByRole("button", { name: /^Ler cupom da compra de R\$\s20,00/ }));
+
+    const sheet = await screen.findByRole("dialog", { name: "Cupom fiscal" });
+    const first = receiptMocks.reading;
+    receiptMocks.reading = { ...first, totalCents: null, items: first.items.slice(0, 2) };
+    await user.upload(sheet.querySelector("input[capture]") as HTMLInputElement, new File(["x"], "topo.jpg", { type: "image/jpeg" }));
+    expect(await within(sheet).findByText("AMENDOIM PETTIZ CROC 120G")).toBeTruthy();
+    expect(within(sheet).queryByText("SACOLA PLASTICA")).toBeNull();
+
+    // A continuação repete o leite (fotos sobrepostas) e traz a sacola e o total.
+    receiptMocks.reading = { ...first, storeName: "", items: first.items.slice(1) };
+    expect(within(sheet).getByRole("button", { name: "Foto da continuação" })).toBeTruthy();
+    await user.upload(
+      sheet.querySelector('input[data-parte="camera"]') as HTMLInputElement,
+      new File(["x"], "fim.jpg", { type: "image/jpeg" }),
+    );
+    expect(await within(sheet).findByText("SACOLA PLASTICA")).toBeTruthy();
+    expect(within(sheet).getAllByText("LTE UHT ITALAC INT 1L")).toHaveLength(1);
+    expect(within(sheet).getByText(/Lido de 2 fotos/)).toBeTruthy();
+    expect(within(sheet).getByText("RC Comercio de Alimentos LTDA")).toBeTruthy();
+    expect(within(sheet).getByRole("checkbox", { name: /Usar o total do cupom \(R\$\s22,52\)/ })).toBeTruthy();
+    receiptMocks.reading = first;
   });
 
   it("só o QR code registra a loja e pede a foto para os produtos", async () => {

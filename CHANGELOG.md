@@ -1,5 +1,17 @@
 # Changelog
 
+## 4.7.0 (2026-11-08)
+
+### Adicionado
+
+- **Cupom grande em várias fotos:** depois da primeira foto, a revisão oferece "Foto da continuação" e "Da galeria", e a galeria aceita várias fotos de uma vez, até 6 por cupom.
+  - Cada foto é lida separadamente, e as partes se juntam na ordem.
+  - Linhas repetidas na emenda de fotos sobrepostas entram uma vez só.
+  - Loja, CNPJ e data vêm da primeira foto que os tiver; o total, da última.
+  - As ligações já acertadas na revisão continuam como estavam.
+  - Se uma foto falhar, as outras não se perdem.
+- Depois de ler só o QR code, a foto do cupom completa o mesmo cupom, mantendo a chave de acesso.
+
 ## 4.6.0 (2026-11-08)
 
 ### Mudado

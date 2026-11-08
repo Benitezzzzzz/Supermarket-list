@@ -3,8 +3,18 @@ import { RejectedOpError } from "../data/backend";
 import { preparePhoto, qrFromPhoto, scanVideo } from "../data/receiptImage";
 import { readReceiptPhoto } from "../data/receiptsApi";
 import { formatMoney } from "../domain/money";
-import { buildReceipt, formatCnpj, formatQuantity, type NfceQr, parseNfceQr, relate } from "../domain/receipt";
-import type { Purchase, PurchasedItem, Receipt } from "../domain/types";
+import {
+  buildReceipt,
+  formatCnpj,
+  formatQuantity,
+  MAX_RECEIPT_PHOTOS,
+  mergeReadings,
+  type NfceQr,
+  parseNfceQr,
+  readingFromReceipt,
+  relate,
+} from "../domain/receipt";
+import type { Purchase, PurchasedItem, Receipt, ReceiptReading } from "../domain/types";
 import { BottomSheet } from "../ui/BottomSheet";
 import { Icon } from "../ui/Icon";
 
@@ -28,7 +38,10 @@ type Step =
   | { kind: "choose"; error?: string }
   | { kind: "reading"; message: string }
   | { kind: "scan" }
-  | { kind: "review"; receipt: Receipt; qr: NfceQr | null };
+  | { kind: "review"; receipt: Receipt; qr: NfceQr | null; photos: number; error?: string };
+
+/** O que já foi lido, quando a pessoa acrescenta mais uma parte do cupom. */
+type ReviewState = Extract<Step, { kind: "review" }>;
 
 const dayFormat = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 
@@ -90,17 +103,24 @@ function Review({
   purchase,
   receipt,
   qr,
+  photos,
+  error,
   onChange,
   onSave,
-  onTakePhoto,
+  onAddPhoto,
+  onAddFromGallery,
 }: {
   purchase: Purchase;
   receipt: Receipt;
   qr: NfceQr | null;
+  photos: number;
+  error?: string;
   onChange: (receipt: Receipt) => void;
   onSave: (result: ReceiptResult) => void;
-  onTakePhoto: () => void;
+  onAddPhoto: () => void;
+  onAddFromGallery: () => void;
 }) {
+  const canAddPhoto = photos < MAX_RECEIPT_PHOTOS;
   const relations = relate(purchase.items, receipt);
   const [useTotal, setUseTotal] = useState(true);
   const [returning, setReturning] = useState<Set<number>>(new Set());
@@ -191,13 +211,19 @@ function Review({
         </span>
       </div>
 
+      {error && (
+        <p className="banner banner--danger" role="alert">
+          {error}
+        </p>
+      )}
+
       {receipt.items.length === 0 ? (
         <>
           <p className="banner banner--warning">
             O QR code traz a loja e a chave da nota, mas não os produtos. Para comparar com a lista, tire a foto do
             cupom.
           </p>
-          <button type="button" className="btn btn--secondary btn--block" onClick={onTakePhoto}>
+          <button type="button" className="btn btn--secondary btn--block" onClick={onAddPhoto}>
             <Icon name="camera" size={22} />
             Tirar foto do cupom
           </button>
@@ -219,6 +245,29 @@ function Review({
             </section>
           )}
         </>
+      )}
+
+      {receipt.items.length > 0 && (
+        <section className="receipt-more" aria-label="Mais partes do cupom">
+          <p className="hint">
+            {photos > 1 ? `Lido de ${photos} fotos. ` : ""}
+            {canAddPhoto
+              ? "Cupom grande? Fotografe a continuação: os produtos repetidos entre as fotos entram uma vez só."
+              : `Este cupom já tem ${MAX_RECEIPT_PHOTOS} fotos, o máximo.`}
+          </p>
+          {canAddPhoto && (
+            <div className="sheet__actions">
+              <button type="button" className="btn btn--secondary" onClick={onAddPhoto}>
+                <Icon name="camera" size={20} />
+                Foto da continuação
+              </button>
+              <button type="button" className="btn btn--secondary" onClick={onAddFromGallery}>
+                <Icon name="image" size={20} />
+                Da galeria
+              </button>
+            </div>
+          )}
+        </section>
       )}
 
       {receipt.items.length > 0 && relations.missing.length > 0 && (
@@ -266,26 +315,56 @@ function Review({
 /** Ler o cupom fiscal de uma compra (foto ou QR code) e ligar à lista. */
 export function ReceiptSheet({ listId, purchase, onSave, onRemove, onClose }: ReceiptSheetProps) {
   const [step, setStep] = useState<Step>(() =>
-    purchase.receipt ? { kind: "review", receipt: purchase.receipt, qr: null } : { kind: "choose" },
+    purchase.receipt
+      ? { kind: "review", receipt: purchase.receipt, qr: null, photos: purchase.receipt.items.length > 0 ? 1 : 0 }
+      : { kind: "choose" },
   );
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const qrPhotoRef = useRef<HTMLInputElement>(null);
+  const moreCameraRef = useRef<HTMLInputElement>(null);
+  const moreGalleryRef = useRef<HTMLInputElement>(null);
 
-  async function readPhoto(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  /**
+   * Lê uma ou mais fotos, uma de cada vez, e junta com o que já estava lido. Uma foto que
+   * falha não perde as outras: o que deu certo vai para a revisão, com o aviso do erro.
+   */
+  async function readPhotos(event: ChangeEvent<HTMLInputElement>, base: ReviewState | null) {
+    const room = MAX_RECEIPT_PHOTOS - (base?.photos ?? 0);
+    const files = [...(event.target.files ?? [])].slice(0, room);
     event.target.value = "";
-    if (!file) return;
-    setStep({ kind: "reading", message: "Preparando a foto…" });
-    try {
-      const photo = await preparePhoto(file);
-      setStep({ kind: "reading", message: "Lendo o cupom… leva uns 10 segundos." });
-      const reading = await readReceiptPhoto(listId, photo.base64);
-      const qr = photo.qrText ? parseNfceQr(photo.qrText) : null;
-      setStep({ kind: "review", receipt: buildReceipt(purchase.items, reading, qr), qr });
-    } catch (failure) {
-      setStep({ kind: "choose", error: failureMessage(failure) });
+    if (files.length === 0) return;
+    const readings: ReceiptReading[] = base ? [readingFromReceipt(base.receipt)] : [];
+    let qrText: string | null = null;
+    let read = 0;
+    let error: string | undefined;
+    for (const [index, file] of files.entries()) {
+      const part = files.length > 1 ? `a foto ${index + 1} de ${files.length}` : base ? "a continuação" : "o cupom";
+      setStep({ kind: "reading", message: `Lendo ${part}… leva uns 10 segundos.` });
+      try {
+        const photo = await preparePhoto(file);
+        readings.push(await readReceiptPhoto(listId, photo.base64));
+        qrText ??= photo.qrText;
+        read += 1;
+      } catch (failure) {
+        error = failureMessage(failure);
+        break;
+      }
     }
+    if (read === 0) {
+      setStep(base ? { ...base, error } : { kind: "choose", error });
+      return;
+    }
+    const qr = base?.qr ?? (qrText ? parseNfceQr(qrText) : null);
+    const receipt = buildReceipt(purchase.items, mergeReadings(readings), qr);
+    if (base) {
+      // As linhas que já estavam lidas mantêm as ligações que a pessoa acertou.
+      base.receipt.items.forEach((line, index) => {
+        if (receipt.items[index]) receipt.items[index] = { ...receipt.items[index], listIndex: line.listIndex };
+      });
+      receipt.accessKey = base.receipt.accessKey ?? receipt.accessKey;
+    }
+    setStep({ kind: "review", receipt, qr, photos: (base?.photos ?? 0) + read, error });
   }
 
   function applyQr(text: string) {
@@ -294,7 +373,7 @@ export function ReceiptSheet({ listId, purchase, onSave, onRemove, onClose }: Re
       setStep({ kind: "choose", error: "Esse QR code não é de um cupom fiscal (NFC-e)." });
       return;
     }
-    setStep({ kind: "review", receipt: buildReceipt(purchase.items, null, qr), qr });
+    setStep({ kind: "review", receipt: buildReceipt(purchase.items, null, qr), qr, photos: 0 });
   }
 
   async function readQrPhoto(event: ChangeEvent<HTMLInputElement>) {
@@ -307,11 +386,32 @@ export function ReceiptSheet({ listId, purchase, onSave, onRemove, onClose }: Re
     else setStep({ kind: "choose", error: "Não achei o QR code na foto. Chegue mais perto, com o QR bem nítido." });
   }
 
+  /** Mais uma parte entra no cupom que está em revisão agora. */
+  const reviewing = step.kind === "review" ? step : null;
+
   const hiddenInputs = (
     <>
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void readPhoto(e)} />
-      <input ref={galleryRef} type="file" accept="image/*" hidden onChange={(e) => void readPhoto(e)} />
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void readPhotos(e, null)} />
+      <input ref={galleryRef} type="file" accept="image/*" multiple hidden onChange={(e) => void readPhotos(e, null)} />
       <input ref={qrPhotoRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void readQrPhoto(e)} />
+      <input
+        ref={moreCameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        hidden
+        data-parte="camera"
+        onChange={(e) => void readPhotos(e, reviewing)}
+      />
+      <input
+        ref={moreGalleryRef}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        data-parte="galeria"
+        onChange={(e) => void readPhotos(e, reviewing)}
+      />
     </>
   );
 
@@ -354,9 +454,12 @@ export function ReceiptSheet({ listId, purchase, onSave, onRemove, onClose }: Re
           purchase={purchase}
           receipt={step.receipt}
           qr={step.qr}
+          photos={step.photos}
+          error={step.error}
           onChange={(receipt) => setStep({ ...step, receipt })}
           onSave={onSave}
-          onTakePhoto={() => cameraRef.current?.click()}
+          onAddPhoto={() => moreCameraRef.current?.click()}
+          onAddFromGallery={() => moreGalleryRef.current?.click()}
         />
         {purchase.receipt && (
           <div className="sheet__actions">
@@ -377,7 +480,8 @@ export function ReceiptSheet({ listId, purchase, onSave, onRemove, onClose }: Re
       {hiddenInputs}
       <p className="hint">
         Tire uma foto do cupom inteiro, reto e com boa luz. O app lê os produtos e os preços e compara com a lista
-        desta compra. A foto não fica guardada.
+        desta compra. Cupom grande pode ir em várias fotos: depois da primeira, é só fotografar a continuação. As fotos
+        não ficam guardadas.
       </p>
       {step.error && (
         <p className="banner banner--danger" role="alert">
@@ -390,7 +494,7 @@ export function ReceiptSheet({ listId, purchase, onSave, onRemove, onClose }: Re
       </button>
       <button type="button" className="btn btn--secondary btn--block" onClick={() => galleryRef.current?.click()}>
         <Icon name="image" size={22} />
-        Escolher foto da galeria
+        Escolher fotos da galeria
       </button>
       <h3 className="field-label">Ou só o QR code</h3>
       <p className="hint">Registra a loja e a chave da nota, sem os produtos.</p>

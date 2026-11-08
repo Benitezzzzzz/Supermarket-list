@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildReceipt, matchReceipt, matchScore, parseNfceQr, relate } from "./receipt";
-import type { PurchasedItem } from "./types";
+import { buildReceipt, matchReceipt, matchScore, mergeReadings, parseNfceQr, readingFromReceipt, relate } from "./receipt";
+import type { PurchasedItem, ReceiptReading } from "./types";
 
 // QR do cupom real de teste (RC Comércio de Alimentos, João Pessoa, emitido em contingência).
 const QR =
@@ -95,5 +95,53 @@ describe("ligar a lista ao cupom", () => {
   it("só o QR: cupom sem itens, com a chave e o valor da contingência", () => {
     const receipt = buildReceipt([item("Café")], null, parseNfceQr(QR));
     expect(receipt).toMatchObject({ source: "qrcode", items: [], totalCents: 1738, cnpj: "07309087000122", issuedOn: "2026-11-04" });
+  });
+});
+
+describe("cupom em várias fotos", () => {
+  const line = (description: string, totalCents: number) => ({
+    code: "",
+    description,
+    quantity: 1,
+    unit: "UN",
+    unitCents: totalCents,
+    totalCents,
+  });
+  const part = (overrides: Partial<ReceiptReading>): ReceiptReading => ({
+    storeName: "",
+    cnpj: null,
+    issuedOn: null,
+    totalCents: null,
+    items: [],
+    ...overrides,
+  });
+
+  it("junta as partes na ordem e tira as linhas repetidas entre fotos sobrepostas", () => {
+    const top = part({
+      storeName: "Mercado Bom Preço",
+      cnpj: "07309087000122",
+      issuedOn: "2026-11-04",
+      items: [line("ARROZ 5KG", 2790), line("FEIJAO 1KG", 899), line("LEITE UHT", 549)],
+    });
+    // A segunda foto começa repetindo as duas últimas linhas da primeira.
+    const bottom = part({
+      storeName: "",
+      totalCents: 5236,
+      items: [line("FEIJAO  1KG", 899), line("leite uht", 549), line("CAFE 500G", 998)],
+    });
+    const merged = mergeReadings([top, bottom]);
+    expect(merged.items.map((item) => item.description)).toEqual(["ARROZ 5KG", "FEIJAO 1KG", "LEITE UHT", "CAFE 500G"]);
+    expect(merged).toMatchObject({ storeName: "Mercado Bom Preço", cnpj: "07309087000122", issuedOn: "2026-11-04", totalCents: 5236 });
+  });
+
+  it("não junta produtos iguais que não estão na emenda das fotos", () => {
+    const a = part({ items: [line("LEITE UHT", 549), line("PAO", 100)] });
+    const b = part({ items: [line("LEITE UHT", 549)] });
+    expect(mergeReadings([a, b]).items).toHaveLength(3);
+  });
+
+  it("um cupom salvo volta ao formato de leitura para receber mais uma parte", () => {
+    const receipt = buildReceipt([], part({ storeName: "Loja", items: [line("ARROZ", 2790)] }), null);
+    expect(readingFromReceipt(receipt)).toEqual(part({ storeName: "Loja", items: [line("ARROZ", 2790)] }));
   });
 });

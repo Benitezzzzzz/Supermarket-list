@@ -274,6 +274,62 @@ export function buildReceipt(
   };
 }
 
+/* ---------- Cupom em várias fotos ---------- */
+
+/** Quantas fotos um cupom pode ter. Cada foto gasta uma leitura do limite diário. */
+export const MAX_RECEIPT_PHOTOS = 6;
+
+/** O cupom já salvo, de volta ao formato da leitura, para receber mais uma parte. */
+export function readingFromReceipt(receipt: Receipt): ReceiptReading {
+  return {
+    storeName: receipt.storeName,
+    cnpj: receipt.cnpj,
+    issuedOn: receipt.issuedOn,
+    totalCents: receipt.totalCents,
+    items: receipt.items.map(({ listIndex: _listIndex, ...item }) => item),
+  };
+}
+
+function sameLine(a: ReceiptReading["items"][number], b: ReceiptReading["items"][number]): boolean {
+  const text = (value: string) => value.toLowerCase().replace(/\s+/g, " ").trim();
+  return text(a.description) === text(b.description) && a.totalCents === b.totalCents && a.quantity === b.quantity;
+}
+
+/** Quantas linhas do fim de uma parte se repetem no começo da próxima (fotos sobrepostas). */
+function overlap(previous: ReceiptReading["items"], next: ReceiptReading["items"]): number {
+  const limit = Math.min(previous.length, next.length, 8);
+  for (let size = limit; size > 0; size--) {
+    const tail = previous.slice(previous.length - size);
+    if (tail.every((line, index) => sameLine(line, next[index]))) return size;
+  }
+  return 0;
+}
+
+/**
+ * Junta as fotos de um cupom grande, na ordem em que foram tiradas. Loja, CNPJ e data vêm
+ * da primeira foto que os tiver; o total, da última (ele fica no fim do cupom). Linhas que
+ * aparecem no fim de uma foto e no começo da seguinte entram uma vez só.
+ */
+export function mergeReadings(readings: ReceiptReading[]): ReceiptReading {
+  const items: ReceiptReading["items"] = [];
+  for (const reading of readings) items.push(...reading.items.slice(overlap(items, reading.items)));
+  const first = <T>(pick: (reading: ReceiptReading) => T | null | ""): T | null => {
+    for (const reading of readings) {
+      const value = pick(reading);
+      if (value !== null && value !== "") return value as T;
+    }
+    return null;
+  };
+  const last = [...readings].reverse().find((reading) => reading.totalCents !== null);
+  return {
+    storeName: first((reading) => reading.storeName) ?? "",
+    cnpj: first((reading) => reading.cnpj),
+    issuedOn: first((reading) => reading.issuedOn),
+    totalCents: last?.totalCents ?? null,
+    items,
+  };
+}
+
 export interface ReceiptRelations {
   /** Itens da lista que vieram no cupom, com as linhas e o valor somado. */
   matched: { index: number; item: PurchasedItem; lines: ReceiptItem[]; totalCents: number }[];
