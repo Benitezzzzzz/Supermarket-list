@@ -19,8 +19,8 @@ export default defineConfig({
         lang: "pt-BR",
         start_url: ".",
         display: "standalone",
-        background_color: "#FFF8EC",
-        theme_color: "#2F7D4F",
+        background_color: "#F3F6F1",
+        theme_color: "#096B49",
         // Aparece em "Compartilhar" no Android: o texto do WhatsApp abre em "Colar vários itens".
         share_target: {
           action: "./",

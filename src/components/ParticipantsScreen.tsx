@@ -152,6 +152,9 @@ export function ParticipantsScreen({ user, list, onListsChanged }: ParticipantsS
           <h2 id="sobre-lista" className="card__header">
             Esta lista
           </h2>
+          <label htmlFor="renomear-lista" className="field-label">
+            Nome da lista
+          </label>
           <form
             className="invite__row"
             onSubmit={(event) => {
@@ -165,9 +168,6 @@ export function ParticipantsScreen({ user, list, onListsChanged }: ParticipantsS
               });
             }}
           >
-            <label htmlFor="renomear-lista" className="field-label">
-              Nome da lista
-            </label>
             <input
               id="renomear-lista"
               className="field"

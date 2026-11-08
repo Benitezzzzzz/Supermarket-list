@@ -157,6 +157,7 @@ export function App({
           lastPrice={findLastPrice}
           onOpenTemplates={() => setSheet({ kind: "templates" })}
           onUseTemplate={applyTemplate}
+          onAdd={() => setSheet({ kind: "add" })}
         />
       )}
       {screen === "expenses" && (

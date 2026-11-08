@@ -1,5 +1,17 @@
 # Changelog
 
+## 4.6.0 (2026-11-08)
+
+### Mudado
+
+- **Novo visual "Supermercado Moderno"** (escolhido entre 3 propostas): verde de feira, laranja de oferta e uma cor por categoria. Fonte Plus Jakarta Sans e cantos bem arredondados. O tema escuro foi refeito em verde-mata.
+- **Lista:**
+  - cabeçalho verde com o nome da lista, a saudação, um anel com quanto já está no carrinho e um campo para adicionar item;
+  - filtro por categoria;
+  - cada item num card, com o ícone da categoria, que vira um visto ao marcar, e um lápis para editar.
+- **Barra de navegação** flutuante e escura, com a aba atual em laranja. Finalizar ficou laranja e Adicionar verde.
+- **Gastos:** o total do mês fica num card verde com a variação em selo; gráfico e compras em cards brancos arredondados.
+- Painéis, campos, botões, participantes e modelos seguem o mesmo visual. Cor do tema, ícone e manifesto do app foram atualizados.
 ## 4.5.0 (2026-11-08)
 
 ### Adicionado

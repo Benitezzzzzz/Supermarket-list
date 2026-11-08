@@ -13,7 +13,7 @@ const TABS: { screen: Screen; label: string; icon: IconName }[] = [
   { screen: "family", label: "Participantes", icon: "family" },
 ];
 
-/** Sempre com texto embaixo do ícone. Adicionar fica num botão flutuante, na tela da lista. */
+/** Barra flutuante: ícone e nome lado a lado, a aba atual em laranja. */
 export function BottomNav({ screen, onNavigate }: BottomNavProps) {
   return (
     <nav className="bottom-nav" aria-label="Navegação principal">
@@ -26,7 +26,7 @@ export function BottomNav({ screen, onNavigate }: BottomNavProps) {
             aria-current={screen === tab.screen ? "page" : undefined}
             onClick={() => onNavigate(tab.screen)}
           >
-            <Icon name={tab.icon} size={26} />
+            <Icon name={tab.icon} size={20} />
             {tab.label}
           </button>
         ))}

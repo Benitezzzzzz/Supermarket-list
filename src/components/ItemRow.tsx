@@ -1,3 +1,4 @@
+import { categoryStyle } from "../domain/categoryStyle";
 import { formatMoney } from "../domain/money";
 import type { PricePoint } from "../domain/prices";
 import type { Item } from "../domain/types";
@@ -14,6 +15,7 @@ interface ItemRowProps {
 /** Marcado, o item continua no mesmo lugar, só riscado. */
 export function ItemRow({ item, onToggle, onEdit, lastPrice }: ItemRowProps) {
   const label = item.done ? `Desmarcar ${item.text}` : `Marcar ${item.text} como comprado`;
+  const style = categoryStyle(item.category);
 
   return (
     <li className={item.done ? "item item--done" : "item"}>
@@ -24,8 +26,9 @@ export function ItemRow({ item, onToggle, onEdit, lastPrice }: ItemRowProps) {
         aria-label={label}
         onClick={() => onToggle(item)}
       >
-        <span className={item.done ? "check check--done" : "check"}>
-          {item.done && <Icon name="check" size={18} strokeWidth={3.2} />}
+        {/* O ícone da categoria vira o visto quando o item vai para o carrinho. */}
+        <span className={`item__tile ${style.tone}`} aria-hidden="true">
+          {item.done ? <Icon name="check" size={22} strokeWidth={3} /> : <Icon name={style.icon} size={22} />}
         </span>
         <span className="item__body">
           <span className="item__text">{item.text}</span>
@@ -45,7 +48,6 @@ export function ItemRow({ item, onToggle, onEdit, lastPrice }: ItemRowProps) {
         onClick={() => onEdit(item)}
       >
         <Icon name="edit" size={18} />
-        Editar
       </button>
     </li>
   );
