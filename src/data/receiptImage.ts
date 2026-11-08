@@ -41,26 +41,39 @@ function canvasFrom(source: CanvasImageSource, width: number, height: number, ma
   return canvas;
 }
 
-/** Procura um QR code na imagem. */
-export async function findQrCode(canvas: HTMLCanvasElement): Promise<string | null> {
+/** O que procurar: o QR code da NFC-e ou o código de barras de um produto (EAN/UPC). */
+export type CodeKind = "qr" | "product";
+
+const FORMATS = {
+  qr: ["QRCode"],
+  product: ["EAN-13", "EAN-8", "UPC-A", "UPC-E"],
+} as const;
+
+/** Procura um código na imagem. */
+export async function findCode(canvas: HTMLCanvasElement, kind: CodeKind = "qr"): Promise<string | null> {
   const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context || canvas.width === 0) return null;
   const { readBarcodes } = await loadReader();
   const results = await readBarcodes(context.getImageData(0, 0, canvas.width, canvas.height), {
-    formats: ["QRCode"],
+    formats: [...FORMATS[kind]],
     tryHarder: true,
     maxNumberOfSymbols: 1,
   });
   return results.find((result) => result.isValid)?.text ?? null;
 }
 
-async function findQrIn(bitmap: ImageBitmap): Promise<string | null> {
+/** Procura um QR code na imagem. */
+export const findQrCode = (canvas: HTMLCanvasElement) => findCode(canvas, "qr");
+
+async function findIn(bitmap: ImageBitmap, kind: CodeKind): Promise<string | null> {
   for (const side of QR_SIDES) {
-    const text = await findQrCode(canvasFrom(bitmap, bitmap.width, bitmap.height, side)).catch(() => null);
+    const text = await findCode(canvasFrom(bitmap, bitmap.width, bitmap.height, side), kind).catch(() => null);
     if (text) return text;
   }
   return null;
 }
+
+const findQrIn = (bitmap: ImageBitmap) => findIn(bitmap, "qr");
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -110,14 +123,24 @@ export async function qrFromPhoto(file: Blob): Promise<string | null> {
   }
 }
 
-/** Lê QR codes da câmera ao vivo, alguns quadros por segundo, até achar um. */
-export function scanVideo(video: HTMLVideoElement, onFound: (text: string) => void): () => void {
+/** Só lê o código de barras de um produto numa foto (quando a câmera ao vivo não abre). */
+export async function barcodeFromPhoto(file: Blob): Promise<string | null> {
+  const bitmap = await createImageBitmap(file);
+  try {
+    return await findIn(bitmap, "product");
+  } finally {
+    bitmap.close();
+  }
+}
+
+/** Lê códigos da câmera ao vivo, alguns quadros por segundo, até achar um. */
+export function scanVideo(video: HTMLVideoElement, onFound: (text: string) => void, kind: CodeKind = "qr"): () => void {
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const tick = async () => {
     if (stopped) return;
     if (video.readyState >= 2 && video.videoWidth > 0) {
-      const text = await findQrCode(canvasFrom(video, video.videoWidth, video.videoHeight, 1280)).catch(() => null);
+      const text = await findCode(canvasFrom(video, video.videoWidth, video.videoHeight, 1280), kind).catch(() => null);
       if (text && !stopped) {
         onFound(text);
         return;

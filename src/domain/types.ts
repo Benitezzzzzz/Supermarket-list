@@ -1,4 +1,5 @@
 export type {
+  Barcode,
   Item,
   ItemPrice,
   ListMember,

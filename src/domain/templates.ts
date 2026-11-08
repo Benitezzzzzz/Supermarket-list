@@ -1,5 +1,6 @@
+import { DEFAULT_CATEGORY } from "./categories";
 import { productKey } from "./prices";
-import type { Item, Template, TemplateItem } from "./types";
+import type { Item, Purchase, Template, TemplateItem } from "./types";
 
 /** Modelo novo a partir dos itens (sem marcação nem preço; itens repetidos entram uma vez). */
 export function createTemplate(name: string, items: Pick<Item, "text" | "quantity" | "category">[], isDefault = false): Template {
@@ -45,4 +46,16 @@ export function itemsFromTemplate(template: Template, current: Item[], now = Dat
 
 export function defaultTemplate(templates: Template[]): Template | undefined {
   return templates.find((template) => template.isDefault);
+}
+
+/** Categoria que o produto já teve na lista ou numa compra; serve para itens novos de modelo. */
+export function knownCategoryFor(text: string, items: Item[], purchases: Purchase[]): string {
+  const key = productKey(text);
+  const inList = items.find((item) => productKey(item.text) === key);
+  if (inList) return inList.category;
+  for (const purchase of purchases) {
+    const found = purchase.items.find((item) => productKey(item.text) === key);
+    if (found) return found.category;
+  }
+  return DEFAULT_CATEGORY;
 }

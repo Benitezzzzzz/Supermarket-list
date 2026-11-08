@@ -1,6 +1,6 @@
 import { categoryStyle } from "../domain/categoryStyle";
 import { formatMoney } from "../domain/money";
-import type { PricePoint } from "../domain/prices";
+import { PRICE_ALERT_PERCENT, type PriceTrend } from "../domain/prices";
 import type { Item } from "../domain/types";
 import { Icon } from "../ui/Icon";
 
@@ -8,12 +8,15 @@ interface ItemRowProps {
   item: Item;
   onToggle: (item: Item) => void;
   onEdit: (item: Item) => void;
-  /** Última compra deste produto: só referência, não vira o preço desta compra. */
-  lastPrice?: PricePoint;
+  /** Última compra deste produto e a variação: só referência, não vira o preço desta compra. */
+  price?: PriceTrend | null;
 }
 
 /** Marcado, o item continua no mesmo lugar, só riscado. */
-export function ItemRow({ item, onToggle, onEdit, lastPrice }: ItemRowProps) {
+export function ItemRow({ item, onToggle, onEdit, price }: ItemRowProps) {
+  const lastPrice = price?.last;
+  const percent = price?.percent ?? null;
+  const alert = percent !== null && Math.abs(percent) >= PRICE_ALERT_PERCENT;
   const label = item.done ? `Desmarcar ${item.text}` : `Marcar ${item.text} como comprado`;
   const style = categoryStyle(item.category);
 
@@ -36,6 +39,12 @@ export function ItemRow({ item, onToggle, onEdit, lastPrice }: ItemRowProps) {
             <span className="item__ref">
               Última: {formatMoney(lastPrice.unitCents)}
               {lastPrice.brand && ` · ${lastPrice.brand}`}
+              {alert && percent !== null && (
+                <span className={percent > 0 ? "item__trend item__trend--up" : "item__trend item__trend--down"}>
+                  {percent > 0 ? "▲" : "▼"} {Math.abs(percent)}%
+                  <span className="visually-hidden">{percent > 0 ? " mais caro que a compra anterior" : " mais barato que a compra anterior"}</span>
+                </span>
+              )}
             </span>
           )}
         </span>

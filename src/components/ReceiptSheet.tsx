@@ -1,6 +1,6 @@
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { RejectedOpError } from "../data/backend";
-import { preparePhoto, qrFromPhoto, scanVideo } from "../data/receiptImage";
+import { preparePhoto, qrFromPhoto } from "../data/receiptImage";
 import { readReceiptPhoto } from "../data/receiptsApi";
 import { formatMoney } from "../domain/money";
 import {
@@ -17,6 +17,7 @@ import {
 import type { Purchase, PurchasedItem, Receipt, ReceiptReading } from "../domain/types";
 import { BottomSheet } from "../ui/BottomSheet";
 import { Icon } from "../ui/Icon";
+import { CodeScanner } from "./CodeScanner";
 
 export interface ReceiptResult {
   receipt: Receipt;
@@ -53,49 +54,6 @@ function failureMessage(failure: unknown): string {
   if (failure instanceof RejectedOpError) return failure.message;
   if (failure instanceof TypeError) return "Sem internet. A leitura do cupom precisa de conexão.";
   return "Não consegui ler agora. Tente de novo em instantes.";
-}
-
-/** Câmera ao vivo procurando o QR code do cupom. */
-function QrScanner({ onFound, onFail }: { onFound: (text: string) => void; onFail: () => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const onFoundRef = useRef(onFound);
-  onFoundRef.current = onFound;
-  const onFailRef = useRef(onFail);
-  onFailRef.current = onFail;
-
-  useEffect(() => {
-    let stream: MediaStream | undefined;
-    let stopScan: (() => void) | undefined;
-    let cancelled = false;
-    (async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment", width: { ideal: 1280 } },
-          audio: false,
-        });
-        if (cancelled) return;
-        const video = videoRef.current;
-        if (!video) return;
-        video.srcObject = stream;
-        await video.play();
-        stopScan = scanVideo(video, (text) => onFoundRef.current(text));
-      } catch {
-        if (!cancelled) onFailRef.current();
-      }
-    })();
-    return () => {
-      cancelled = true;
-      stopScan?.();
-      for (const track of stream?.getTracks() ?? []) track.stop();
-    };
-  }, []);
-
-  return (
-    <div className="scanner">
-      <video ref={videoRef} className="scanner__video" muted playsInline aria-label="Câmera" />
-      <span className="scanner__frame" aria-hidden="true" />
-    </div>
-  );
 }
 
 /** Revisão: o que da lista veio no cupom, o que veio fora da lista e o que faltou. */
@@ -430,7 +388,8 @@ export function ReceiptSheet({ listId, purchase, onSave, onRemove, onClose }: Re
     return (
       <BottomSheet title="Ler QR code" onClose={onClose}>
         <p className="hint">Aponte a câmera para o QR code no fim do cupom.</p>
-        <QrScanner
+        <CodeScanner
+          kind="qr"
           onFound={applyQr}
           onFail={() =>
             setStep({

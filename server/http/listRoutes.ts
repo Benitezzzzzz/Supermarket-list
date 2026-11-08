@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import {
   addCategorySchema,
+  barcodeSchema,
   addMemberSchema,
   deleteItemsSchema,
   finishSchema,
@@ -137,6 +138,14 @@ function oneList({ lists, memberships, notifier, receipts, reader }: Deps) {
 
   /** Total por mês de todo o histórico; o snapshot só traz as compras recentes. */
   routes.get("/months", async (c) => c.json(await lists.months(c.get("listId"))));
+
+  routes.put("/barcodes/:code", async (c) => {
+    const barcode = await readJson(c, barcodeSchema);
+    if (barcode.code !== c.req.param("code")) throw new HTTPException(400, { message: "Código inválido" });
+    await lists.learnBarcode(c.get("listId"), barcode);
+    await changed(c.get("listId"));
+    return c.body(null, 204);
+  });
 
   routes.put("/templates/:id", async (c) => {
     const template = await readJson(c, templateSchema);

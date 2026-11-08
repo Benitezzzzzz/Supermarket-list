@@ -5,7 +5,6 @@ import { AdminSheet } from "./components/AdminSheet";
 import { BottomNav, type Screen } from "./components/BottomNav";
 import { ClearSheet } from "./components/ClearSheet";
 import { EditItemSheet } from "./components/EditItemSheet";
-import { EditPurchaseSheet } from "./components/EditPurchaseSheet";
 import { ExpensesScreen } from "./components/ExpensesScreen";
 import { FinishSheet } from "./components/FinishSheet";
 import { ImportSheet } from "./components/ImportSheet";
@@ -13,14 +12,14 @@ import { takeSharedText } from "./sharedText";
 import { ListScreen } from "./components/ListScreen";
 import { ListsSheet } from "./components/ListsSheet";
 import { ParticipantsScreen } from "./components/ParticipantsScreen";
-import { PricesSheet } from "./components/PricesSheet";
-import { ReceiptSheet } from "./components/ReceiptSheet";
+import { isPurchaseSheet, type PurchaseSheet, PurchaseSheets } from "./components/PurchaseSheets";
 import { TemplatesSheet } from "./components/TemplatesSheet";
 import type { SyncedList } from "./data/syncedList";
 import { DEFAULT_CATEGORY, knownCategories } from "./domain/categories";
 import { createItem } from "./domain/items";
-import { buildPriceIndex, lastPrice, pricesFor, productKey } from "./domain/prices";
-import { itemsFromTemplate } from "./domain/templates";
+import { findProduct } from "./domain/barcodes";
+import { buildPriceIndex, lastPrice, pricesFor } from "./domain/prices";
+import { itemsFromTemplate, knownCategoryFor } from "./domain/templates";
 import type { Item, ListSummary, Template, UserInfo } from "./domain/types";
 import { Icon } from "./ui/Icon";
 import { Toast, useToast } from "./ui/Toast";
@@ -47,9 +46,7 @@ type Sheet =
   | { kind: "edit"; id: string }
   | { kind: "clear" }
   | { kind: "finish" }
-  | { kind: "edit-purchase"; id: string; confirmDelete?: boolean }
-  | { kind: "receipt"; id: string }
-  | { kind: "prices"; id: string }
+  | PurchaseSheet
   | { kind: "templates" }
   | { kind: "lists" }
   | { kind: "account" }
@@ -92,28 +89,12 @@ export function App({
 
   const categories = knownCategories(state.customCategories, state.items);
   const editing = sheet?.kind === "edit" ? state.items.find((item) => item.id === sheet.id) : undefined;
-  const editingPurchase =
-    sheet?.kind === "edit-purchase" ? state.purchases.find((purchase) => purchase.id === sheet.id) : undefined;
-  const receiptPurchase =
-    sheet?.kind === "receipt" ? state.purchases.find((purchase) => purchase.id === sheet.id) : undefined;
-  const pricesPurchase =
-    sheet?.kind === "prices" ? state.purchases.find((purchase) => purchase.id === sheet.id) : undefined;
 
   /** Preços já pagos, por produto: base da referência na lista e do histórico de cada item. */
   const priceIndex = useMemo(() => buildPriceIndex(state.purchases), [state.purchases]);
   const findLastPrice = useCallback((text: string) => lastPrice(priceIndex, text), [priceIndex]);
 
-  /** Categoria que o produto já teve na lista ou numa compra; serve para itens novos de modelo. */
-  function categoryFor(text: string): string {
-    const key = productKey(text);
-    const inList = state.items.find((item) => productKey(item.text) === key);
-    if (inList) return inList.category;
-    for (const purchase of state.purchases) {
-      const found = purchase.items.find((item) => productKey(item.text) === key);
-      if (found) return found.category;
-    }
-    return DEFAULT_CATEGORY;
-  }
+  const categoryFor = (text: string) => knownCategoryFor(text, state.items, state.purchases);
 
   function applyTemplate(template: Template) {
     const items = itemsFromTemplate(template, state.items);
@@ -154,7 +135,7 @@ export function App({
           onToggle={(item) => list.updateItem(item.id, { done: !item.done })}
           onEdit={(item) => setSheet({ kind: "edit", id: item.id })}
           onAskClearAll={() => setSheet({ kind: "clear" })}
-          lastPrice={findLastPrice}
+          prices={priceIndex}
           onOpenTemplates={() => setSheet({ kind: "templates" })}
           onUseTemplate={applyTemplate}
           onAdd={() => setSheet({ kind: "add" })}
@@ -206,11 +187,13 @@ export function App({
           category={category}
           onCategoryChange={setCategory}
           onCreateCategory={createCategory}
-          onAdd={(text) => {
-            const item = createItem(text, category);
+          onAdd={(text, extra) => {
+            const item = createItem(text, extra?.category ?? category);
             list.addItems([item]);
+            if (extra?.code) list.learnBarcode({ code: extra.code, text: item.text, category: item.category });
             return item.quantity > 1 ? `${item.quantity}× ${item.text}` : item.text;
           }}
+          findProduct={(code) => findProduct(code, state.barcodes, state.purchases)}
           onOpenImport={() => setSheet({ kind: "import" })}
           onClose={close}
           lastPrice={findLastPrice}
@@ -318,38 +301,6 @@ export function App({
         />
       )}
 
-      {editingPurchase && (
-        <EditPurchaseSheet
-          purchase={editingPurchase}
-          startWithDelete={sheet?.kind === "edit-purchase" && sheet.confirmDelete === true}
-          onSave={(payment) => {
-            list.updatePurchase(editingPurchase.id, payment);
-            close();
-            show("Compra atualizada");
-          }}
-          onDelete={() => {
-            const removed = editingPurchase;
-            list.deletePurchase(removed.id);
-            close();
-            show("Compra excluída", { label: "Desfazer", onAction: () => list.restorePurchase(removed) });
-          }}
-          onClose={close}
-        />
-      )}
-
-      {pricesPurchase && (
-        <PricesSheet
-          purchase={pricesPurchase}
-          prices={priceIndex}
-          onSave={(prices, amountCents) => {
-            list.updatePrices(pricesPurchase.id, prices, amountCents);
-            close();
-            show(amountCents === null ? "Preços salvos" : "Preços salvos e valor da compra atualizado");
-          }}
-          onClose={close}
-        />
-      )}
-
       {sheet?.kind === "templates" && (
         <TemplatesSheet
           templates={state.templates}
@@ -368,43 +319,14 @@ export function App({
         />
       )}
 
-      {receiptPurchase && (
-        <ReceiptSheet
+      {isPurchaseSheet(sheet) && (
+        <PurchaseSheets
+          sheet={sheet}
+          purchases={state.purchases}
           listId={current.id}
-          purchase={receiptPurchase}
-          onSave={({ receipt, amountCents, returnItems }) => {
-            list.setReceipt(receiptPurchase.id, receipt);
-            if (amountCents !== null) {
-              list.updatePurchase(receiptPurchase.id, {
-                amountCents,
-                method: receiptPurchase.method,
-                installments: receiptPurchase.installments,
-              });
-            }
-            const now = Date.now();
-            list.addItems(
-              returnItems.map((item, index) => ({
-                id: crypto.randomUUID(),
-                text: item.text,
-                quantity: item.quantity,
-                category: item.category,
-                done: false,
-                createdAt: new Date(now + index).toISOString(),
-              })),
-            );
-            close();
-            const back = returnItems.length;
-            show(
-              back === 0
-                ? "Cupom salvo na compra"
-                : `Cupom salvo. ${back === 1 ? "1 item voltou" : `${back} itens voltaram`} para a lista`,
-            );
-          }}
-          onRemove={() => {
-            list.removeReceipt(receiptPurchase.id);
-            close();
-            show("Cupom removido da compra");
-          }}
+          list={list}
+          prices={priceIndex}
+          show={show}
           onClose={close}
         />
       )}

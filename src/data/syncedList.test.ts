@@ -7,7 +7,7 @@ import { SyncedList } from "./syncedList";
 
 /** Servidor em memória; vários SyncedList podem compartilhar o mesmo. */
 class FakeServer implements ListBackend {
-  snapshot: Snapshot = { items: [], customCategories: [], purchases: [], templates: [] };
+  snapshot: Snapshot = { items: [], customCategories: [], purchases: [], templates: [], barcodes: [] };
   online = true;
   revoked = false;
   rejectNext = false;
@@ -102,7 +102,7 @@ describe("SyncedList", () => {
 
   it("alteração pendente continua visível quando chega versão do servidor", async () => {
     const outro = createItem("Feijão", "Outros", new Date(2));
-    server.snapshot = { items: [outro], customCategories: [], purchases: [], templates: [] };
+    server.snapshot = { items: [outro], customCategories: [], purchases: [], templates: [], barcodes: [] };
     const list = new SyncedList(server, "a");
     await list.sync();
 

@@ -22,11 +22,13 @@ const receiptMocks = vi.hoisted(() => ({
     ],
   } as ReceiptReading,
   sent: [] as string[][],
+  barcode: "7896058599848" as string | null,
 }));
 
 vi.mock("./data/receiptImage", () => ({
   preparePhoto: async () => ({ base64: "FOTO", qrText: receiptMocks.qr }),
   qrFromPhoto: async () => receiptMocks.qr,
+  barcodeFromPhoto: async () => receiptMocks.barcode,
   scanVideo: () => () => {},
 }));
 vi.mock("./data/receiptsApi", () => ({
@@ -37,7 +39,7 @@ vi.mock("./data/receiptsApi", () => ({
 }));
 
 class MemoryBackend implements ListBackend {
-  snapshot: Snapshot = { items: [], customCategories: [], purchases: [], templates: [] };
+  snapshot: Snapshot = { items: [], customCategories: [], purchases: [], templates: [], barcodes: [] };
   async load() {
     return this.snapshot;
   }
@@ -108,6 +110,36 @@ describe("App", () => {
     expect((within(sheet).getByRole("radio", { name: /Casa/ }) as HTMLInputElement).checked).toBe(true);
     await user.click(within(sheet).getByRole("radio", { name: /Pousada/ }));
     expect(calls).toEqual(["switch:l2"]);
+  });
+
+  it("aprende o código de barras na primeira vez e depois adiciona sozinho", async () => {
+    const user = renderApp();
+    let dialog = await openAddSheet(user);
+    const photo = () => dialog.querySelector("input[type=file]") as HTMLInputElement;
+    // Sem câmera ao vivo (como aqui), o app pede a foto do código.
+    await user.click(within(dialog).getByRole("button", { name: "Ler código de barras" }));
+    await user.upload(photo(), new File(["x"], "codigo.jpg", { type: "image/jpeg" }));
+    expect(await within(dialog).findByText(/Ainda não conheço o código 7896058599848/)).toBeTruthy();
+    await user.type(within(dialog).getByLabelText("O que precisa comprar?"), "Leite Italac{Enter}");
+    expect(within(dialog).getByText("Leite Italac entrou na lista.")).toBeTruthy();
+    expect(within(dialog).queryByText(/Ainda não conheço/)).toBeNull();
+    await user.click(within(dialog).getByRole("button", { name: "Fechar" }));
+
+    await user.click(screen.getByRole("button", { name: "Editar Leite Italac" }));
+    await user.click(await screen.findByRole("button", { name: "Tirar da lista" }));
+    dialog = await openAddSheet(user);
+    await user.click(within(dialog).getByRole("button", { name: "Ler código de barras" }));
+    await user.upload(photo(), new File(["x"], "codigo.jpg", { type: "image/jpeg" }));
+    expect(await within(dialog).findByText("Leite Italac entrou na lista.")).toBeTruthy();
+    await user.click(within(dialog).getByRole("button", { name: "Fechar" }));
+    expect(screen.getByRole("button", { name: "Marcar Leite Italac como comprado" })).toBeTruthy();
+
+    receiptMocks.barcode = null;
+    dialog = await openAddSheet(user);
+    await user.click(within(dialog).getByRole("button", { name: "Ler código de barras" }));
+    await user.upload(photo(), new File(["x"], "codigo.jpg", { type: "image/jpeg" }));
+    expect((await within(dialog).findByRole("alert")).textContent).toMatch(/Não achei o código de barras/);
+    receiptMocks.barcode = "7896058599848";
   });
 
   it("escolhe as cores do app em Sua conta e guarda neste aparelho", async () => {
@@ -594,6 +626,7 @@ describe("App", () => {
     await user.type(within(dialog).getByLabelText("O que precisa comprar?"), "{Enter}");
     await user.click(within(dialog).getByRole("button", { name: "Fechar" }));
     expect(screen.getByText(/Última: R\$\s5,49 · Italac/)).toBeTruthy();
+    expect(screen.getByText(/Estimativa:/).textContent).toMatch(/Estimativa: R\$\s5,49$/);
 
     await user.click(screen.getByRole("button", { name: "Editar leites" }));
     const edit = await screen.findByRole("dialog", { name: "leites" });

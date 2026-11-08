@@ -2,8 +2,10 @@ import { type CSSProperties, useState } from "react";
 import type { ListState } from "../data/syncedList";
 import { groupByCategory } from "../domain/categories";
 import { categoryStyle } from "../domain/categoryStyle";
-import type { PricePoint } from "../domain/prices";
+import { formatMoney } from "../domain/money";
+import { estimateList, type PriceIndex, priceTrend } from "../domain/prices";
 import type { Item, ListSummary, Template, UserInfo } from "../domain/types";
+import { canKeepAwake, useKeepAwake } from "../hooks/useKeepAwake";
 import { Icon } from "../ui/Icon";
 import { ItemRow } from "./ItemRow";
 
@@ -16,7 +18,8 @@ interface ListScreenProps {
   onToggle: (item: Item) => void;
   onEdit: (item: Item) => void;
   onAskClearAll: () => void;
-  lastPrice: (text: string) => PricePoint | undefined;
+  /** Preços já pagos, para a estimativa e a referência de cada item. */
+  prices: PriceIndex;
   onOpenTemplates: () => void;
   onUseTemplate: (template: Template) => void;
   onAdd: () => void;
@@ -64,7 +67,7 @@ export function ListScreen({
   onToggle,
   onEdit,
   onAskClearAll,
-  lastPrice,
+  prices,
   onOpenTemplates,
   onUseTemplate,
   onAdd,
@@ -79,6 +82,8 @@ export function ListScreen({
   const visible = active === ALL ? groups : groups.filter((group) => group.category === active);
   const done = state.items.length - toBuy.length;
   const percent = state.items.length === 0 ? 0 : Math.round((done / state.items.length) * 100);
+  const estimate = estimateList(state.items, prices);
+  const awake = useKeepAwake();
 
   return (
     <div className="page page--wide">
@@ -86,6 +91,18 @@ export function ListScreen({
         <div className="hero__top">
           <SyncStatus state={state} />
           <span className="header-actions">
+            {canKeepAwake && (
+              <button
+                type="button"
+                className="icon-btn icon-btn--neutral icon-btn--toggle"
+                aria-pressed={awake.enabled}
+                aria-label="Modo mercado: manter a tela acesa"
+                title={awake.enabled ? "Tela sempre acesa (toque para desligar)" : "Manter a tela acesa"}
+                onClick={awake.toggle}
+              >
+                <Icon name="sun" size={20} />
+              </button>
+            )}
             <button
               type="button"
               className="icon-btn icon-btn--neutral"
@@ -128,6 +145,12 @@ export function ListScreen({
             <p className="hero__greeting" aria-live="polite">
               {loading ? "Carregando a lista…" : greeting(user.displayName, state.items.length, toBuy.length)}
             </p>
+            {estimate.priced > 0 && (
+              <p className="hero__estimate">
+                Estimativa: <strong>{formatMoney(estimate.cents)}</strong>
+                {estimate.missing > 0 && ` · ${estimate.missing} sem preço`}
+              </p>
+            )}
           </div>
           {state.items.length > 0 && (
             <div
@@ -245,7 +268,7 @@ export function ListScreen({
                     item={item}
                     onToggle={onToggle}
                     onEdit={onEdit}
-                    lastPrice={lastPrice(item.text)}
+                    price={priceTrend(prices, item.text)}
                   />
                 ))}
               </ul>

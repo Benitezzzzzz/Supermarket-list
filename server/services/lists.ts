@@ -1,5 +1,7 @@
 import {
+  type Barcode,
   type Item,
+  MAX_BARCODES,
   type ItemPrice,
   type ListSummary,
   MAX_TEMPLATES,
@@ -102,7 +104,7 @@ export class ListService {
   }
 
   async snapshot(listId: string): Promise<Snapshot> {
-    const [items, categories, purchases, templates] = await Promise.all([
+    const [items, categories, purchases, templates, barcodes] = await Promise.all([
       this.db
         .prepare(
           `SELECT id, text, quantity, done, category, created_at AS createdAt
@@ -130,6 +132,13 @@ export class ListService {
         )
         .bind(listId)
         .all<TemplateRow>(),
+      this.db
+        .prepare(
+          `SELECT code, text, category FROM barcodes WHERE list_id = ?
+           ORDER BY updated_at DESC LIMIT ${MAX_BARCODES}`,
+        )
+        .bind(listId)
+        .all<Barcode>(),
     ]);
 
     const receipts = await this.receipts.forPurchases(
@@ -149,7 +158,20 @@ export class ListService {
         items: parseArray<Template["items"][number]>(row.items),
         isDefault: row.isDefault === 1,
       })),
+      barcodes: barcodes.results,
     };
+  }
+
+  /** Guarda (ou corrige) o produto de um código de barras. */
+  async learnBarcode(listId: string, barcode: Barcode) {
+    await this.db
+      .prepare(
+        `INSERT INTO barcodes (list_id, code, text, category, updated_at) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT (list_id, code) DO UPDATE SET
+           text = excluded.text, category = excluded.category, updated_at = excluded.updated_at`,
+      )
+      .bind(listId, barcode.code, barcode.text, barcode.category, new Date().toISOString())
+      .run();
   }
 
   /** Total e quantidade de compras por mês, dos últimos 24 meses, do mais recente ao mais antigo. */

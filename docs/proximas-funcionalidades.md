@@ -1,6 +1,6 @@
 # Próximas funcionalidades
 
-**Status:** etapa 2 (várias listas) e etapa 3 (contas) entregues em 2026-11-07, na versão 4.0.0. A lista vinda do WhatsApp saiu na 4.2.0 e a leitura do cupom fiscal (NFC-e) na 4.3.0 o PDF de cada compra na 4.4.0 e, na 4.5.0, o histórico por mês, os preços e marcas por item e os modelos de lista. Falta o código de barras.
+**Status:** etapa 2 (várias listas) e etapa 3 (contas) entregues em 2026-11-07, na versão 4.0.0. A lista vinda do WhatsApp saiu na 4.2.0 e a leitura do cupom fiscal (NFC-e) na 4.3.0 o PDF de cada compra na 4.4.0 e, na 4.5.0, o histórico por mês, os preços e marcas por item e os modelos de lista. O código de barras saiu na 4.8.0.
 
 Pedido: contas individuais com login, várias listas por pessoa (o pai administra uma pousada e quer listas separadas), exportar os relatórios de compras para PDF e, mais adiante, trazer compras para o app lendo a NFC-e, o código de barras ou o QR code.
 
@@ -62,7 +62,9 @@ Hoje o acesso é por aparelho: quem limpa os dados do navegador ou troca de celu
   - Ficam guardados os códigos de barras dos produtos (`receipt_items.code`): base para o histórico de preços e para a etapa 5.
 - **Custo:** cerca de 70 "neurons" por cupom pequeno, de 10 mil grátis por dia na conta. O limite é de 30 leituras por lista por dia.
 
-## 5. Código de barras do produto
+## 5. Código de barras do produto: entregue na 4.8.0
+
+- **Como ficou:** em Novo item, "Ler código de barras" (câmera ou foto). O nome vem do que a lista aprendeu (tabela `barcodes`) ou dos cupons já lidos; código desconhecido pede o nome uma vez. Sem base externa.
 
 - **Base pronta (4.5.0):** cada item da compra já aceita `code` (EAN) e `priceSource: "codigo"`. Os cupons guardam o código de cada produto em `receipt_items.code`.
 

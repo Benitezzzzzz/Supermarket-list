@@ -1,6 +1,6 @@
 import { parseMoney } from "./money";
 import { relate, words } from "./receipt";
-import type { PriceSource, Purchase } from "./types";
+import type { Item, PriceSource, Purchase } from "./types";
 
 /** Nome do produto sem acento, plural, unidade e palavras de ligação: "2 Leites" e "leite" são o mesmo. */
 export function productKey(text: string): string {
@@ -114,6 +114,44 @@ export function pricesFor(index: PriceIndex, text: string): PricePoint[] {
 /** A última compra deste produto, com preço, marca e data. */
 export function lastPrice(index: PriceIndex, text: string, excludePurchaseId?: string): PricePoint | undefined {
   return pricesFor(index, text).find((point) => point.purchaseId !== excludePurchaseId);
+}
+
+/** A partir de quantos por cento de diferença o preço conta como subida ou queda. */
+export const PRICE_ALERT_PERCENT = 10;
+
+export interface PriceTrend {
+  last: PricePoint;
+  /** Variação da última compra em relação à anterior, em %; null sem compra anterior. */
+  percent: number | null;
+}
+
+/** Último preço do produto e quanto ele mudou desde a compra anterior. */
+export function priceTrend(index: PriceIndex, text: string): PriceTrend | null {
+  const [last, previous] = pricesFor(index, text);
+  if (!last) return null;
+  if (!previous || previous.unitCents === 0) return { last, percent: null };
+  return { last, percent: Math.round(((last.unitCents - previous.unitCents) / previous.unitCents) * 100) };
+}
+
+export interface ListEstimate {
+  /** Soma do último preço de cada item, vezes a quantidade. */
+  cents: number;
+  /** Itens com preço conhecido e sem nenhum preço ainda. */
+  priced: number;
+  missing: number;
+}
+
+/** Quanto a lista deve custar, pelo último preço pago em cada item. Só referência. */
+export function estimateList(items: Item[], index: PriceIndex): ListEstimate {
+  let cents = 0;
+  let priced = 0;
+  for (const item of items) {
+    const last = lastPrice(index, item.text);
+    if (!last) continue;
+    cents += last.unitCents * item.quantity;
+    priced += 1;
+  }
+  return { cents, priced, missing: items.length - priced };
 }
 
 export interface BrandSummary {

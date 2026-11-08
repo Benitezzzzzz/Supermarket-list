@@ -1,0 +1,101 @@
+/* Relatório de uma compra para imprimir ou salvar em PDF. */
+
+/* ---------- Relatório de uma compra (PDF) ---------- */
+
+.print-report {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 16mm;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  body > :not(.print-report) {
+    display: none;
+  }
+
+  .print-report {
+    display: block;
+    font-family: var(--font-body);
+    font-size: 11pt;
+    line-height: 1.4;
+    color: #000;
+  }
+
+  .print-report__app {
+    margin: 0;
+    font-size: 10pt;
+    color: #555;
+  }
+
+  .print-report h1 {
+    margin: 2pt 0 12pt;
+    font-family: var(--font-display);
+    font-size: 20pt;
+  }
+
+  .print-report h2 {
+    margin: 16pt 0 4pt;
+    font-size: 13pt;
+  }
+
+  .print-report__facts {
+    margin: 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    border-top: 1px solid #ccc;
+  }
+
+  .print-report__facts > div {
+    display: contents;
+  }
+
+  .print-report__facts dt,
+  .print-report__facts dd {
+    margin: 0;
+    padding: 4pt 0;
+    border-bottom: 1px solid #ccc;
+  }
+
+  .print-report__facts dt {
+    padding-right: 16pt;
+    color: #555;
+  }
+
+  .print-report .purchase__group {
+    margin: 10pt 0 2pt;
+    font-size: 10pt;
+    color: #555;
+  }
+
+  .print-report .purchase__list li {
+    min-height: 0;
+    padding: 3pt 0;
+    font-size: 11pt;
+    border-top: 1px solid #e3e3e3;
+    break-inside: avoid;
+  }
+
+  .print-report .purchase__priced-name small {
+    font-size: 9pt;
+    color: #555;
+  }
+
+  .print-report .purchase__subtotal,
+  .print-report .purchase__note {
+    font-size: 11pt;
+    color: #000;
+  }
+
+  .print-report footer {
+    margin-top: 20pt;
+    font-size: 9pt;
+    color: #777;
+  }
+}

@@ -1,4 +1,4 @@
-import type { Item, ItemPrice, Op, Payment, Purchase, Receipt, Snapshot, Template } from "../domain/types";
+import type { Barcode, Item, ItemPrice, Op, Payment, Purchase, Receipt, Snapshot, Template } from "../domain/types";
 import { applyOp } from "./applyOp";
 import { type AccessLoss, AccessRevokedError, type ListBackend, RejectedOpError } from "./backend";
 
@@ -9,6 +9,7 @@ export interface ListState {
   customCategories: string[];
   purchases: Purchase[];
   templates: Template[];
+  barcodes: Barcode[];
   connection: ConnectionStatus;
   pendingCount: number;
   /** Alguma alteração foi recusada pelo servidor e descartada. */
@@ -23,7 +24,7 @@ interface Persisted {
 }
 
 const RETRY_MS = 5000;
-const EMPTY: Snapshot = { items: [], customCategories: [], purchases: [], templates: [] };
+const EMPTY: Snapshot = { items: [], customCategories: [], purchases: [], templates: [], barcodes: [] };
 
 /**
  * Lista com escrita otimista e fila offline.
@@ -178,6 +179,13 @@ export class SyncedList {
     this.dispatch({ kind: "deleteTemplate", id });
   }
 
+  /** Guarda o produto de um código de barras para a próxima leitura. */
+  learnBarcode(barcode: Barcode) {
+    const known = this.state.barcodes.find((entry) => entry.code === barcode.code);
+    if (known && known.text === barcode.text && known.category === barcode.category) return;
+    this.dispatch({ kind: "learnBarcode", barcode });
+  }
+
   addCategory(name: string) {
     this.dispatch({ kind: "addCategory", name });
   }
@@ -213,6 +221,7 @@ export class SyncedList {
       customCategories: view.customCategories,
       purchases: view.purchases,
       templates: view.templates ?? [],
+      barcodes: view.barcodes ?? [],
       pendingCount: this.queue.length,
     };
     for (const listener of this.listeners) listener();

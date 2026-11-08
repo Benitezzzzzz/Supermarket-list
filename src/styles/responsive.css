@@ -1,0 +1,57 @@
+/* Tablet e computador, e menos movimento para quem pede. Vem depois de tudo. */
+
+/* ---------- Telas largas (tablet e computador) ---------- */
+
+@media (min-width: 720px) {
+  .page {
+    padding-top: var(--space-6);
+  }
+
+  .hero {
+    margin: 0;
+    border-radius: var(--radius-xl);
+    padding: var(--space-5) var(--space-6) var(--space-6);
+  }
+
+  .chips {
+    margin: 0;
+    padding: 2px 0;
+  }
+}
+
+@media (min-width: 960px) {
+  .page--wide {
+    max-width: 1080px;
+  }
+
+  .page--wide .categories {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--space-5);
+  }
+
+  .sheet-layer {
+    justify-content: center;
+    padding: var(--space-6);
+  }
+
+  .sheet {
+    border-radius: var(--radius-xl);
+    max-height: calc(100dvh - 48px);
+    padding-bottom: var(--space-6);
+  }
+
+  .sheet__handle {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

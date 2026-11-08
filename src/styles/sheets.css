@@ -1,0 +1,312 @@
+/* Painéis de baixo, participantes, administração e cores do app. */
+
+/* ---------- Painel de baixo ---------- */
+
+.sheet-layer {
+  position: fixed;
+  inset: 0;
+  z-index: var(--layer-sheet);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-bottom: var(--keyboard-offset, 0px);
+}
+
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: var(--scrim);
+  animation: fade var(--duration) var(--ease);
+}
+
+.sheet {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  max-height: calc(100dvh - 24px - var(--keyboard-offset, 0px));
+  margin: 0 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--bg);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: var(--space-3) var(--space-5) calc(var(--space-6) + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  animation: slide-up 240ms var(--ease);
+}
+
+.sheet__handle {
+  align-self: center;
+  width: 40px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--check-border);
+}
+
+/* Fica no topo ao rolar: título e Fechar sempre à vista, mesmo com o teclado aberto. */
+.sheet__header {
+  position: sticky;
+  top: calc(-1 * var(--space-3));
+  z-index: 1;
+  margin: 0 calc(-1 * var(--space-5));
+  padding: var(--space-2) var(--space-5);
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.sheet__header .icon-btn {
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.sheet__title {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-black);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  overflow-wrap: anywhere;
+}
+
+.sheet__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(32px);
+    opacity: 0;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.stepper__btn {
+  width: 64px;
+  min-height: var(--touch-lg);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stepper__btn:last-child {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.stepper__btn:disabled {
+  opacity: 0.45;
+}
+
+.stepper__value {
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-black);
+}
+
+.notice {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--primary-soft);
+  color: var(--primary-soft-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+/* ---------- Participantes ---------- */
+
+.members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.member {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.member__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.member__name {
+  font-size: var(--text-md);
+  font-weight: var(--weight-black);
+  overflow-wrap: anywhere;
+}
+
+.member__role {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.avatar {
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-black);
+  background: var(--tone-bg);
+  color: var(--tone-fg);
+}
+
+.invite {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.invite__row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.invite__row .field {
+  flex: 1;
+  min-width: 0;
+  font-size: 1rem;
+}
+
+/* ---------- Administração geral ---------- */
+
+.admin__user {
+  flex-wrap: wrap;
+}
+
+.admin__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.admin__confirm {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.admin__result {
+  margin: 0;
+  font-weight: var(--weight-regular);
+}
+
+.admin__password {
+  margin: var(--space-2) 0;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  user-select: all;
+}
+
+/* ---------- Cores do app (Sua conta) ---------- */
+
+.theme-picker {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.theme-picker > legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+}
+
+.theme-option {
+  min-height: 92px;
+  padding: var(--space-3) var(--space-2);
+  border: 2px solid transparent;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--duration) var(--ease), transform var(--duration) var(--ease);
+}
+
+.theme-option:active {
+  transform: scale(0.97);
+}
+
+.theme-option:has(input:checked) {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-soft-ink);
+}
+
+.theme-option:has(input:focus-visible) {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.theme-option__label {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-black);
+}
+
+.theme-option__note {
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
+.theme-option:has(input:checked) .theme-option__note {
+  color: inherit;
+}
+
+.theme-picker__hint {
+  grid-column: 1 / -1;
+}

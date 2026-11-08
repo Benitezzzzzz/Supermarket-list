@@ -56,6 +56,9 @@ export class ApiBackend implements ListBackend {
       case "deleteTemplate":
         await api(`${this.base}/templates/${op.id}`, "DELETE");
         return;
+      case "learnBarcode":
+        await api(`${this.base}/barcodes/${op.barcode.code}`, "PUT", op.barcode);
+        return;
       case "finish":
         await api(`${this.base}/purchases`, "POST", { purchase: op.purchase, itemIds: op.itemIds });
         return;

@@ -214,6 +214,16 @@ export interface MonthTotal {
   count: number;
 }
 
+/** Quantos códigos aprendidos vêm no snapshot (os mais recentes). */
+export const MAX_BARCODES = 1000;
+
+/** Código de barras (EAN e UPC, só os dígitos e sem zeros à esquerda) com o produto que ele representa. */
+export const barcodeSchema = z.object({
+  code: z.string().regex(/^[1-9]\d{4,13}$/),
+  text: z.string().trim().min(1).max(MAX_ITEM_TEXT),
+  category: categoryName,
+});
+
 export type Item = z.infer<typeof itemSchema>;
 export type Purchase = z.infer<typeof purchaseSchema>;
 export type PaymentMethod = Purchase["method"];
@@ -224,6 +234,7 @@ export type ReceiptItem = z.infer<typeof receiptItemSchema>;
 export type ItemPrice = z.input<typeof itemPriceSchema>;
 export type PriceSource = z.infer<typeof priceSourceSchema>;
 export type Template = z.infer<typeof templateSchema>;
+export type Barcode = z.infer<typeof barcodeSchema>;
 export type TemplateItem = z.infer<typeof templateItemSchema>;
 
 export interface Snapshot {
@@ -233,6 +244,8 @@ export interface Snapshot {
   purchases: Purchase[];
   /** Modelos de lista, em ordem de nome. */
   templates: Template[];
+  /** Códigos de barras que a lista já aprendeu. */
+  barcodes: Barcode[];
 }
 
 /** Alteração unitária e idempotente: pode ser reenviada sem efeito colateral. */
@@ -248,7 +261,8 @@ export type Op =
   | { kind: "removeReceipt"; purchaseId: string }
   | { kind: "updatePrices"; purchaseId: string; prices: ItemPrice[]; amountCents: number | null }
   | { kind: "upsertTemplate"; template: Template }
-  | { kind: "deleteTemplate"; id: string };
+  | { kind: "deleteTemplate"; id: string }
+  | { kind: "learnBarcode"; barcode: Barcode };
 
 export type Role = "admin" | "member";
 

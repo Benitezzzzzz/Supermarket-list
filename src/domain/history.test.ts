@@ -9,7 +9,18 @@ import {
   previousMonthKey,
   previousPurchase,
 } from "./history";
-import { brandSummary, buildPriceIndex, itemPrice, lastPrice, parsePrice, pricedTotal, productKey } from "./prices";
+import { findProduct, normalizeCode } from "./barcodes";
+import {
+  brandSummary,
+  buildPriceIndex,
+  estimateList,
+  itemPrice,
+  lastPrice,
+  parsePrice,
+  pricedTotal,
+  priceTrend,
+  productKey,
+} from "./prices";
 import { createTemplate, itemsFromTemplate } from "./templates";
 import type { Item, Purchase, PurchasedItem, Template } from "./types";
 
@@ -130,6 +141,14 @@ describe("preços dos itens", () => {
     expect(index.has(productKey("Pão"))).toBe(false);
     expect(lastPrice(index, "leites")).toMatchObject({ unitCents: 600, brand: "Italac", quantity: 2 });
     expect(lastPrice(index, "Leite", compras[0].id)).toMatchObject({ unitCents: 450, brand: "Betânia" });
+    // 600 contra 450 da compra anterior: subiu 33%.
+    expect(priceTrend(index, "Leite")?.percent).toBe(33);
+    expect(priceTrend(index, "Café")).toBeNull();
+    const lista = [
+      { id: "1", text: "leites", quantity: 3, done: false, category: "Laticínios", createdAt: "" },
+      { id: "2", text: "Café", quantity: 1, done: false, category: "Mercearia", createdAt: "" },
+    ];
+    expect(estimateList(lista, index)).toEqual({ cents: 1800, priced: 1, missing: 1 });
     expect(brandSummary(index.get(productKey("leite")) ?? [])).toEqual([
       expect.objectContaining({ brand: "Betânia", count: 1, avgUnitCents: 450 }),
       expect.objectContaining({ brand: "Italac", count: 2, avgUnitCents: 550, minUnitCents: 500, lastUnitCents: 600 }),
@@ -170,5 +189,35 @@ describe("modelos de lista", () => {
       ["A", false],
       ["B", true],
     ]);
+  });
+});
+
+describe("código de barras", () => {
+  it("compara só os dígitos, sem zeros à esquerda", () => {
+    expect(normalizeCode("0789 6058-599848")).toBe("7896058599848");
+    expect(normalizeCode("abc")).toBeNull();
+  });
+
+  it("acha o produto no que a lista aprendeu e depois nos cupons", () => {
+    const comCupom = purchase("2026-11-05", 2000, [leite()], {
+      receipt: {
+        accessKey: null,
+        storeName: "",
+        cnpj: null,
+        issuedOn: null,
+        totalCents: null,
+        source: "foto",
+        readAt: new Date().toISOString(),
+        items: [
+          { code: "07896058599848", description: "LTE UHT", quantity: 2, unit: "UN", unitCents: 500, totalCents: 1000, listIndex: 0 },
+          { code: "7891000100103", description: "SACOLA  PLASTICA", quantity: 1, unit: "UN", unitCents: 15, totalCents: 15, listIndex: null },
+        ],
+      },
+    });
+    expect(findProduct("7896058599848", [], [comCupom])).toEqual({ text: "Leite", category: "Laticínios", source: "cupom" });
+    expect(findProduct("7891000100103", [], [comCupom])).toEqual({ text: "Sacola plastica", category: "Outros", source: "cupom" });
+    const aprendido = [{ code: "7896058599848", text: "Leite Italac", category: "Laticínios e Frios" }];
+    expect(findProduct("7896058599848", aprendido, [comCupom])?.text).toBe("Leite Italac");
+    expect(findProduct("123456789", [], [comCupom])).toBeNull();
   });
 });

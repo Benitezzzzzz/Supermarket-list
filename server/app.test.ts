@@ -870,6 +870,16 @@ describe("preços, meses e modelos", () => {
     expect((await renan.snapshot(casa.id)).templates.map((t) => t.name)).toEqual(["Compra do mês"]);
   });
 
+  it("aprende códigos de barras por lista e corrige o nome", async () => {
+    const leite = { code: "7896058599848", text: "Leite", category: "Laticínios e Frios" };
+    expect((await renan.call("PUT", `/lists/${casa.id}/barcodes/${leite.code}`, leite)).status).toBe(204);
+    await renan.call("PUT", `/lists/${casa.id}/barcodes/${leite.code}`, { ...leite, text: "Leite Italac" });
+    expect((await renan.snapshot(casa.id)).barcodes).toEqual([{ ...leite, text: "Leite Italac" }]);
+    expect((await renan.call("PUT", `/lists/${casa.id}/barcodes/123`, { ...leite, code: "123" })).status).toBe(422);
+    expect((await renan.call("PUT", `/lists/${casa.id}/barcodes/7891000100103`, leite)).status).toBe(400);
+    expect((await estranho.call("PUT", `/lists/${casa.id}/barcodes/${leite.code}`, leite)).status).toBe(404);
+  });
+
   it("modelo é da lista: outra pessoa não vê nem grava, e id trocado é recusado", async () => {
     const a = modelo();
     expect((await estranho.call("PUT", `/lists/${casa.id}/templates/${a.id}`, a)).status).toBe(404);

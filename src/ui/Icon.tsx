@@ -32,6 +32,7 @@ const PATHS = {
   "arrow-down": "M12 5v14M6 13l6 6 6-6",
   star: "M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z",
   copy: "M8 8h12v12H8zM4 16V4h12",
+  barcode: "M3 5v14M6.5 5v14M9.5 5v10M12.5 5v14M15.5 5v10M18.5 5v14M21 5v14M9.5 19h0M15.5 19h0",
   /* Planilha: os modelos de lista. */
   sheet: "M4 4h16v16H4zM4 9.5h16M4 15h16M9.5 9.5V20",
   sun: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",

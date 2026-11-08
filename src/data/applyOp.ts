@@ -72,6 +72,10 @@ export function applyOp(snapshot: Snapshot, op: Op): Snapshot {
       return { ...snapshot, templates: putTemplate(snapshot.templates ?? [], op.template) };
     case "deleteTemplate":
       return { ...snapshot, templates: (snapshot.templates ?? []).filter((template) => template.id !== op.id) };
+    case "learnBarcode": {
+      const others = (snapshot.barcodes ?? []).filter((barcode) => barcode.code !== op.barcode.code);
+      return { ...snapshot, barcodes: [op.barcode, ...others] };
+    }
     case "addCategory": {
       const name = op.name.toLowerCase();
       if (snapshot.customCategories.some((c) => c.toLowerCase() === name)) return snapshot;

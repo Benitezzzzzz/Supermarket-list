@@ -1,5 +1,29 @@
 # Changelog
 
+## 4.8.0 (2026-11-08)
+
+### Adicionado
+
+- **Código de barras do produto:** "Ler código de barras" em Novo item. Funciona pela câmera ao vivo ou pela foto do código.
+  - Se a lista conhece o código, o item entra direto com nome e categoria.
+  - Os nomes saem do que a lista aprendeu ou dos cupons já lidos, sem base externa paga.
+  - Na primeira vez, a pessoa digita o nome; da próxima, ele entra sozinho.
+- **Estimativa da lista** no cabeçalho, somando o último preço pago de cada item, e quantos itens ainda não têm preço.
+- **Aviso de preço:** na lista, "▲ 15%" ou "▼ 10%" quando o último preço subiu ou caiu 10% ou mais em relação à compra anterior.
+- **Modo mercado:** um botão no cabeçalho mantém a tela acesa enquanto a lista está aberta. A escolha fica salva no aparelho.
+
+### Mudado
+
+- Ícones PNG da tela inicial no verde novo.
+- GitHub Actions nas versões atuais (checkout, setup-node e upload-artifact v7, em Node 24).
+- O CSS foi dividido por assunto em `src/styles/`: base, lista, gastos, painéis, cupom, telas largas e impressão.
+- Os painéis de compra (editar, preços e cupom) saíram do `App.tsx` para `PurchaseSheets`.
+- O Worker antigo `lista-do-mercado` foi excluído da Cloudflare.
+
+### Banco de dados
+
+- Migração `0010_codigos_de_barras.sql`: tabela `barcodes`, com os códigos aprendidos por lista.
+
 ## 4.7.0 (2026-11-08)
 
 ### Adicionado
