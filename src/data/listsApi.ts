@@ -1,4 +1,4 @@
-import type { ListMember, ListSummary } from "../domain/types";
+import type { ListMember, ListSummary, MonthTotal } from "../domain/types";
 import { api } from "./http";
 
 const base = (listId: string) => `/lists/${encodeURIComponent(listId)}`;
@@ -29,4 +29,9 @@ export async function addMember(listId: string, username: string): Promise<ListM
 
 export async function removeMember(listId: string, userId: string): Promise<void> {
   await api(`${base(listId)}/members/${encodeURIComponent(userId)}`, "DELETE");
+}
+
+/** Total por mês de todo o histórico da lista (o snapshot só traz as compras recentes). */
+export async function fetchMonths(listId: string): Promise<MonthTotal[]> {
+  return (await api(`${base(listId)}/months`)).json() as Promise<MonthTotal[]>;
 }

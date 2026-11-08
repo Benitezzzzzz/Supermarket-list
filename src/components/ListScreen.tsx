@@ -1,7 +1,8 @@
 import type { ListState } from "../data/syncedList";
 import { groupByCategory } from "../domain/categories";
 import { categoryStyle } from "../domain/categoryStyle";
-import type { Item, ListSummary, UserInfo } from "../domain/types";
+import type { PricePoint } from "../domain/prices";
+import type { Item, ListSummary, Template, UserInfo } from "../domain/types";
 import { Icon } from "../ui/Icon";
 import { ItemRow } from "./ItemRow";
 
@@ -14,6 +15,9 @@ interface ListScreenProps {
   onToggle: (item: Item) => void;
   onEdit: (item: Item) => void;
   onAskClearAll: () => void;
+  lastPrice: (text: string) => PricePoint | undefined;
+  onOpenTemplates: () => void;
+  onUseTemplate: (template: Template) => void;
 }
 
 function firstName(name: string): string {
@@ -56,7 +60,11 @@ export function ListScreen({
   onToggle,
   onEdit,
   onAskClearAll,
+  lastPrice,
+  onOpenTemplates,
+  onUseTemplate,
 }: ListScreenProps) {
+  const standard = state.templates.find((template) => template.isDefault);
   const toBuy = state.items.filter((item) => !item.done);
   const loading = state.connection === "loading" && state.items.length === 0;
 
@@ -66,6 +74,15 @@ export function ListScreen({
         <div className="screen-header__meta">
           <SyncStatus state={state} />
           <span className="header-actions">
+            <button
+              type="button"
+              className="icon-btn icon-btn--neutral"
+              aria-label="Modelos de lista"
+              title="Modelos de lista"
+              onClick={onOpenTemplates}
+            >
+              <Icon name="copy" size={22} />
+            </button>
             {state.items.length > 0 && (
               <button
                 type="button"
@@ -110,7 +127,30 @@ export function ListScreen({
             <Icon name="cart" size={32} />
           </span>
           <h2 className="empty__title">Lista vazia</h2>
-          <p className="hint">Toque em Adicionar para começar.</p>
+          {standard ? (
+            <>
+              <p className="hint">Comece pelo seu modelo padrão ou toque em Adicionar.</p>
+              <button type="button" className="btn btn--secondary" onClick={() => onUseTemplate(standard)}>
+                <Icon name="star" size={20} />
+                Usar “{standard.name}”
+              </button>
+              {state.templates.length > 1 && (
+                <button type="button" className="btn btn--link" onClick={onOpenTemplates}>
+                  Escolher outro modelo
+                </button>
+              )}
+            </>
+          ) : state.templates.length > 0 ? (
+            <>
+              <p className="hint">Toque em Adicionar ou comece por um modelo.</p>
+              <button type="button" className="btn btn--secondary" onClick={onOpenTemplates}>
+                <Icon name="copy" size={20} />
+                Escolher um modelo
+              </button>
+            </>
+          ) : (
+            <p className="hint">Toque em Adicionar para começar. Depois dá para salvar a lista como modelo.</p>
+          )}
         </div>
       )}
 
@@ -139,7 +179,13 @@ export function ListScreen({
               </h2>
               <ul className="items">
                 {group.items.map((item) => (
-                  <ItemRow key={item.id} item={item} onToggle={onToggle} onEdit={onEdit} />
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    onToggle={onToggle}
+                    onEdit={onEdit}
+                    lastPrice={lastPrice(item.text)}
+                  />
                 ))}
               </ul>
             </section>

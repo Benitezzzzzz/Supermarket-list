@@ -1,7 +1,10 @@
 import { type FormEvent, useRef, useState } from "react";
 import { BottomSheet } from "../ui/BottomSheet";
 import { Icon } from "../ui/Icon";
+import { parseQuantity } from "../domain/items";
+import type { PricePoint } from "../domain/prices";
 import { CategoryPicker } from "./CategoryPicker";
+import { describeLast } from "./PriceHistory";
 
 interface AddSheetProps {
   categories: string[];
@@ -12,6 +15,15 @@ interface AddSheetProps {
   onAdd: (text: string) => string;
   onOpenImport: () => void;
   onClose: () => void;
+  /** Última compra do produto que está sendo digitado, como referência. */
+  lastPrice: (text: string) => PricePoint | undefined;
+}
+
+function TypedReference({ text, lastPrice }: { text: string; lastPrice: AddSheetProps["lastPrice"] }) {
+  const name = parseQuantity(text.trim()).text;
+  const last = name.length >= 3 ? lastPrice(name) : undefined;
+  if (!last) return null;
+  return <p className="hint price-ref">Última compra de {last.text}: {describeLast(last)}</p>;
 }
 
 /** Fica aberto depois de adicionar: quem monta a lista costuma colocar vários itens seguidos. */
@@ -23,6 +35,7 @@ export function AddSheet({
   onAdd,
   onOpenImport,
   onClose,
+  lastPrice,
 }: AddSheetProps) {
   const [text, setText] = useState("");
   const [lastAdded, setLastAdded] = useState("");
@@ -68,6 +81,7 @@ export function AddSheet({
           value={text}
           onChange={(event) => setText(event.target.value)}
         />
+        <TypedReference text={text} lastPrice={lastPrice} />
         <div aria-live="polite">
           {lastAdded && <p className="notice">{lastAdded} entrou na lista.</p>}
         </div>

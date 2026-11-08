@@ -1,21 +1,25 @@
 import { MAX_QUANTITY } from "../domain/items";
+import type { PricePoint } from "../domain/prices";
 import type { Item } from "../domain/types";
 import { BottomSheet } from "../ui/BottomSheet";
 import { Icon } from "../ui/Icon";
 import { CategoryPicker } from "./CategoryPicker";
+import { PriceHistory } from "./PriceHistory";
 
 type ItemChanges = Partial<Pick<Item, "category" | "quantity">>;
 
 interface EditItemSheetProps {
   item: Item;
   categories: string[];
+  /** Preços já pagos por este produto, do mais recente ao mais antigo. */
+  prices: PricePoint[];
   onUpdate: (changes: ItemChanges) => void;
   onRemove: () => void;
   onClose: () => void;
 }
 
 /** Cada mudança vale na hora; não existe botão de salvar. */
-export function EditItemSheet({ item, categories, onUpdate, onRemove, onClose }: EditItemSheetProps) {
+export function EditItemSheet({ item, categories, prices, onUpdate, onRemove, onClose }: EditItemSheetProps) {
   return (
     <BottomSheet title={item.text} onClose={onClose}>
       <span className="field-label">Quantidade</span>
@@ -50,6 +54,9 @@ export function EditItemSheet({ item, categories, onUpdate, onRemove, onClose }:
         value={item.category}
         onChange={(category) => onUpdate({ category })}
       />
+
+      <span className="field-label">Preços anteriores</span>
+      <PriceHistory points={prices} />
 
       <button type="button" className="btn btn--danger-soft btn--block" onClick={onRemove}>
         Tirar da lista

@@ -23,6 +23,7 @@ export function ParticipantsScreen({ user, list, onListsChanged }: ParticipantsS
   const [newName, setNewName] = useState(list.name);
   const [actionError, setActionError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [renamed, setRenamed] = useState("");
   const isAdmin = list.role === "admin";
 
   async function submitAdd(event: FormEvent) {
@@ -155,10 +156,16 @@ export function ParticipantsScreen({ user, list, onListsChanged }: ParticipantsS
             className="invite__row"
             onSubmit={(event) => {
               event.preventDefault();
-              if (newName.trim() && newName.trim() !== list.name) void run(() => renameList(list.id, newName.trim()));
+              const value = newName.trim();
+              if (!value || value === list.name) return;
+              setRenamed("");
+              void run(async () => {
+                await renameList(list.id, value);
+                setRenamed(`A lista agora se chama ${value}.`);
+              });
             }}
           >
-            <label htmlFor="renomear-lista" className="visually-hidden">
+            <label htmlFor="renomear-lista" className="field-label">
               Nome da lista
             </label>
             <input
@@ -170,9 +177,10 @@ export function ParticipantsScreen({ user, list, onListsChanged }: ParticipantsS
               onChange={(event) => setNewName(event.target.value)}
             />
             <button type="submit" className="btn btn--secondary">
-              Renomear
+              Salvar nome
             </button>
           </form>
+          <div aria-live="polite">{renamed && <p className="notice">{renamed}</p>}</div>
           <button type="button" className="btn btn--danger-soft btn--block" onClick={() => setPending({ kind: "delete" })}>
             Excluir a lista {list.name}
           </button>

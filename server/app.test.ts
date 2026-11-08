@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { randomBytes, randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { Item, ListMember, ListSummary, MeResponse, Purchase, Snapshot } from "../shared/contract.ts";
+import type { Item, ListMember, ListSummary, MeResponse, Purchase, Snapshot, Template } from "../shared/contract.ts";
 import { createApp } from "./app.ts";
 import type { Database } from "./db/database.ts";
 import { openTestDatabase } from "./db/sqliteAdapter.ts";
@@ -755,5 +755,127 @@ describe("cupom fiscal", () => {
     expect((await renan.call("DELETE", `/lists/${casa.id}`)).status).toBe(204);
     const left = await db.prepare("SELECT COUNT(*) AS n FROM receipt_items").first<{ n: number }>();
     expect(left?.n).toBe(0);
+  });
+});
+
+describe("preços, meses e modelos", () => {
+  let renan: Device;
+  let estranho: Device;
+  let casa: ListSummary;
+
+  const compra = (overrides: Partial<Purchase> = {}): Purchase => ({
+    id: randomUUID(),
+    amountCents: 3000,
+    method: "pix",
+    installments: 1,
+    itemCount: 2,
+    memberName: "",
+    createdAt: new Date().toISOString(),
+    items: [
+      { text: "Leite", quantity: 2, category: "Laticínios", done: true },
+      { text: "Café", quantity: 1, category: "Mercearia", done: true },
+    ],
+    ...overrides,
+  });
+
+  const modelo = (overrides: Partial<Template> = {}): Template => ({
+    id: randomUUID(),
+    name: "Compra do mês",
+    items: [{ text: "Arroz", quantity: 1, category: "Mercearia" }],
+    isDefault: false,
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  });
+
+  beforeEach(async () => {
+    renan = new Device(app);
+    estranho = new Device(app);
+    await renan.signup("renan", "Renan");
+    await estranho.signup("estranho", "Estranho");
+    casa = await renan.createList("Casa");
+  });
+
+  it("grava preço e marca por item e, se pedido, o valor da compra", async () => {
+    const c = compra();
+    await renan.call("POST", `/lists/${casa.id}/purchases`, { purchase: c, itemIds: [] });
+    const response = await renan.call("PUT", `/lists/${casa.id}/purchases/${c.id}/prices`, {
+      prices: [{ index: 0, unitCents: 549, brand: "Italac" }],
+      amountCents: 1098,
+    });
+    expect(response.status).toBe(204);
+    const [saved] = (await renan.snapshot(casa.id)).purchases;
+    expect(saved.amountCents).toBe(1098);
+    expect(saved.items[0]).toMatchObject({ text: "Leite", unitCents: 549, brand: "Italac", priceSource: "manual" });
+    expect(saved.items[1]).toEqual(c.items[1]);
+
+    // Sem amountCents o valor fica; apagar o preço tira a origem também.
+    await renan.call("PUT", `/lists/${casa.id}/purchases/${c.id}/prices`, {
+      prices: [{ index: 0, unitCents: null, brand: "" }],
+      amountCents: null,
+    });
+    const [again] = (await renan.snapshot(casa.id)).purchases;
+    expect(again.amountCents).toBe(1098);
+    expect(again.items[0]).toEqual({ text: "Leite", quantity: 2, category: "Laticínios", done: true, unitCents: null });
+  });
+
+  it("recusa preço de compra inexistente, de outra lista ou inválido", async () => {
+    const c = compra();
+    await renan.call("POST", `/lists/${casa.id}/purchases`, { purchase: c, itemIds: [] });
+    const body = { prices: [{ index: 0, unitCents: 100, brand: "" }], amountCents: null };
+    expect((await renan.call("PUT", `/lists/${casa.id}/purchases/${randomUUID()}/prices`, body)).status).toBe(404);
+    expect((await estranho.call("PUT", `/lists/${casa.id}/purchases/${c.id}/prices`, body)).status).toBe(404);
+    const negative = { prices: [{ index: 0, unitCents: -1, brand: "" }], amountCents: null };
+    expect((await renan.call("PUT", `/lists/${casa.id}/purchases/${c.id}/prices`, negative)).status).toBe(422);
+  });
+
+  it("soma os gastos por mês no horário de Brasília, sem as excluídas", async () => {
+    const outubro = compra({ amountCents: 1000, createdAt: "2026-10-15T12:00:00.000Z" });
+    // 1º de novembro, 1h em UTC, ainda é 31 de outubro em João Pessoa.
+    const virada = compra({ amountCents: 500, createdAt: "2026-11-01T01:00:00.000Z" });
+    const novembro = compra({ amountCents: 2000, createdAt: "2026-11-05T12:00:00.000Z" });
+    const excluida = compra({ amountCents: 9999, createdAt: "2026-11-06T12:00:00.000Z" });
+    for (const c of [outubro, virada, novembro, excluida]) {
+      await renan.call("POST", `/lists/${casa.id}/purchases`, { purchase: c, itemIds: [] });
+    }
+    await renan.call("DELETE", `/lists/${casa.id}/purchases/${excluida.id}`);
+    const response = await renan.call("GET", `/lists/${casa.id}/months`);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual([
+      { month: "2026-11", totalCents: 2000, count: 1 },
+      { month: "2026-10", totalCents: 1500, count: 2 },
+    ]);
+    expect((await estranho.call("GET", `/lists/${casa.id}/months`)).status).toBe(404);
+  });
+
+  it("cria, edita e exclui modelos; só um é o padrão", async () => {
+    const a = modelo({ name: "Feira", isDefault: true });
+    const b = modelo({ name: "Compra do mês" });
+    expect((await renan.call("PUT", `/lists/${casa.id}/templates/${a.id}`, a)).status).toBe(204);
+    expect((await renan.call("PUT", `/lists/${casa.id}/templates/${b.id}`, b)).status).toBe(204);
+    let { templates } = await renan.snapshot(casa.id);
+    expect(templates.map((t) => [t.name, t.isDefault])).toEqual([
+      ["Compra do mês", false],
+      ["Feira", true],
+    ]);
+
+    // Marcar outro como padrão tira a marca do anterior.
+    await renan.call("PUT", `/lists/${casa.id}/templates/${b.id}`, { ...b, isDefault: true, items: [] });
+    ({ templates } = await renan.snapshot(casa.id));
+    expect(templates.map((t) => [t.name, t.isDefault, t.items.length])).toEqual([
+      ["Compra do mês", true, 0],
+      ["Feira", false, 1],
+    ]);
+
+    expect((await renan.call("DELETE", `/lists/${casa.id}/templates/${a.id}`)).status).toBe(204);
+    expect((await renan.snapshot(casa.id)).templates.map((t) => t.name)).toEqual(["Compra do mês"]);
+  });
+
+  it("modelo é da lista: outra pessoa não vê nem grava, e id trocado é recusado", async () => {
+    const a = modelo();
+    expect((await estranho.call("PUT", `/lists/${casa.id}/templates/${a.id}`, a)).status).toBe(404);
+    expect((await renan.call("PUT", `/lists/${casa.id}/templates/${randomUUID()}`, a)).status).toBe(400);
+    const outra = await estranho.createList("Outra");
+    await estranho.call("PUT", `/lists/${outra.id}/templates/${a.id}`, a);
+    expect((await renan.snapshot(casa.id)).templates).toEqual([]);
   });
 });

@@ -1,3 +1,4 @@
+import { applyPrices, putTemplate } from "../../shared/prices.ts";
 import type { Op, Snapshot } from "../domain/types";
 
 export function applyOp(snapshot: Snapshot, op: Op): Snapshot {
@@ -54,6 +55,23 @@ export function applyOp(snapshot: Snapshot, op: Op): Snapshot {
           purchase.id === op.purchaseId ? { ...purchase, receipt: null } : purchase,
         ),
       };
+    case "updatePrices":
+      return {
+        ...snapshot,
+        purchases: snapshot.purchases.map((purchase) =>
+          purchase.id === op.purchaseId
+            ? {
+                ...purchase,
+                items: applyPrices(purchase.items, op.prices),
+                amountCents: op.amountCents ?? purchase.amountCents,
+              }
+            : purchase,
+        ),
+      };
+    case "upsertTemplate":
+      return { ...snapshot, templates: putTemplate(snapshot.templates ?? [], op.template) };
+    case "deleteTemplate":
+      return { ...snapshot, templates: (snapshot.templates ?? []).filter((template) => template.id !== op.id) };
     case "addCategory": {
       const name = op.name.toLowerCase();
       if (snapshot.customCategories.some((c) => c.toLowerCase() === name)) return snapshot;

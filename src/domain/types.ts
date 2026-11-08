@@ -1,11 +1,14 @@
 export type {
   Item,
+  ItemPrice,
   ListMember,
   ListSummary,
   MeResponse,
+  MonthTotal,
   Op,
   Payment,
   PaymentMethod,
+  PriceSource,
   Purchase,
   PurchasedItem,
   Receipt,
@@ -13,5 +16,7 @@ export type {
   ReceiptReading,
   Role,
   Snapshot,
+  Template,
+  TemplateItem,
   UserInfo,
 } from "../../shared/contract.ts";

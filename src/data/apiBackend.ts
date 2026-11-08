@@ -44,6 +44,18 @@ export class ApiBackend implements ListBackend {
       case "removeReceipt":
         await api(`${this.base}/purchases/${op.purchaseId}/receipt`, "DELETE");
         return;
+      case "updatePrices":
+        await api(`${this.base}/purchases/${op.purchaseId}/prices`, "PUT", {
+          prices: op.prices,
+          amountCents: op.amountCents,
+        });
+        return;
+      case "upsertTemplate":
+        await api(`${this.base}/templates/${op.template.id}`, "PUT", op.template);
+        return;
+      case "deleteTemplate":
+        await api(`${this.base}/templates/${op.id}`, "DELETE");
+        return;
       case "finish":
         await api(`${this.base}/purchases`, "POST", { purchase: op.purchase, itemIds: op.itemIds });
         return;

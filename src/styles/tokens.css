@@ -119,6 +119,10 @@
   --cat-outros-fg: #5a4f45;
   --cat-custom-bg: #ece9f7;
   --cat-custom-fg: #43357a;
+
+  /* Gráfico de gastos: uma série no verde do app, validada contra a superfície */
+  --chart-bar: #2f7d4f;
+  --chart-axis: #d8ccb8;
 }
 
 /* Tema escuro em tons quentes, automático pelo sistema (data-theme="light" força o claro) */
@@ -138,6 +142,8 @@
     --on-primary: #0f2417;
     --primary-soft: #23382a;
     --primary-soft-ink: #a5ddb7;
+    --chart-bar: #58a876;
+    --chart-axis: #4a4136;
     --accent: #f4b740;
     --on-accent: #2b2622;
     --accent-soft: #4a3a14;

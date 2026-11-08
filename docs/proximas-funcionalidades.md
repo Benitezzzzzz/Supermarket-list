@@ -1,6 +1,6 @@
 # Próximas funcionalidades
 
-**Status:** etapa 2 (várias listas) e etapa 3 (contas) entregues em 2026-11-07, na versão 4.0.0. A lista vinda do WhatsApp saiu na 4.2.0 e a leitura do cupom fiscal (NFC-e) na 4.3.0. Faltam PDF e código de barras.
+**Status:** etapa 2 (várias listas) e etapa 3 (contas) entregues em 2026-11-07, na versão 4.0.0. A lista vinda do WhatsApp saiu na 4.2.0 e a leitura do cupom fiscal (NFC-e) na 4.3.0 o PDF de cada compra na 4.4.0 e, na 4.5.0, o histórico por mês, os preços e marcas por item e os modelos de lista. Falta o código de barras.
 
 Pedido: contas individuais com login, várias listas por pessoa (o pai administra uma pousada e quer listas separadas), exportar os relatórios de compras para PDF e, mais adiante, trazer compras para o app lendo a NFC-e, o código de barras ou o QR code.
 
@@ -12,13 +12,18 @@ Cada etapa funciona sozinha e já entrega valor.
 
 | # | Etapa | Tamanho | Depende de |
 |---|---|---|---|
-| 1 | Exportar compras para PDF | Pequeno | — |
+| 1 | Exportar compras para PDF (uma por vez, entregue na 4.4.0) | Pequeno | — |
 | 2 | Várias listas e troca de lista | Médio | — |
 | 3 | Contas com login | Grande | 2 |
 | 4 | Cupom fiscal (NFC-e) por foto e QR code (entregue na 4.3.0) | Médio | 2 |
 | 5 | Ler código de barras de produto | Médio | — |
 
-## 1. Exportar para PDF
+## 1. Exportar para PDF: entregue na 4.4.0
+
+- **Como ficou:** decisão do usuário: um PDF por compra. Em Gastos, a compra aberta tem o botão "PDF", que abre a impressão do aparelho ("Salvar como PDF"). O título da página vira o nome do arquivo (`Compra <lista> AAAA-MM-DD`).
+
+Plano original:
+
 
 - Em Gastos, um botão **Exportar** gera um relatório com período, total, forma de pagamento e a lista de itens de cada compra.
 - **Caminho recomendado:** uma página de impressão do próprio app e o "Salvar como PDF" que já existe no celular e no computador. Não precisa de biblioteca, nem de servidor, e funciona sem internet.
@@ -58,6 +63,8 @@ Hoje o acesso é por aparelho: quem limpa os dados do navegador ou troca de celu
 - **Custo:** cerca de 70 "neurons" por cupom pequeno, de 10 mil grátis por dia na conta. O limite é de 30 leituras por lista por dia.
 
 ## 5. Código de barras do produto
+
+- **Base pronta (4.5.0):** cada item da compra já aceita `code` (EAN) e `priceSource: "codigo"`. Os cupons guardam o código de cada produto em `receipt_items.code`.
 
 - Ler o código de barras (EAN) de um produto para adicionar à lista sem digitar.
 - **O ponto fraco é descobrir o nome do produto pelo código:**

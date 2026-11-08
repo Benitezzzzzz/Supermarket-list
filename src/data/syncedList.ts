@@ -1,4 +1,4 @@
-import type { Item, Op, Payment, Purchase, Receipt, Snapshot } from "../domain/types";
+import type { Item, ItemPrice, Op, Payment, Purchase, Receipt, Snapshot, Template } from "../domain/types";
 import { applyOp } from "./applyOp";
 import { type AccessLoss, AccessRevokedError, type ListBackend, RejectedOpError } from "./backend";
 
@@ -8,6 +8,7 @@ export interface ListState {
   items: Item[];
   customCategories: string[];
   purchases: Purchase[];
+  templates: Template[];
   connection: ConnectionStatus;
   pendingCount: number;
   /** Alguma alteração foi recusada pelo servidor e descartada. */
@@ -22,7 +23,7 @@ interface Persisted {
 }
 
 const RETRY_MS = 5000;
-const EMPTY: Snapshot = { items: [], customCategories: [], purchases: [] };
+const EMPTY: Snapshot = { items: [], customCategories: [], purchases: [], templates: [] };
 
 /**
  * Lista com escrita otimista e fila offline.
@@ -164,6 +165,19 @@ export class SyncedList {
     this.dispatch({ kind: "removeReceipt", purchaseId });
   }
 
+  /** Preço e marca dos itens de uma compra; amountCents, quando vem, vira o valor da compra. */
+  updatePrices(purchaseId: string, prices: ItemPrice[], amountCents: number | null) {
+    if (prices.length > 0 || amountCents !== null) this.dispatch({ kind: "updatePrices", purchaseId, prices, amountCents });
+  }
+
+  saveTemplate(template: Template) {
+    this.dispatch({ kind: "upsertTemplate", template });
+  }
+
+  deleteTemplate(id: string) {
+    this.dispatch({ kind: "deleteTemplate", id });
+  }
+
   addCategory(name: string) {
     this.dispatch({ kind: "addCategory", name });
   }
@@ -198,6 +212,7 @@ export class SyncedList {
       items: [...view.items].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
       customCategories: view.customCategories,
       purchases: view.purchases,
+      templates: view.templates ?? [],
       pendingCount: this.queue.length,
     };
     for (const listener of this.listeners) listener();

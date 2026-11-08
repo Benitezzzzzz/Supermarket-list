@@ -4,7 +4,7 @@ import { AuthScreen } from "./components/AuthScreen";
 import { CreateListScreen } from "./components/CreateListScreen";
 import { fetchMe, forgetEverything, logout, type MeState, preferredListId, setPreferredListId } from "./data/auth";
 import { ApiBackend } from "./data/apiBackend";
-import { createList } from "./data/listsApi";
+import { createList, renameList } from "./data/listsApi";
 import { SyncedList } from "./data/syncedList";
 import type { ListSummary, MeResponse } from "./domain/types";
 
@@ -112,6 +112,10 @@ export function Root() {
         setListId(id);
       }}
       onCreateList={onCreateList}
+      onRenameList={async (id, name) => {
+        await renameList(id, name);
+        await refresh(listId);
+      }}
       onListsChanged={() => void refresh(listId)}
       onLogout={() => void onLogout()}
       onSessionLost={onSessionLost}

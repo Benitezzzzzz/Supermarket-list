@@ -66,6 +66,8 @@ export const addMemberSchema = z.object({ username: usernameSchema });
 
 export const MAX_INSTALLMENTS = 24;
 export const MAX_AMOUNT_CENTS = 100_000_000;
+/** Quantas compras recentes vêm no snapshot. O total de meses mais antigos vem de /months. */
+export const RECENT_PURCHASES = 50;
 
 const onlyCreditSplits = {
   check: (payment: { method: string; installments: number }) =>
@@ -80,12 +82,41 @@ const paymentFields = {
   installments: z.number().int().min(1).max(MAX_INSTALLMENTS),
 };
 
-/** Como o item estava na lista na hora de finalizar. */
+export const MAX_BRAND = 40;
+
+/** De onde veio o preço de um item: digitado, do cupom fiscal ou (no futuro) do código de barras. */
+export const priceSourceSchema = z.enum(["manual", "cupom", "codigo"]);
+
+/** Como o item estava na lista na hora de finalizar, mais o preço e a marca informados depois. */
 export const purchasedItemSchema = z.object({
   text: z.string().trim().min(1).max(MAX_ITEM_TEXT),
   quantity: z.number().int().min(1).max(MAX_QUANTITY),
   category: categoryName,
   done: z.boolean(),
+  /** Preço de cada unidade, em centavos. Ausente ou null: ainda sem preço. */
+  unitCents: z.number().int().min(0).max(MAX_AMOUNT_CENTS).nullable().optional(),
+  brand: z.string().trim().max(MAX_BRAND).optional(),
+  priceSource: priceSourceSchema.optional(),
+  /** Código de barras (EAN), para a leitura futura pelo código. */
+  code: z.string().trim().max(20).optional(),
+});
+
+/** Preço e marca de um item da compra (pela posição em purchase.items). */
+export const itemPriceSchema = z.object({
+  index: z.number().int().min(0).max(MAX_BATCH),
+  unitCents: z.number().int().min(0).max(MAX_AMOUNT_CENTS).nullable(),
+  brand: z.string().trim().max(MAX_BRAND),
+  priceSource: priceSourceSchema.default("manual"),
+  code: z.string().trim().max(20).optional(),
+});
+
+/**
+ * Edita preços e marcas dos itens de uma compra. amountCents, quando vem, passa a ser
+ * o valor da compra (a pessoa escolheu usar a soma dos preços).
+ */
+export const updatePricesSchema = z.object({
+  prices: z.array(itemPriceSchema).max(MAX_BATCH),
+  amountCents: z.number().int().min(1).max(MAX_AMOUNT_CENTS).nullable(),
 });
 
 export const MAX_RECEIPT_ITEMS = 300;
@@ -157,6 +188,32 @@ export const finishSchema = z.object({
   itemIds: z.array(z.uuid()).max(MAX_BATCH),
 });
 
+export const MAX_TEMPLATES = 30;
+
+/** Item de um modelo de lista: sem preço; o preço antigo aparece só como referência. */
+export const templateItemSchema = z.object({
+  text: z.string().trim().min(1).max(MAX_ITEM_TEXT),
+  quantity: z.number().int().min(1).max(MAX_QUANTITY),
+  category: categoryName,
+});
+
+/** Lista padrão reutilizável ("Compra do mês", "Feira da semana"). */
+export const templateSchema = z.object({
+  id: z.uuid(),
+  name: z.string().trim().min(1).max(MAX_LIST_NAME),
+  items: z.array(templateItemSchema).max(MAX_BATCH),
+  /** No máximo um modelo da lista é o padrão. */
+  isDefault: z.boolean(),
+  updatedAt: z.iso.datetime({ offset: true }),
+});
+
+/** Total gasto num mês (AAAA-MM, no horário de Brasília). */
+export interface MonthTotal {
+  month: string;
+  totalCents: number;
+  count: number;
+}
+
 export type Item = z.infer<typeof itemSchema>;
 export type Purchase = z.infer<typeof purchaseSchema>;
 export type PaymentMethod = Purchase["method"];
@@ -164,12 +221,18 @@ export type Payment = z.infer<typeof paymentSchema>;
 export type PurchasedItem = z.infer<typeof purchasedItemSchema>;
 export type Receipt = z.infer<typeof receiptSchema>;
 export type ReceiptItem = z.infer<typeof receiptItemSchema>;
+export type ItemPrice = z.input<typeof itemPriceSchema>;
+export type PriceSource = z.infer<typeof priceSourceSchema>;
+export type Template = z.infer<typeof templateSchema>;
+export type TemplateItem = z.infer<typeof templateItemSchema>;
 
 export interface Snapshot {
   items: Item[];
   customCategories: string[];
   /** Compras mais recentes primeiro. */
   purchases: Purchase[];
+  /** Modelos de lista, em ordem de nome. */
+  templates: Template[];
 }
 
 /** Alteração unitária e idempotente: pode ser reenviada sem efeito colateral. */
@@ -182,7 +245,10 @@ export type Op =
   | { kind: "deletePurchase"; id: string }
   | { kind: "restorePurchase"; purchase: Purchase }
   | { kind: "setReceipt"; purchaseId: string; receipt: Receipt }
-  | { kind: "removeReceipt"; purchaseId: string };
+  | { kind: "removeReceipt"; purchaseId: string }
+  | { kind: "updatePrices"; purchaseId: string; prices: ItemPrice[]; amountCents: number | null }
+  | { kind: "upsertTemplate"; template: Template }
+  | { kind: "deleteTemplate"; id: string };
 
 export type Role = "admin" | "member";
 

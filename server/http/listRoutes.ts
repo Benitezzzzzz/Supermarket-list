@@ -9,6 +9,8 @@ import {
   paymentSchema,
   readReceiptSchema,
   receiptSchema,
+  templateSchema,
+  updatePricesSchema,
   upsertItemsSchema,
 } from "../../shared/contract.ts";
 import type { AccountService } from "../services/accounts.ts";
@@ -120,6 +122,33 @@ function oneList({ lists, memberships, notifier, receipts, reader }: Deps) {
     if (!(await lists.updatePurchase(c.get("listId"), c.req.param("id"), payment))) {
       throw new HTTPException(404, { message: "Compra não encontrada" });
     }
+    await changed(c.get("listId"));
+    return c.body(null, 204);
+  });
+
+  routes.put("/purchases/:id/prices", async (c) => {
+    const { prices, amountCents } = await readJson(c, updatePricesSchema);
+    if (!(await lists.updatePrices(c.get("listId"), c.req.param("id"), prices, amountCents))) {
+      throw new HTTPException(404, { message: "Compra não encontrada" });
+    }
+    await changed(c.get("listId"));
+    return c.body(null, 204);
+  });
+
+  /** Total por mês de todo o histórico; o snapshot só traz as compras recentes. */
+  routes.get("/months", async (c) => c.json(await lists.months(c.get("listId"))));
+
+  routes.put("/templates/:id", async (c) => {
+    const template = await readJson(c, templateSchema);
+    if (template.id !== c.req.param("id")) throw new HTTPException(400, { message: "Modelo inválido" });
+    const result = await lists.upsertTemplate(c.get("listId"), template);
+    if (!result.ok) throw new HTTPException(409, { message: "Esta lista já tem modelos demais. Exclua algum antes." });
+    await changed(c.get("listId"));
+    return c.body(null, 204);
+  });
+
+  routes.delete("/templates/:id", async (c) => {
+    await lists.deleteTemplate(c.get("listId"), c.req.param("id"));
     await changed(c.get("listId"));
     return c.body(null, 204);
   });

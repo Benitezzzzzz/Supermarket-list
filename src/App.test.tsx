@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -37,7 +37,7 @@ vi.mock("./data/receiptsApi", () => ({
 }));
 
 class MemoryBackend implements ListBackend {
-  snapshot: Snapshot = { items: [], customCategories: [], purchases: [] };
+  snapshot: Snapshot = { items: [], customCategories: [], purchases: [], templates: [] };
   async load() {
     return this.snapshot;
   }
@@ -66,6 +66,10 @@ function renderApp() {
       onSwitchList={(id) => calls.push(`switch:${id}`)}
       onCreateList={async (name) => {
         calls.push(`create:${name}`);
+      }}
+      onRenameList={async (id, name) => {
+        if (name === "Falha") throw new Error("sem internet");
+        calls.push(`rename:${id}:${name}`);
       }}
       onListsChanged={() => calls.push("changed")}
       onLogout={() => calls.push("logout")}
@@ -104,6 +108,31 @@ describe("App", () => {
     expect((within(sheet).getByRole("radio", { name: /Casa/ }) as HTMLInputElement).checked).toBe(true);
     await user.click(within(sheet).getByRole("radio", { name: /Pousada/ }));
     expect(calls).toEqual(["switch:l2"]);
+  });
+
+  it("muda o nome da lista que a pessoa administra", async () => {
+    const user = renderApp();
+    await user.click(screen.getByRole("button", { name: "Lista Casa. Trocar de lista" }));
+    const sheet = await screen.findByRole("dialog", { name: "Suas listas" });
+    // Na Pousada a pessoa só participa: não aparece o lápis.
+    expect(within(sheet).queryByRole("button", { name: "Mudar o nome da lista Pousada" })).toBeNull();
+
+    await user.click(within(sheet).getByRole("button", { name: "Mudar o nome da lista Casa" }));
+    const field = within(sheet).getByLabelText("Nome da lista") as HTMLInputElement;
+    expect(field.value).toBe("Casa");
+    await user.clear(field);
+    await user.click(within(sheet).getByRole("button", { name: "Salvar nome" }));
+    expect(within(sheet).getByRole("alert").textContent).toBe("Dê um nome para a lista.");
+
+    await user.type(field, "Falha");
+    await user.click(within(sheet).getByRole("button", { name: "Salvar nome" }));
+    expect((await within(sheet).findByRole("alert")).textContent).toMatch(/Não consegui mudar o nome/);
+
+    await user.clear(field);
+    await user.type(field, "Casa da família{Enter}");
+    expect(await within(sheet).findByText("A lista agora se chama Casa da família.")).toBeTruthy();
+    expect(calls).toEqual(["rename:l1:Casa da família"]);
+    expect(within(sheet).queryByLabelText("Nome da lista")).toBeNull();
   });
 
   it("cria uma lista nova pelo seletor", async () => {
@@ -272,8 +301,9 @@ describe("App", () => {
     await user.click(await screen.findByRole("button", { name: "Sim, finalizar" }));
     await user.click(screen.getByRole("button", { name: "Gastos" }));
 
-    await user.click(screen.getByRole("button", { name: /^Corrigir compra de R\$\s100,00/ }));
-    const sheet = await screen.findByRole("dialog", { name: "Corrigir compra" });
+    await user.click(screen.getByRole("button", { name: /^Compra de R\$\s100,00/ }));
+    await user.click(screen.getByRole("button", { name: /^Editar compra de R\$\s100,00/ }));
+    const sheet = await screen.findByRole("dialog", { name: "Editar compra" });
     const amount = within(sheet).getByLabelText("Valor da compra") as HTMLInputElement;
     expect(amount.value).toBe("100,00");
     expect((within(sheet).getByRole("radio", { name: "PIX" }) as HTMLInputElement).checked).toBe(true);
@@ -281,9 +311,9 @@ describe("App", () => {
     await user.clear(amount);
     await user.type(amount, "98,50");
     await user.click(within(sheet).getByRole("radio", { name: "Dinheiro (espécie)" }));
-    await user.click(within(sheet).getByRole("button", { name: "Salvar correção" }));
+    await user.click(within(sheet).getByRole("button", { name: "Salvar alterações" }));
 
-    expect(await screen.findByText("Compra corrigida")).toBeTruthy();
+    expect(await screen.findByText("Compra atualizada")).toBeTruthy();
     expect(screen.getAllByText(/R\$\s98,50/).length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("Dinheiro")).toBeTruthy();
     expect(screen.queryByText(/R\$\s100,00/)).toBeNull();
@@ -300,7 +330,11 @@ describe("App", () => {
     await user.click(await screen.findByRole("button", { name: "Sim, finalizar" }));
     await user.click(screen.getByRole("button", { name: "Gastos" }));
 
-    await user.click(screen.getByText("Ver os 2 itens"));
+    const card = screen.getByRole("button", { name: /^Compra de R\$\s50,00/ });
+    expect(card.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("heading", { name: "Comprados · 1" })).toBeNull();
+    await user.click(card);
+    expect(card.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByRole("heading", { name: "Comprados · 1" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Estavam na lista sem marcar · 1" })).toBeTruthy();
     expect(screen.getByText("Frangos")).toBeTruthy();
@@ -317,6 +351,7 @@ describe("App", () => {
     await user.click(await screen.findByRole("button", { name: "Sim, finalizar" }));
     await user.click(screen.getByRole("button", { name: "Gastos" }));
 
+    await user.click(screen.getByRole("button", { name: /^Compra de R\$\s20,00/ }));
     await user.click(screen.getByRole("button", { name: /^Ler cupom da compra de R\$\s20,00/ }));
     const sheet = await screen.findByRole("dialog", { name: "Cupom fiscal" });
     const camera = sheet.querySelector("input[capture]") as HTMLInputElement;
@@ -347,7 +382,6 @@ describe("App", () => {
     expect(await screen.findByText("Cupom salvo. 1 item voltou para a lista")).toBeTruthy();
     expect(screen.getAllByText(/R\$\s22,52/).length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/· RC Comercio de Alimentos LTDA/)).toBeTruthy();
-    await user.click(screen.getByText("Ver os 3 produtos do cupom"));
     expect(screen.getByRole("heading", { name: "Da lista · 2" })).toBeTruthy();
     expect(screen.getByText(/^R\$\s17,38$/)).toBeTruthy();
 
@@ -369,6 +403,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     await user.click(await screen.findByRole("button", { name: "Sim, finalizar" }));
     await user.click(screen.getByRole("button", { name: "Gastos" }));
+    await user.click(screen.getByRole("button", { name: /^Compra de R\$\s17,38/ }));
     await user.click(screen.getByRole("button", { name: /^Ler cupom/ }));
 
     const sheet = await screen.findByRole("dialog", { name: "Cupom fiscal" });
@@ -382,7 +417,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: /^Ver cupom da compra de R\$\s17,38/})).toBeTruthy();
   });
 
-  it("exclui a compra pelo painel de corrigir e desfaz", async () => {
+  it("exclui a compra pelo card aberto e desfaz", async () => {
     const user = renderApp();
     await addItems(user, "Arroz");
     await user.click(screen.getByRole("button", { name: "Finalizar compra" }));
@@ -392,18 +427,161 @@ describe("App", () => {
     await user.click(await screen.findByRole("button", { name: "Sim, finalizar" }));
     await user.click(screen.getByRole("button", { name: "Gastos" }));
 
-    await user.click(screen.getByRole("button", { name: /^Corrigir compra de R\$\s30,00/ }));
-    await user.click(screen.getByRole("button", { name: "Excluir compra" }));
+    await user.click(screen.getByRole("button", { name: /^Compra de R\$\s30,00/ }));
+    await user.click(screen.getByRole("button", { name: /^Excluir compra de R\$\s30,00/ }));
     const confirm = await screen.findByRole("dialog", { name: "Excluir esta compra?" });
     await user.click(within(confirm).getByRole("button", { name: "Cancelar" }));
-    expect(screen.getByRole("dialog", { name: "Corrigir compra" })).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Excluir compra" }));
+    await user.click(screen.getByRole("button", { name: /^Excluir compra de R\$\s30,00/ }));
     await user.click(screen.getByRole("button", { name: "Excluir" }));
     expect(await screen.findByText("Nenhuma compra ainda")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Desfazer" }));
-    expect(await screen.findByRole("button", { name: /^Corrigir compra de R\$\s30,00/ })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /^Compra de R\$\s30,00/ })).toBeTruthy();
+  });
+
+  it("gera o PDF de uma compra pela impressão do navegador", async () => {
+    const print = vi.spyOn(window, "print").mockImplementation(() => {});
+    const user = renderApp();
+    await addItems(user, "Arroz", "Feijão");
+    await user.click(screen.getByRole("button", { name: "Marcar Arroz como comprado" }));
+    await user.click(screen.getByRole("button", { name: "Finalizar compra" }));
+    await user.type(screen.getByLabelText("Valor da compra"), "42");
+    await user.click(screen.getByRole("radio", { name: "PIX" }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await user.click(await screen.findByRole("button", { name: "Sim, finalizar" }));
+    await user.click(screen.getByRole("button", { name: "Gastos" }));
+
+    const before = document.title;
+    await user.click(screen.getByRole("button", { name: /^Compra de R\$\s42,00/ }));
+    await user.click(screen.getByRole("button", { name: /^Gerar PDF da compra de R\$\s42,00/ }));
+    await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+    const report = document.querySelector(".print-report") as HTMLElement;
+    expect(report.textContent).toMatch(/Compra de \d+ de \w+ de \d{4}/);
+    expect(report.textContent).toContain("PIX");
+    expect(report.textContent).toContain("Feijão");
+    expect(document.title).toMatch(/^Compra .+ \d{4}-\d{2}-\d{2}$/);
+
+    act(() => {
+      window.dispatchEvent(new Event("afterprint"));
+    });
+    expect(document.querySelector(".print-report")).toBeNull();
+    expect(document.title).toBe(before);
+    print.mockRestore();
+  });
+
+  async function finishPurchase(user: User, amount: string) {
+    await user.click(screen.getByRole("button", { name: "Finalizar compra" }));
+    await user.type(screen.getByLabelText("Valor da compra"), amount);
+    await user.click(screen.getByRole("radio", { name: "PIX" }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await user.click(await screen.findByRole("button", { name: "Sim, finalizar" }));
+  }
+
+  it("Gastos mostra o mês, o gráfico e compara com a compra anterior", async () => {
+    const user = renderApp();
+    await addItems(user, "Arroz");
+    await finishPurchase(user, "100");
+    await addItems(user, "Feijão");
+    await finishPurchase(user, "120");
+    await user.click(screen.getByRole("button", { name: "Gastos" }));
+
+    const month = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date());
+    const summary = screen.getByRole("region", { name: `Total de ${month}` });
+    expect(within(summary).getByText(/R\$\s220,00/)).toBeTruthy();
+    expect(within(summary).getByText(/2 compras · média de R\$\s110,00/)).toBeTruthy();
+    const bar = screen.getByRole("button", { name: new RegExp(`^${month}: R\\$\\s220,00, 2 compras`) });
+    expect(bar.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("heading", { name: new RegExp(month) })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /^Compra de R\$\s120,00/ }));
+    expect(screen.getByText(/R\$\s20,00 a mais que a compra de/)).toBeTruthy();
+    expect(screen.getByText(/\(\+20%\)/)).toBeTruthy();
+
+    // Escolher um mês no gráfico mostra só as compras dele.
+    await user.click(bar);
+    expect(screen.getByText(`Compras de ${month}`)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Ver todas" }));
+    expect(screen.queryByText(`Compras de ${month}`)).toBeNull();
+  });
+
+  it("anota preço e marca, atualiza o total e mostra a última compra como referência", async () => {
+    const user = renderApp();
+    await addItems(user, "2 leite", "Café");
+    await user.click(screen.getByRole("button", { name: "Marcar Leite como comprado" }));
+    await user.click(screen.getByRole("button", { name: "Marcar Café como comprado" }));
+    await finishPurchase(user, "30");
+    await user.click(screen.getByRole("button", { name: "Gastos" }));
+
+    await user.click(screen.getByRole("button", { name: /^Compra de R\$\s30,00/ }));
+    await user.click(screen.getByRole("button", { name: /^Preços e marcas da compra de R\$\s30,00/ }));
+    const sheet = await screen.findByRole("dialog", { name: "Preços e marcas" });
+    await user.type(within(sheet).getByLabelText("Preço de Leite"), "5,49");
+    await user.type(within(sheet).getByLabelText("Marca de Leite"), "Italac");
+    // Só um dos dois tem preço: a soma não vira o valor sozinha.
+    const useSum = within(sheet).getByRole("checkbox", { name: /Usar a soma/ }) as HTMLInputElement;
+    expect(useSum.checked).toBe(false);
+    await user.type(within(sheet).getByLabelText("Preço de Café"), "abc");
+    await user.click(within(sheet).getByRole("button", { name: "Salvar preços" }));
+    expect(within(sheet).getByRole("alert").textContent).toMatch(/preço de Café não está certo/);
+    await user.clear(within(sheet).getByLabelText("Preço de Café"));
+    await user.type(within(sheet).getByLabelText("Preço de Café"), "12,90");
+    expect(within(sheet).getByText(/R\$\s23,88/)).toBeTruthy();
+    await user.click(useSum);
+    await user.click(within(sheet).getByRole("button", { name: "Salvar preços" }));
+
+    expect(await screen.findByText("Preços salvos e valor da compra atualizado")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Compra de R\$\s23,88/ })).toBeTruthy();
+    expect(screen.getByText(/^Italac · 2 × R\$\s5,49$/)).toBeTruthy();
+
+    // Na próxima compra, o preço antigo aparece só como referência.
+    await user.click(screen.getByRole("button", { name: "Lista" }));
+    const dialog = await openAddSheet(user);
+    await user.type(within(dialog).getByLabelText("O que precisa comprar?"), "leites");
+    expect(within(dialog).getByText(/Última compra de Leite: R\$\s5,49 cada · Italac/)).toBeTruthy();
+    await user.type(within(dialog).getByLabelText("O que precisa comprar?"), "{Enter}");
+    await user.click(within(dialog).getByRole("button", { name: "Fechar" }));
+    expect(screen.getByText(/Última: R\$\s5,49 · Italac/)).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Editar leites" }));
+    const edit = await screen.findByRole("dialog", { name: "leites" });
+    expect(within(edit).getByText(/R\$\s5,49 cada · Italac/)).toBeTruthy();
+  });
+
+  it("salva a lista como modelo padrão e começa uma nova compra por ele", async () => {
+    const user = renderApp();
+    await addItems(user, "Arroz", "2 leite");
+    await user.click(screen.getByRole("button", { name: "Modelos de lista" }));
+    let sheet = await screen.findByRole("dialog", { name: "Modelos de lista" });
+    await user.click(within(sheet).getByRole("button", { name: "Salvar a lista atual como modelo" }));
+    sheet = await screen.findByRole("dialog", { name: "Novo modelo" });
+    await user.click(within(sheet).getByRole("button", { name: "Salvar modelo" }));
+    expect(within(sheet).getByRole("alert").textContent).toMatch(/Dê um nome/);
+    await user.type(within(sheet).getByLabelText("Nome do modelo"), "Compra do mês");
+    expect((within(sheet).getByRole("checkbox", { name: /modelo padrão/ }) as HTMLInputElement).checked).toBe(true);
+    await user.click(within(sheet).getByRole("button", { name: `Tirar Arroz do modelo` }));
+    await user.type(within(sheet).getByLabelText("Novo item do modelo"), "Café{Enter}");
+    await user.click(within(sheet).getByRole("button", { name: "Aumentar quantidade de Café" }));
+    await user.click(within(sheet).getByRole("button", { name: "Salvar modelo" }));
+
+    sheet = await screen.findByRole("dialog", { name: "Modelos de lista" });
+    expect(within(sheet).getByText("Padrão")).toBeTruthy();
+    expect(within(sheet).getByText("2 itens")).toBeTruthy();
+    await user.click(within(sheet).getByRole("button", { name: "Fechar" }));
+
+    await finishPurchase(user, "50");
+    expect(screen.getByText("Lista vazia")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Usar “Compra do mês”" }));
+    expect(await screen.findByText("2 itens de Compra do mês entraram na lista")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Marcar Leite como comprado" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Marcar Café como comprado" }).textContent).toContain("2×");
+
+    // Usar de novo não duplica o que já está na lista.
+    await user.click(screen.getByRole("button", { name: "Modelos de lista" }));
+    sheet = await screen.findByRole("dialog", { name: "Modelos de lista" });
+    await user.click(within(sheet).getByRole("button", { name: "Usar o modelo Compra do mês" }));
+    expect(await screen.findByText("Os itens de Compra do mês já estão na lista")).toBeTruthy();
   });
 
   it("parcelamento só aparece no crédito", async () => {

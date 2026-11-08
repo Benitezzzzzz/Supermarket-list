@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AccountSheet } from "./components/AccountSheet";
 import { AddSheet } from "./components/AddSheet";
 import { AdminSheet } from "./components/AdminSheet";
@@ -13,11 +13,15 @@ import { takeSharedText } from "./sharedText";
 import { ListScreen } from "./components/ListScreen";
 import { ListsSheet } from "./components/ListsSheet";
 import { ParticipantsScreen } from "./components/ParticipantsScreen";
+import { PricesSheet } from "./components/PricesSheet";
 import { ReceiptSheet } from "./components/ReceiptSheet";
+import { TemplatesSheet } from "./components/TemplatesSheet";
 import type { SyncedList } from "./data/syncedList";
 import { DEFAULT_CATEGORY, knownCategories } from "./domain/categories";
 import { createItem } from "./domain/items";
-import type { Item, ListSummary, UserInfo } from "./domain/types";
+import { buildPriceIndex, lastPrice, pricesFor, productKey } from "./domain/prices";
+import { itemsFromTemplate } from "./domain/templates";
+import type { Item, ListSummary, Template, UserInfo } from "./domain/types";
 import { Icon } from "./ui/Icon";
 import { Toast, useToast } from "./ui/Toast";
 
@@ -30,6 +34,7 @@ interface AppProps {
   notice?: string;
   onSwitchList: (listId: string) => void;
   onCreateList: (name: string) => Promise<void>;
+  onRenameList: (listId: string, name: string) => Promise<void>;
   onListsChanged: () => void;
   onLogout: () => void;
   onSessionLost: () => void;
@@ -42,8 +47,10 @@ type Sheet =
   | { kind: "edit"; id: string }
   | { kind: "clear" }
   | { kind: "finish" }
-  | { kind: "edit-purchase"; id: string }
+  | { kind: "edit-purchase"; id: string; confirmDelete?: boolean }
   | { kind: "receipt"; id: string }
+  | { kind: "prices"; id: string }
+  | { kind: "templates" }
   | { kind: "lists" }
   | { kind: "account" }
   | { kind: "admin" }
@@ -57,6 +64,7 @@ export function App({
   notice,
   onSwitchList,
   onCreateList,
+  onRenameList,
   onListsChanged,
   onLogout,
   onSessionLost,
@@ -88,6 +96,38 @@ export function App({
     sheet?.kind === "edit-purchase" ? state.purchases.find((purchase) => purchase.id === sheet.id) : undefined;
   const receiptPurchase =
     sheet?.kind === "receipt" ? state.purchases.find((purchase) => purchase.id === sheet.id) : undefined;
+  const pricesPurchase =
+    sheet?.kind === "prices" ? state.purchases.find((purchase) => purchase.id === sheet.id) : undefined;
+
+  /** Preços já pagos, por produto: base da referência na lista e do histórico de cada item. */
+  const priceIndex = useMemo(() => buildPriceIndex(state.purchases), [state.purchases]);
+  const findLastPrice = useCallback((text: string) => lastPrice(priceIndex, text), [priceIndex]);
+
+  /** Categoria que o produto já teve na lista ou numa compra; serve para itens novos de modelo. */
+  function categoryFor(text: string): string {
+    const key = productKey(text);
+    const inList = state.items.find((item) => productKey(item.text) === key);
+    if (inList) return inList.category;
+    for (const purchase of state.purchases) {
+      const found = purchase.items.find((item) => productKey(item.text) === key);
+      if (found) return found.category;
+    }
+    return DEFAULT_CATEGORY;
+  }
+
+  function applyTemplate(template: Template) {
+    const items = itemsFromTemplate(template, state.items);
+    close();
+    if (items.length === 0) {
+      show(`Os itens de ${template.name} já estão na lista`);
+      return;
+    }
+    list.addItems(items);
+    show(
+      items.length === 1 ? `1 item de ${template.name} entrou na lista` : `${items.length} itens de ${template.name} entraram na lista`,
+      { label: "Desfazer", onAction: () => list.removeItems(items.map((item) => item.id)) },
+    );
+  }
   const close = () => setSheet(null);
 
   /** Remove e oferece desfazer: os mesmos itens voltam com o mesmo id e a mesma ordem. */
@@ -114,12 +154,19 @@ export function App({
           onToggle={(item) => list.updateItem(item.id, { done: !item.done })}
           onEdit={(item) => setSheet({ kind: "edit", id: item.id })}
           onAskClearAll={() => setSheet({ kind: "clear" })}
+          lastPrice={findLastPrice}
+          onOpenTemplates={() => setSheet({ kind: "templates" })}
+          onUseTemplate={applyTemplate}
         />
       )}
       {screen === "expenses" && (
         <ExpensesScreen
           purchases={state.purchases}
+          listId={current.id}
+          listName={current.name}
           onEdit={(purchase) => setSheet({ kind: "edit-purchase", id: purchase.id })}
+          onPrices={(purchase) => setSheet({ kind: "prices", id: purchase.id })}
+          onDelete={(purchase) => setSheet({ kind: "edit-purchase", id: purchase.id, confirmDelete: true })}
           onReceipt={(purchase) => setSheet({ kind: "receipt", id: purchase.id })}
         />
       )}
@@ -165,6 +212,7 @@ export function App({
           }}
           onOpenImport={() => setSheet({ kind: "import" })}
           onClose={close}
+          lastPrice={findLastPrice}
         />
       )}
 
@@ -190,6 +238,7 @@ export function App({
         <EditItemSheet
           item={editing}
           categories={categories}
+          prices={pricesFor(priceIndex, editing.text)}
           onUpdate={(changes) => list.updateItem(editing.id, changes)}
           onRemove={() => {
             close();
@@ -211,6 +260,7 @@ export function App({
             await onCreateList(name);
             close();
           }}
+          onRename={onRenameList}
           onClose={close}
         />
       )}
@@ -270,16 +320,48 @@ export function App({
       {editingPurchase && (
         <EditPurchaseSheet
           purchase={editingPurchase}
+          startWithDelete={sheet?.kind === "edit-purchase" && sheet.confirmDelete === true}
           onSave={(payment) => {
             list.updatePurchase(editingPurchase.id, payment);
             close();
-            show("Compra corrigida");
+            show("Compra atualizada");
           }}
           onDelete={() => {
             const removed = editingPurchase;
             list.deletePurchase(removed.id);
             close();
             show("Compra excluída", { label: "Desfazer", onAction: () => list.restorePurchase(removed) });
+          }}
+          onClose={close}
+        />
+      )}
+
+      {pricesPurchase && (
+        <PricesSheet
+          purchase={pricesPurchase}
+          prices={priceIndex}
+          onSave={(prices, amountCents) => {
+            list.updatePrices(pricesPurchase.id, prices, amountCents);
+            close();
+            show(amountCents === null ? "Preços salvos" : "Preços salvos e valor da compra atualizado");
+          }}
+          onClose={close}
+        />
+      )}
+
+      {sheet?.kind === "templates" && (
+        <TemplatesSheet
+          templates={state.templates}
+          items={state.items}
+          categoryFor={categoryFor}
+          onUse={applyTemplate}
+          onSave={(template) => {
+            list.saveTemplate(template);
+            show(`Modelo ${template.name} salvo`);
+          }}
+          onDelete={(template) => {
+            list.deleteTemplate(template.id);
+            show(`Modelo ${template.name} excluído`, { label: "Desfazer", onAction: () => list.saveTemplate(template) });
           }}
           onClose={close}
         />

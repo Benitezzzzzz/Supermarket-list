@@ -1,5 +1,41 @@
 # Changelog
 
+## 4.5.0 (2026-11-08)
+
+### Adicionado
+
+- **Histórico por mês em Gastos:** resumo do mês com total, quantidade e média por compra, e a diferença para o mês anterior (com seta e texto, não só cor). O gráfico dos últimos 6 meses pode ser tocado: escolher um mês mostra só as compras dele. Os valores também aparecem em tabela.
+- As compras ficam agrupadas por mês, da mais nova para a mais antiga.
+- O card aberto compara a compra com a anterior e com a média das 5 anteriores ("R$ 20,00 a mais (+20%)").
+- O snapshot traz as 50 compras mais recentes. Os totais por mês contam o histórico todo, pela rota nova `GET /lists/:id/months`, no horário de Brasília.
+- **Preços e marcas por item:** em Gastos, o card aberto tem "Preços". Nada é obrigatório. O preço é de cada unidade, a marca tem sugestões das já usadas e o último preço aparece como referência, nunca preenchido sozinho. A soma dos preços pode virar o valor da compra.
+- Quando a compra tem cupom, o preço do cupom vale até a pessoa digitar outro.
+- **Histórico de preços:** cada produto guarda preço, marca, quantidade e data. "Leite" e "leites" contam como o mesmo produto.
+  - Ao digitar um item, aparece a última compra (preço, marca e data).
+  - Na lista, cada item mostra o último preço como referência.
+  - Em Editar item ficam a variação do preço, a comparação entre marcas (média, menor e última) e as compras anteriores.
+- O preço de cada item guarda a origem (`manual`, `cupom` ou `codigo`) e o código de barras, já preparado para a leitura futura pelo código ou pela nota.
+- **Modelos de lista:** um botão no topo da lista abre os modelos. Dá para salvar a lista atual como modelo, criar um modelo vazio, editar nome e itens, e definir um modelo como padrão (só um por lista).
+  - Com a lista vazia, aparece "Usar 'nome do modelo padrão'".
+  - Usar um modelo põe os itens na lista sem preço e sem duplicar o que já está nela, com Desfazer.
+
+- **Mudar o nome da lista:** em "Suas listas" (toque no nome da lista no topo), cada lista que você administra tem um lápis para editar o nome, com aviso de que salvou. Em Participantes, o campo ganhou rótulo visível e também confirma a mudança. Quem só participa não vê a opção.
+
+### Banco de dados
+
+- Migração `0009_precos_e_modelos.sql`: tabela `templates`. Preço e marca ficam no JSON de `purchases.items`, sem coluna nova.
+
+## 4.4.0 (2026-11-08)
+
+### Adicionado
+
+- **PDF de uma compra:** em Gastos, a compra aberta tem o botão "PDF". Ele abre a impressão do aparelho, onde dá para escolher "Salvar como PDF". O relatório traz valor, pagamento, data, quem registrou, loja, CNPJ e os itens (com preço quando há cupom). Sem biblioteca e sem servidor.
+
+### Mudado
+
+- **Cards de Gastos:** tocar na compra abre o card com animação e mostra a lista inteira de itens. Tocar de novo fecha. Abre uma compra por vez.
+- As ações ficam dentro do card aberto: Ler cupom ou Cupom, PDF, Editar e Excluir.
+- Saíram o botão "Corrigir" e o "Ver os itens". O painel "Corrigir compra" agora se chama "Editar compra".
 ## 4.3.0 (2026-11-07)
 
 ### Adicionado

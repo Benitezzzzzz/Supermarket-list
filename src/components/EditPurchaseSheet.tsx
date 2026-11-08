@@ -10,11 +10,19 @@ interface EditPurchaseSheetProps {
   onSave: (details: PurchaseDetails) => void;
   onDelete: () => void;
   onClose: () => void;
+  /** Abre direto na confirmação de excluir; Cancelar então fecha o painel. */
+  startWithDelete?: boolean;
 }
 
-/** Corrige valor ou forma de pagamento, ou exclui a compra (com confirmação). */
-export function EditPurchaseSheet({ purchase, onSave, onDelete, onClose }: EditPurchaseSheetProps) {
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
+/** Edita valor ou forma de pagamento, ou exclui a compra (com confirmação). */
+export function EditPurchaseSheet({
+  purchase,
+  onSave,
+  onDelete,
+  onClose,
+  startWithDelete = false,
+}: EditPurchaseSheetProps) {
+  const [confirmingDelete, setConfirmingDelete] = useState(startWithDelete);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -34,7 +42,7 @@ export function EditPurchaseSheet({ purchase, onSave, onDelete, onClose }: EditP
             ref={cancelRef}
             type="button"
             className="btn btn--secondary"
-            onClick={() => setConfirmingDelete(false)}
+            onClick={() => (startWithDelete ? onClose() : setConfirmingDelete(false))}
           >
             Cancelar
           </button>
@@ -47,8 +55,8 @@ export function EditPurchaseSheet({ purchase, onSave, onDelete, onClose }: EditP
   }
 
   return (
-    <BottomSheet title="Corrigir compra" onClose={onClose}>
-      <PurchaseForm initial={purchase} submitLabel="Salvar correção" onSubmit={onSave} />
+    <BottomSheet title="Editar compra" onClose={onClose}>
+      <PurchaseForm initial={purchase} submitLabel="Salvar alterações" onSubmit={onSave} />
       <button
         type="button"
         className="btn btn--danger-soft btn--block"
