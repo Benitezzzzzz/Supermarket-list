@@ -1,19 +1,15 @@
 import { DEFAULT_CATEGORY } from "./categories";
 import { parseListText } from "./importText";
+import { parseQuantity } from "./quantity";
 import type { Item } from "./types";
 
 export const MAX_QUANTITY = 999;
 
-/** Número seguido de unidade ("2 kg arroz") faz parte do nome, não é quantidade de itens. */
-const QUANTITY_PREFIX = /^(\d{1,3})\s*[xX×]?\s+(?!(?:kg|g|mg|l|ml|un|cx|pct)\b)(.+)$/i;
+export { parseQuantity };
 
-/** Separa "2 frangos" em quantidade 2 e nome "Frangos". */
-export function parseQuantity(input: string): { text: string; quantity: number } {
-  const match = input.trim().match(QUANTITY_PREFIX);
-  const quantity = match ? Number(match[1]) : 0;
-  if (!match || quantity < 1) return { text: input.trim(), quantity: 1 };
-  const text = match[2].trim();
-  return { text: text[0].toUpperCase() + text.slice(1), quantity };
+/** Como o item aparece em avisos e listas: sempre com a quantidade, "1× Peixe", "2× Leite". */
+export function describeItem(item: { text: string; quantity: number }): string {
+  return `${item.quantity}× ${item.text}`;
 }
 
 export function createItem(input: string, category: string, createdAt = new Date()): Item {

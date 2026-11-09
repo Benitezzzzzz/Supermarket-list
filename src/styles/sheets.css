@@ -377,3 +377,13 @@
 .setting-switch[aria-checked="true"] .setting-switch__thumb {
   transform: translateX(20px);
 }
+
+/* Novo item: prévia de como o texto vai entrar ("Vai entrar como 2× Peixe"). */
+.quantity-preview {
+  margin-top: calc(-1 * var(--space-1));
+}
+
+.quantity-preview strong {
+  color: var(--ink);
+  font-weight: var(--weight-black);
+}

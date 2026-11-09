@@ -17,7 +17,7 @@ import { isPurchaseSheet, type PurchaseSheet, PurchaseSheets } from "./component
 import { TemplatesSheet } from "./components/TemplatesSheet";
 import type { SyncedList } from "./data/syncedList";
 import { DEFAULT_CATEGORY, knownCategories } from "./domain/categories";
-import { createItem } from "./domain/items";
+import { createItem, describeItem } from "./domain/items";
 import { findProduct } from "./domain/barcodes";
 import { buildPriceIndex, lastPrice, pricesFor } from "./domain/prices";
 import { itemsFromTemplate, knownCategoryFor } from "./domain/templates";
@@ -205,7 +205,7 @@ export function App({
             const item = createItem(text, extra?.category ?? category);
             list.addItems([item]);
             if (extra?.code) list.learnBarcode({ code: extra.code, text: item.text, category: item.category });
-            return item.quantity > 1 ? `${item.quantity}× ${item.text}` : item.text;
+            return describeItem(item);
           }}
           findProduct={(code) => findProduct(code, state.barcodes, state.purchases)}
           onOpenImport={() => setSheet({ kind: "import" })}

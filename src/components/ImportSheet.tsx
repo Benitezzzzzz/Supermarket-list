@@ -1,5 +1,5 @@
 import { type FormEvent, useMemo, useState } from "react";
-import { parseImport } from "../domain/items";
+import { describeItem, parseImport } from "../domain/items";
 import type { Item } from "../domain/types";
 import { BottomSheet } from "../ui/BottomSheet";
 import { CategoryOptions } from "./CategoryOptions";
@@ -95,7 +95,7 @@ export function ImportSheet({ categories, initialCategory, listName, initialText
                 <h4 className="import-preview__category">{name}</h4>
                 <ul className="import-preview__items">
                   {group.map((item) => (
-                    <li key={item.id}>{item.quantity > 1 ? `${item.quantity}× ${item.text}` : item.text}</li>
+                    <li key={item.id}>{describeItem(item)}</li>
                   ))}
                 </ul>
               </div>

@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.9.0 (2026-11-09)
+
+### Mudado
+
+- **Quantidade no fim do nome:** em Novo item, "peixe 2x", "peixe x2", "peixe (2)" e "peixe 2 un" viram 2× Peixe, como já acontecia com "2 peixe" e "2x peixe". Medidas continuam no nome ("Arroz 5kg", "Coca-Cola 2L").
+- **Prévia ao digitar:** abaixo do campo aparece "Vai entrar como 2× Peixe".
+- **Sempre com a quantidade:** a lista, os avisos, a colagem do WhatsApp, as compras e o cupom mostram "1× Peixe" também quando é uma unidade só.
+- A leitura da quantidade fica num só lugar (`src/domain/quantity.ts`), usada no Novo item e na colagem.
+
 ## 4.8.1 (2026-11-09)
 
 ### Mudado

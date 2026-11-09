@@ -48,7 +48,7 @@ export function ItemRow({ item, onToggle, onEdit, price }: ItemRowProps) {
             </span>
           )}
         </span>
-        {item.quantity > 1 && <span className="qty">{item.quantity}×</span>}
+        <span className="qty">{item.quantity}×</span>
       </button>
       <button
         type="button"

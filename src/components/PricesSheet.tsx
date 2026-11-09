@@ -98,7 +98,7 @@ export function PricesSheet({ purchase, prices, onSave, onClose }: PricesSheetPr
               // biome-ignore lint/suspicious/noArrayIndexKey: os itens de uma compra têm posição fixa.
               <li key={index} className="price-row">
                 <span className="price-row__name">
-                  {item.quantity > 1 && <span className="qty">{item.quantity}×</span>}
+                  <span className="qty">{item.quantity}×</span>
                   {item.text}
                   {!item.done && <small> (não marcado)</small>}
                 </span>

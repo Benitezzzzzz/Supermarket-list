@@ -20,7 +20,7 @@ function ItemLines({ purchase, indexes }: { purchase: Purchase; indexes: number[
           <li key={index} className="purchase__priced">
             <span className="purchase__priced-name">
               <span className="purchase__item-line">
-                {item.quantity > 1 && <span className="qty">{item.quantity}×</span>}
+                <span className="qty">{item.quantity}×</span>
                 <span>{item.text}</span>
               </span>
               {detail && <small>{detail}</small>}

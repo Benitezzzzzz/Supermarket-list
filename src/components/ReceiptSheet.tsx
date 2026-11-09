@@ -144,7 +144,7 @@ function Review({
             {purchase.items.map((listItem, index) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: a lista da compra é fixa.
               <option key={index} value={index}>
-                {`É: ${listItem.quantity > 1 ? `${listItem.quantity}× ` : ""}${listItem.text}`}
+                {`É: ${listItem.quantity}× ${listItem.text}`}
               </option>
             ))}
           </select>
@@ -238,7 +238,7 @@ function Review({
                 <label className="choice">
                   <input type="checkbox" checked={returning.has(index)} onChange={() => toggleReturn(index)} />
                   <span>
-                    {item.quantity > 1 && `${item.quantity}× `}
+                    {`${item.quantity}× `}
                     {item.text}
                   </span>
                 </label>

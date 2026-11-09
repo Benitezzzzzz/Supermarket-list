@@ -3,7 +3,7 @@ import { barcodeFromPhoto } from "../data/receiptImage";
 import { type KnownProduct, normalizeCode } from "../domain/barcodes";
 import { BottomSheet } from "../ui/BottomSheet";
 import { Icon } from "../ui/Icon";
-import { parseQuantity } from "../domain/items";
+import { describeItem, parseQuantity } from "../domain/items";
 import type { PricePoint } from "../domain/prices";
 import { CategoryPicker } from "./CategoryPicker";
 import { CodeScanner } from "./CodeScanner";
@@ -15,7 +15,7 @@ interface AddSheetProps {
   onCategoryChange: (category: string) => void;
   onCreateCategory: (name: string) => void;
   /**
-   * Devolve o nome com que o item entrou, já sem a quantidade. Com `code`, a lista aprende
+   * Devolve como o item entrou, com a quantidade ("2× Peixe"). Com `code`, a lista aprende
    * o produto daquele código de barras; `category` troca a categoria escolhida no painel.
    */
   onAdd: (text: string, extra?: { code?: string; category?: string }) => string;
@@ -25,6 +25,17 @@ interface AddSheetProps {
   onClose: () => void;
   /** Última compra do produto que está sendo digitado, como referência. */
   lastPrice: (text: string) => PricePoint | undefined;
+}
+
+/** Mostra como o texto vai entrar, para a pessoa ver que "peixe 2x" virou 2 peixes. */
+function QuantityPreview({ text }: { text: string }) {
+  if (text.trim().length < 2) return null;
+  const parsed = parseQuantity(text);
+  return (
+    <p className="hint quantity-preview">
+      Vai entrar como <strong>{describeItem(parsed)}</strong>
+    </p>
+  );
 }
 
 function TypedReference({ text, lastPrice }: { text: string; lastPrice: AddSheetProps["lastPrice"] }) {
@@ -148,7 +159,7 @@ export function AddSheet({
           ref={inputRef}
           className="field"
           type="text"
-          placeholder="Ex.: 2 leite"
+          placeholder="Ex.: peixe 2x ou 2 leite"
           autoComplete="off"
           enterKeyHint="done"
           maxLength={80}
@@ -156,6 +167,7 @@ export function AddSheet({
           value={text}
           onChange={(event) => setText(event.target.value)}
         />
+        <QuantityPreview text={text} />
         {pendingCode && (
           <p className="banner banner--warning">
             Ainda não conheço o código {pendingCode}. Digite o nome do produto e toque em Adicionar: da próxima vez

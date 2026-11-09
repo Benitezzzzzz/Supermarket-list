@@ -45,6 +45,22 @@ describe("parseQuantity", () => {
     ["500 g queijo", "500 g queijo", 1],
     ["0 coisas", "0 coisas", 1],
     ["7", "7", 1],
+    ["peixe 2x", "Peixe", 2],
+    ["Peixe 2 x", "Peixe", 2],
+    ["peixe x2", "Peixe", 2],
+    ["Peixe ×3", "Peixe", 3],
+    ["peixe (4)", "Peixe", 4],
+    ["peixe 2 un", "Peixe", 2],
+    ["Ovos - 12 unidades", "Ovos", 12],
+    ["2 un peixe", "Peixe", 2],
+    ["1x peixe", "Peixe", 1],
+    ["peixe 1x", "Peixe", 1],
+    ["filé de peixe 2x", "Filé de peixe", 2],
+    ["2 xícaras", "Xícaras", 2],
+    ["Coca-Cola 2L", "Coca-Cola 2L", 1],
+    ["Arroz 5kg", "Arroz 5kg", 1],
+    ["Kit 3x1", "Kit 3x1", 1],
+    ["Peixe 0x", "Peixe 0x", 1],
   ])("%s", (input, text, quantity) => {
     expect(parseQuantity(input)).toEqual({ text, quantity });
   });

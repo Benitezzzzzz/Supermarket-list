@@ -121,7 +121,7 @@ describe("App", () => {
     await user.upload(photo(), new File(["x"], "codigo.jpg", { type: "image/jpeg" }));
     expect(await within(dialog).findByText(/Ainda não conheço o código 7896058599848/)).toBeTruthy();
     await user.type(within(dialog).getByLabelText("O que precisa comprar?"), "Leite Italac{Enter}");
-    expect(within(dialog).getByText("Leite Italac entrou na lista.")).toBeTruthy();
+    expect(within(dialog).getByText("1× Leite Italac entrou na lista.")).toBeTruthy();
     expect(within(dialog).queryByText(/Ainda não conheço/)).toBeNull();
     await user.click(within(dialog).getByRole("button", { name: "Fechar" }));
 
@@ -130,7 +130,7 @@ describe("App", () => {
     dialog = await openAddSheet(user);
     await user.click(within(dialog).getByRole("button", { name: "Ler código de barras" }));
     await user.upload(photo(), new File(["x"], "codigo.jpg", { type: "image/jpeg" }));
-    expect(await within(dialog).findByText("Leite Italac entrou na lista.")).toBeTruthy();
+    expect(await within(dialog).findByText("1× Leite Italac entrou na lista.")).toBeTruthy();
     await user.click(within(dialog).getByRole("button", { name: "Fechar" }));
     expect(screen.getByRole("button", { name: "Marcar Leite Italac como comprado" })).toBeTruthy();
 
@@ -214,13 +214,17 @@ describe("App", () => {
 
     const dialog = await openAddSheet(user);
     await user.type(within(dialog).getByLabelText("O que precisa comprar?"), "Arroz{Enter}");
-    expect(await within(dialog).findByText("Arroz entrou na lista.")).toBeTruthy();
+    expect(await within(dialog).findByText("1× Arroz entrou na lista.")).toBeTruthy();
     await user.type(within(dialog).getByLabelText("O que precisa comprar?"), "Feijão{Enter}");
-    expect(await within(dialog).findByText("Feijão entrou na lista.")).toBeTruthy();
+    expect(await within(dialog).findByText("1× Feijão entrou na lista.")).toBeTruthy();
+    await user.type(within(dialog).getByLabelText("O que precisa comprar?"), "peixe 2x");
+    expect(within(dialog).getByText("2× Peixe")).toBeTruthy();
+    await user.keyboard("{Enter}");
+    expect(await within(dialog).findByText("2× Peixe entrou na lista.")).toBeTruthy();
     await user.click(within(dialog).getByRole("button", { name: "Fechar" }));
 
     expect(screen.getByRole("heading", { name: /^Outros/ })).toBeTruthy();
-    expect(screen.getByText("Oi, Renan! Faltam 2 itens.")).toBeTruthy();
+    expect(screen.getByText("Oi, Renan! Faltam 3 itens.")).toBeTruthy();
   });
 
   it("lê a quantidade digitada e permite ajustar", async () => {
@@ -413,18 +417,18 @@ describe("App", () => {
     expect(within(sheet).getByRole("heading", { name: "Fora da lista · 1" })).toBeTruthy();
     expect(within(sheet).getByRole("heading", { name: "Faltou comprar · 1" })).toBeTruthy();
     const leite = within(sheet).getByLabelText("Item da lista para LTE UHT ITALAC INT 1L") as HTMLSelectElement;
-    expect(leite.selectedOptions[0].textContent).toBe("É: Leite");
+    expect(leite.selectedOptions[0].textContent).toBe("É: 1× Leite");
 
     // Corrigir uma ligação errada muda os grupos na hora.
     const sacola = within(sheet).getByLabelText("Item da lista para SACOLA PLASTICA");
-    await user.selectOptions(sacola, "É: Café");
+    await user.selectOptions(sacola, "É: 1× Café");
     expect(within(sheet).queryByRole("heading", { name: /Faltou comprar/ })).toBeNull();
     // A linha muda de grupo e o foco continua nela.
     const moved = within(sheet).getByLabelText("Item da lista para SACOLA PLASTICA");
     expect(document.activeElement).toBe(moved);
     await user.selectOptions(moved, "Fora da lista");
 
-    await user.click(within(sheet).getByRole("checkbox", { name: "Café" }));
+    await user.click(within(sheet).getByRole("checkbox", { name: "1× Café" }));
     expect((within(sheet).getByRole("checkbox", { name: /Usar o total do cupom/ }) as HTMLInputElement).checked).toBe(true);
     await user.click(within(sheet).getByRole("button", { name: "Salvar cupom" }));
 
@@ -764,7 +768,7 @@ describe("App", () => {
     const preview = within(sheet).getByRole("region", { name: "O que vai entrar" });
     expect(within(preview).getByText("Vai entrar na lista Casa")).toBeTruthy();
     expect(within(preview).getByText("Limpeza")).toBeTruthy();
-    expect(within(preview).getByText("Detergente")).toBeTruthy();
+    expect(within(preview).getByText("1× Detergente")).toBeTruthy();
     expect(within(preview).getByText("2× Sabão")).toBeTruthy();
     await user.click(within(sheet).getByRole("button", { name: "Importar 2 itens" }));
     expect(await screen.findByText("2 itens importados")).toBeTruthy();

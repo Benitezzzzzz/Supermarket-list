@@ -1,3 +1,4 @@
+import { parseQuantity } from "./quantity";
 /**
  * Entende listas coladas, inclusive mensagens copiadas do WhatsApp:
  * data, hora e nome de quem mandou, negrito, emojis, marcadores,
@@ -77,8 +78,6 @@ const TRAILING_EMOJI = new RegExp(String.raw`\s*${EMOJI}+$`, "u");
 const FORMATTING = /^[*_~]+|[*_~]+$/g;
 
 /** Quantidade no fim: "Arroz x2", "Arroz (2)", "Arroz - 2 un". */
-const TRAILING_QUANTITY = /^(.+?)\s*(?:[xX×]\s*(\d{1,3})|\((\d{1,3})\)|[-–]\s*(\d{1,3})\s*(?:un|unid|unidades?)\.?)$/;
-
 export function normalize(text: string): string {
   return text
     .normalize("NFD")
@@ -118,12 +117,10 @@ function categoryFor(title: string, categories: string[]): string | null {
   return alias && categories.includes(alias) ? alias : null;
 }
 
-/** "Arroz x2" vira "2 Arroz", para a regra de quantidade já existente ler. */
+/** "Arroz x2" vira "2 Arroz": a quantidade fica na frente, do jeito que o item é criado. */
 function moveQuantityToFront(text: string): string {
-  const match = text.match(TRAILING_QUANTITY);
-  if (!match) return text;
-  const quantity = match[2] ?? match[3] ?? match[4];
-  return `${quantity} ${match[1].trim()}`;
+  const { text: name, quantity } = parseQuantity(text);
+  return quantity > 1 || name !== text ? `${quantity} ${name}` : text;
 }
 
 /** Vírgula seguida de espaço separa itens ("arroz, feijão"); "1,5 kg" continua junto. */
