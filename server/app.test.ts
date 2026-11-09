@@ -221,6 +221,20 @@ describe("contas", () => {
     expect(cookie).toContain("Secure");
   });
 
+  it("não libera CORS: outro site não lê a API", async () => {
+    // App e API moram no mesmo endereço, então o navegador nunca precisa de CORS.
+    // Sem o cabeçalho Access-Control-Allow-Origin, ele bloqueia a leitura vinda de outro site.
+    const origin = "https://site-estranho.example";
+    const preflight = await app.request("/api/auth/me", {
+      method: "OPTIONS",
+      headers: { origin, "access-control-request-method": "GET" },
+    });
+    expect(preflight.headers.get("access-control-allow-origin")).toBeNull();
+    const response = await app.request("/api/auth/me", { headers: { origin } });
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
+    expect(response.headers.get("access-control-allow-credentials")).toBeNull();
+  });
+
   it("recusa cookie forjado", async () => {
     const response = await app.request("/api/auth/me", { headers: { cookie: `lista_conta=${"a".repeat(64)}` } });
     expect(response.status).toBe(401);

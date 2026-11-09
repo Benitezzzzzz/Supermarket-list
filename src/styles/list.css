@@ -170,10 +170,21 @@
   font-weight: var(--weight-black);
 }
 
-/* Modo mercado ligado: o botão fica laranja, como a aba ativa. */
-.hero .icon-btn--toggle[aria-pressed="true"] {
+/* Botão de tema: com o modo mercado ligado, ganha um ponto laranja no canto. */
+.hero .icon-btn--display {
+  position: relative;
+}
+
+.hero .icon-btn--display[data-awake]::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
   background: var(--accent);
-  color: var(--on-accent);
+  box-shadow: 0 0 0 2px var(--hero-bg);
 }
 
 /* ---------- Filtro por categoria ---------- */

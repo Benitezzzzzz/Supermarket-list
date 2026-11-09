@@ -25,9 +25,14 @@ function systemDark(): boolean {
   return typeof matchMedia === "function" && matchMedia(DARK_QUERY).matches;
 }
 
+/** O tema que vale agora: no Automático, o do aparelho. */
+export function resolvedTheme(choice = themeChoice()): "light" | "dark" {
+  return choice === "auto" ? (systemDark() ? "dark" : "light") : choice;
+}
+
 /** Aplica a escolha: o CSS lê data-theme no <html>. */
 export function applyTheme(choice = themeChoice()) {
-  const resolved = choice === "auto" ? (systemDark() ? "dark" : "light") : choice;
+  const resolved = resolvedTheme(choice);
   document.documentElement.dataset.theme = resolved;
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", BAR_COLOR[resolved]);
 }

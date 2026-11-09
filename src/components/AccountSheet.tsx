@@ -2,16 +2,8 @@ import { type FormEvent, useState } from "react";
 import { changePassword, MIN_PASSWORD } from "../data/auth";
 import { RejectedOpError } from "../data/backend";
 import type { UserInfo } from "../domain/types";
-import { setThemeChoice, type ThemeChoice, themeChoice } from "../theme";
 import { BottomSheet } from "../ui/BottomSheet";
-import { Icon, type IconName } from "../ui/Icon";
 import { PasswordField } from "./PasswordField";
-
-const THEMES: { value: ThemeChoice; label: string; note: string; icon: IconName }[] = [
-  { value: "auto", label: "Automático", note: "igual ao aparelho", icon: "phone" },
-  { value: "light", label: "Claro", note: "sempre", icon: "sun" },
-  { value: "dark", label: "Escuro", note: "sempre", icon: "moon" },
-];
 
 interface AccountSheetProps {
   user: UserInfo;
@@ -26,12 +18,6 @@ export function AccountSheet({ user, onLogout, onOpenAdmin, onClose }: AccountSh
   const [repeat, setRepeat] = useState("");
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [theme, setTheme] = useState<ThemeChoice>(themeChoice);
-
-  function pickTheme(choice: ThemeChoice) {
-    setTheme(choice);
-    setThemeChoice(choice);
-  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -65,26 +51,6 @@ export function AccountSheet({ user, onLogout, onOpenAdmin, onClose }: AccountSh
         <span className="summary__amount">{user.displayName}</span>
         <span className="summary__method">Usuário: {user.username}</span>
       </div>
-
-      <fieldset className="theme-picker">
-        <legend className="field-label">Cores do app</legend>
-        {THEMES.map((option) => (
-          <label key={option.value} className="theme-option">
-            <input
-              type="radio"
-              className="visually-hidden"
-              name="tema"
-              value={option.value}
-              checked={theme === option.value}
-              onChange={() => pickTheme(option.value)}
-            />
-            <Icon name={option.icon} size={22} />
-            <span className="theme-option__label">{option.label}</span>
-            <span className="theme-option__note">{option.note}</span>
-          </label>
-        ))}
-        <p className="hint theme-picker__hint">Vale só neste aparelho.</p>
-      </fieldset>
 
       {user.isSuperAdmin && (
         <button type="button" className="btn btn--primary btn--block" onClick={onOpenAdmin}>

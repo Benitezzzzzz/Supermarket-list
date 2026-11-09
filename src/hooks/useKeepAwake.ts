@@ -16,13 +16,13 @@ function saved(): boolean {
 /**
  * Modo mercado: enquanto a lista está aberta, a tela não apaga sozinha. A escolha fica
  * no aparelho. O sistema solta a trava quando o app vai para o fundo; ela é pedida de novo
- * quando o app volta.
+ * quando o app volta. `active` é falso fora da tela da lista: a trava só vale nela.
  */
-export function useKeepAwake() {
+export function useKeepAwake(active = true) {
   const [enabled, setEnabled] = useState(() => canKeepAwake && saved());
 
   useEffect(() => {
-    if (!enabled || !canKeepAwake) return;
+    if (!enabled || !active || !canKeepAwake) return;
     let sentinel: WakeLockSentinel | null = null;
     let stopped = false;
     const request = async () => {
@@ -42,7 +42,7 @@ export function useKeepAwake() {
       document.removeEventListener("visibilitychange", onVisible);
       void sentinel?.release();
     };
-  }, [enabled]);
+  }, [enabled, active]);
 
   const toggle = useCallback(() => {
     setEnabled((current) => {

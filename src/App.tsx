@@ -4,6 +4,7 @@ import { AddSheet } from "./components/AddSheet";
 import { AdminSheet } from "./components/AdminSheet";
 import { BottomNav, type Screen } from "./components/BottomNav";
 import { ClearSheet } from "./components/ClearSheet";
+import { DisplaySheet } from "./components/DisplaySheet";
 import { EditItemSheet } from "./components/EditItemSheet";
 import { ExpensesScreen } from "./components/ExpensesScreen";
 import { FinishSheet } from "./components/FinishSheet";
@@ -21,6 +22,8 @@ import { findProduct } from "./domain/barcodes";
 import { buildPriceIndex, lastPrice, pricesFor } from "./domain/prices";
 import { itemsFromTemplate, knownCategoryFor } from "./domain/templates";
 import type { Item, ListSummary, Template, UserInfo } from "./domain/types";
+import { canKeepAwake, useKeepAwake } from "./hooks/useKeepAwake";
+import { resolvedTheme, setThemeChoice, type ThemeChoice, themeChoice } from "./theme";
 import { Icon } from "./ui/Icon";
 import { Toast, useToast } from "./ui/Toast";
 
@@ -50,6 +53,7 @@ type Sheet =
   | { kind: "templates" }
   | { kind: "lists" }
   | { kind: "account" }
+  | { kind: "display" }
   | { kind: "admin" }
   | null;
 
@@ -75,6 +79,13 @@ export function App({
   });
   const [category, setCategory] = useState(DEFAULT_CATEGORY);
   const { toast, show, dismiss } = useToast();
+  const [theme, setTheme] = useState<ThemeChoice>(themeChoice);
+  const awake = useKeepAwake(screen === "list");
+
+  function pickTheme(choice: ThemeChoice) {
+    setTheme(choice);
+    setThemeChoice(choice);
+  }
 
   useEffect(() => list.start(), [list]);
 
@@ -132,6 +143,9 @@ export function App({
           current={current}
           onOpenLists={() => setSheet({ kind: "lists" })}
           onOpenAccount={() => setSheet({ kind: "account" })}
+          onOpenDisplay={() => setSheet({ kind: "display" })}
+          theme={resolvedTheme(theme)}
+          awake={canKeepAwake && awake.enabled}
           onToggle={(item) => list.updateItem(item.id, { done: !item.done })}
           onEdit={(item) => setSheet({ kind: "edit", id: item.id })}
           onAskClearAll={() => setSheet({ kind: "clear" })}
@@ -251,6 +265,15 @@ export function App({
 
       {sheet?.kind === "account" && (
         <AccountSheet user={user} onLogout={onLogout} onOpenAdmin={() => setSheet({ kind: "admin" })} onClose={close} />
+      )}
+
+      {sheet?.kind === "display" && (
+        <DisplaySheet
+          theme={theme}
+          onThemeChange={pickTheme}
+          keepAwake={canKeepAwake ? awake : undefined}
+          onClose={close}
+        />
       )}
 
       {sheet?.kind === "admin" && <AdminSheet user={user} onClose={close} />}

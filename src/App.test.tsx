@@ -142,10 +142,10 @@ describe("App", () => {
     receiptMocks.barcode = "7896058599848";
   });
 
-  it("escolhe as cores do app em Sua conta e guarda neste aparelho", async () => {
+  it("o botão de tema do cabeçalho abre claro, escuro e automático, e guarda neste aparelho", async () => {
     const user = renderApp();
-    await user.click(screen.getByRole("button", { name: "Sua conta" }));
-    const sheet = await screen.findByRole("dialog", { name: "Sua conta" });
+    await user.click(screen.getByRole("button", { name: "Tema e tela" }));
+    const sheet = await screen.findByRole("dialog", { name: "Tema e tela" });
     expect((within(sheet).getByRole("radio", { name: /Automático/ }) as HTMLInputElement).checked).toBe(true);
 
     await user.click(within(sheet).getByRole("radio", { name: /Escuro/ }));

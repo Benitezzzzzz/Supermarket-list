@@ -5,7 +5,6 @@ import { categoryStyle } from "../domain/categoryStyle";
 import { formatMoney } from "../domain/money";
 import { estimateList, type PriceIndex, priceTrend } from "../domain/prices";
 import type { Item, ListSummary, Template, UserInfo } from "../domain/types";
-import { canKeepAwake, useKeepAwake } from "../hooks/useKeepAwake";
 import { Icon } from "../ui/Icon";
 import { ItemRow } from "./ItemRow";
 
@@ -15,6 +14,12 @@ interface ListScreenProps {
   current: ListSummary;
   onOpenLists: () => void;
   onOpenAccount: () => void;
+  /** Abre o painel de tema (claro, escuro, automático) e modo mercado. */
+  onOpenDisplay: () => void;
+  /** Tema que vale agora, para o ícone do botão. */
+  theme: "light" | "dark";
+  /** Modo mercado ligado: o botão do tema ganha um ponto laranja. */
+  awake: boolean;
   onToggle: (item: Item) => void;
   onEdit: (item: Item) => void;
   onAskClearAll: () => void;
@@ -64,6 +69,9 @@ export function ListScreen({
   current,
   onOpenLists,
   onOpenAccount,
+  onOpenDisplay,
+  theme,
+  awake,
   onToggle,
   onEdit,
   onAskClearAll,
@@ -83,7 +91,6 @@ export function ListScreen({
   const done = state.items.length - toBuy.length;
   const percent = state.items.length === 0 ? 0 : Math.round((done / state.items.length) * 100);
   const estimate = estimateList(state.items, prices);
-  const awake = useKeepAwake();
 
   return (
     <div className="page page--wide">
@@ -91,18 +98,16 @@ export function ListScreen({
         <div className="hero__top">
           <SyncStatus state={state} />
           <span className="header-actions">
-            {canKeepAwake && (
-              <button
-                type="button"
-                className="icon-btn icon-btn--neutral icon-btn--toggle"
-                aria-pressed={awake.enabled}
-                aria-label="Modo mercado: manter a tela acesa"
-                title={awake.enabled ? "Tela sempre acesa (toque para desligar)" : "Manter a tela acesa"}
-                onClick={awake.toggle}
-              >
-                <Icon name="sun" size={20} />
-              </button>
-            )}
+            <button
+              type="button"
+              className="icon-btn icon-btn--neutral icon-btn--display"
+              data-awake={awake || undefined}
+              aria-label={awake ? "Tema e tela (modo mercado ligado)" : "Tema e tela"}
+              title="Tema claro, escuro ou automático"
+              onClick={onOpenDisplay}
+            >
+              <Icon name={theme === "dark" ? "moon" : "sun"} size={20} />
+            </button>
             <button
               type="button"
               className="icon-btn icon-btn--neutral"

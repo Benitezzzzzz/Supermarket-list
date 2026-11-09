@@ -1,5 +1,17 @@
 # Changelog
 
+## 4.8.1 (2026-11-09)
+
+### Mudado
+
+- **Botão de tema no cabeçalho:** o ícone de sol/lua abre o painel "Tema e tela", com Automático, Claro e Escuro. Antes, o sol do celular era o modo mercado e parecia um botão de tema quebrado.
+- O **modo mercado** virou um interruptor dentro desse painel. Quando ligado, o botão mostra um ponto laranja.
+- A escolha de tema saiu de "Sua conta" e ficou só no painel novo.
+
+### Segurança
+
+- Teste garante que a API não libera CORS: app e API usam o mesmo endereço, e outro site não consegue ler os dados.
+
 ## 4.8.0 (2026-11-08)
 
 ### Adicionado
