@@ -76,10 +76,14 @@ const onlyCreditSplits = {
 };
 
 /** Valor e forma de pagamento: o que dá para corrigir depois. */
+export const MAX_STORE = 60;
+
 const paymentFields = {
   amountCents: z.number().int().min(1).max(MAX_AMOUNT_CENTS),
   method: z.enum(["pix", "dinheiro", "debito", "credito"]),
   installments: z.number().int().min(1).max(MAX_INSTALLMENTS),
+  /** Mercado da compra, como a pessoa escreveu. Ausente: não muda (ou vazio, numa compra nova). */
+  store: z.string().trim().max(MAX_STORE).optional(),
 };
 
 export const MAX_BRAND = 40;

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { formatMonth } from "../domain/history";
 import { formatMoney } from "../domain/money";
 import { buildPriceIndex } from "../domain/prices";
+import { purchaseStore } from "../domain/storeName";
 import { priceGaps, storeTotals } from "../domain/stores";
 import type { Purchase } from "../domain/types";
 
@@ -17,12 +18,13 @@ interface StoresCardProps {
 export function StoresCard({ purchases, month }: StoresCardProps) {
   const summary = useMemo(() => storeTotals(purchases, month), [purchases, month]);
   const gaps = useMemo(() => priceGaps(buildPriceIndex(purchases)), [purchases]);
-  const anyReceipt = purchases.some((purchase) => purchase.receipt?.storeName);
+  const anyStore = purchases.some((purchase) => purchaseStore(purchase));
 
-  if (!anyReceipt) {
+  if (!anyStore) {
     return (
       <p className="hint stores-hint">
-        Leia o cupom fiscal das compras para ver aqui quanto foi em cada mercado e onde cada produto sai mais barato.
+        Escreva o mercado ao finalizar a compra (ou leia o cupom) para ver aqui quanto foi em cada um e onde cada
+        produto sai mais barato.
       </p>
     );
   }
@@ -33,7 +35,7 @@ export function StoresCard({ purchases, month }: StoresCardProps) {
     <section className="card stores" aria-label="Por mercado">
       <h2 className="stores__title">Por mercado · {formatMonth(month)}</h2>
       {summary.stores.length === 0 ? (
-        <p className="hint">Nenhum cupom lido em {formatMonth(month)}.</p>
+        <p className="hint">Nenhuma compra com mercado em {formatMonth(month)}.</p>
       ) : (
         <ul className="stores__list">
           {summary.stores.map((store) => (
@@ -55,7 +57,7 @@ export function StoresCard({ purchases, month }: StoresCardProps) {
       )}
       {summary.unknown.count > 0 && (
         <p className="hint">
-          {summary.unknown.count === 1 ? "1 compra" : `${summary.unknown.count} compras`} sem cupom (
+          {summary.unknown.count === 1 ? "1 compra" : `${summary.unknown.count} compras`} sem mercado (
           {formatMoney(summary.unknown.totalCents)}) ficam de fora.
         </p>
       )}

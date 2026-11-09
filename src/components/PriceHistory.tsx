@@ -1,6 +1,6 @@
 import { compareCents } from "../domain/history";
 import { formatMoney } from "../domain/money";
-import { brandSummary, type PricePoint } from "../domain/prices";
+import { brandSummary, type PricePoint, storePrices } from "../domain/prices";
 import { ChangeText } from "./ChangeText";
 
 const dayFormat = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short", year: "2-digit" });
@@ -9,6 +9,7 @@ const RECENT = 6;
 /** Uma linha curta com a última compra: "R$ 6,49 cada · Italac · 12 de out." */
 export function describeLast(point: PricePoint): string {
   const parts = [`${formatMoney(point.unitCents)}${point.quantity > 1 ? " cada" : ""}`];
+  if (point.storeName) parts.push(`no ${point.storeName}`);
   if (point.brand) parts.push(point.brand);
   parts.push(dayFormat.format(new Date(point.date)));
   return parts.join(" · ");
@@ -22,19 +23,48 @@ export function PriceHistory({ points }: { points: PricePoint[] }) {
   const [last, previous] = points;
   const brands = brandSummary(points);
   const withBrand = brands.filter((brand) => brand.brand);
+  const stores = storePrices(points);
 
   return (
     <div className="price-history">
       <p className="price-history__last">
         <span className="field-label field-label--small">Última compra</span>
         <strong>{describeLast(last)}</strong>
-        {last.storeName && <small>{last.storeName}</small>}
       </p>
       {previous && (
         <ChangeText
           change={compareCents(last.unitCents, previous.unitCents)}
           against={`que em ${dayFormat.format(new Date(previous.date))}`}
         />
+      )}
+
+      {stores.length > 1 && (
+        <table className="price-table">
+          <caption>Por mercado (último preço de cada)</caption>
+          <thead>
+            <tr>
+              <th scope="col">Mercado</th>
+              <th scope="col">Preço</th>
+              <th scope="col">Quando</th>
+            </tr>
+          </thead>
+          <tbody>
+            {stores.map((store, index) => (
+              <tr key={store.store}>
+                <th scope="row">
+                  {store.store}
+                  {index === 0 && <span className="price-table__best"> · mais barato</span>}
+                  <small>{store.count === 1 ? "1 compra" : `${store.count} compras`}</small>
+                </th>
+                <td>
+                  {formatMoney(store.unitCents)}
+                  {index > 0 && <small>+{formatMoney(store.unitCents - stores[0].unitCents)}</small>}
+                </td>
+                <td>{dayFormat.format(new Date(store.date))}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
 
       {withBrand.length > 1 && (

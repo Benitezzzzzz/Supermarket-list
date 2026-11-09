@@ -453,6 +453,17 @@ describe("listas", () => {
       expect([saved.amountCents, saved.method, saved.memberName]).toEqual([100, "pix", "Renan"]);
     });
 
+    it("guarda o mercado da compra e só troca quando vem um novo", async () => {
+      const compra = purchase({ store: "Atacadão" });
+      await renan.call("POST", `/lists/${casa.id}/purchases`, { purchase: compra, itemIds: [] });
+      expect((await renan.snapshot(casa.id)).purchases[0].store).toBe("Atacadão");
+      // Corrigir só o valor (como faz o cupom) mantém o mercado.
+      await renan.call("PUT", `/lists/${casa.id}/purchases/${compra.id}`, { amountCents: 700, method: "pix", installments: 1 });
+      expect((await renan.snapshot(casa.id)).purchases[0].store).toBe("Atacadão");
+      await renan.call("PUT", `/lists/${casa.id}/purchases/${compra.id}`, { amountCents: 700, method: "pix", installments: 1, store: "Bompreço" });
+      expect((await renan.snapshot(casa.id)).purchases[0].store).toBe("Bompreço");
+    });
+
     it("recusa PIX parcelado", async () => {
       const response = await renan.call("POST", `/lists/${casa.id}/purchases`, { purchase: purchase({ method: "pix", installments: 2 }), itemIds: [] });
       expect(response.status).toBe(422);

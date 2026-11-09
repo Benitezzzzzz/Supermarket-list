@@ -113,6 +113,7 @@ export function ItemRow({ item, onToggle, onEdit, onQuantity, price }: ItemRowPr
           {lastPrice && (
             <span className="item__ref">
               Última: {formatMoney(lastPrice.unitCents)}
+              {lastPrice.storeName && ` no ${lastPrice.storeName}`}
               {lastPrice.brand && ` · ${lastPrice.brand}`}
               {alert && percent !== null && (
                 <span className={percent > 0 ? "item__trend item__trend--up" : "item__trend item__trend--down"}>
@@ -120,6 +121,11 @@ export function ItemRow({ item, onToggle, onEdit, onQuantity, price }: ItemRowPr
                   <span className="visually-hidden">{percent > 0 ? " mais caro que a compra anterior" : " mais barato que a compra anterior"}</span>
                 </span>
               )}
+            </span>
+          )}
+          {price?.cheaper && (
+            <span className="item__ref item__ref--cheaper">
+              Mais barato no {price.cheaper.store}: {formatMoney(price.cheaper.unitCents)}
             </span>
           )}
         </span>

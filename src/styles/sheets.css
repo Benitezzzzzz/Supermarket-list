@@ -462,3 +462,24 @@
   font-size: var(--text-xs);
   color: var(--ink-soft);
 }
+
+/* Finalizar: mercado da compra, com atalhos para os já usados. */
+.field-label__optional {
+  color: var(--ink-soft);
+  font-weight: var(--weight-regular);
+}
+
+.store-chips {
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: calc(-1 * var(--space-1));
+}
+
+.chip--small {
+  min-height: 34px;
+  font-size: var(--text-sm);
+}

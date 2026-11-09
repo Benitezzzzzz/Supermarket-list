@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { describePayment, formatMoney } from "../domain/money";
+import { purchaseStore } from "../domain/storeName";
 import type { Purchase } from "../domain/types";
 import { BottomSheet } from "../ui/BottomSheet";
 import { Icon } from "../ui/Icon";
@@ -12,6 +13,7 @@ interface EditPurchaseSheetProps {
   onClose: () => void;
   /** Abre direto na confirmação de excluir; Cancelar então fecha o painel. */
   startWithDelete?: boolean;
+  stores?: string[];
 }
 
 /** Edita valor ou forma de pagamento, ou exclui a compra (com confirmação). */
@@ -21,6 +23,7 @@ export function EditPurchaseSheet({
   onDelete,
   onClose,
   startWithDelete = false,
+  stores = [],
 }: EditPurchaseSheetProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(startWithDelete);
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -56,7 +59,12 @@ export function EditPurchaseSheet({
 
   return (
     <BottomSheet title="Editar compra" onClose={onClose}>
-      <PurchaseForm initial={purchase} submitLabel="Salvar alterações" onSubmit={onSave} />
+      <PurchaseForm
+        initial={{ ...purchase, store: purchaseStore(purchase) }}
+        submitLabel="Salvar alterações"
+        onSubmit={onSave}
+        stores={stores}
+      />
       <button
         type="button"
         className="btn btn--danger-soft btn--block"

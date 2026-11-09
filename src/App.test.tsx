@@ -487,7 +487,7 @@ describe("App", () => {
 
     expect(await screen.findByText("Cupom salvo. 1 item voltou para a lista")).toBeTruthy();
     expect(screen.getAllByText(/R\$\s22,52/).length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText(/· RC Comercio de Alimentos LTDA/)).toBeTruthy();
+    expect(screen.getByText(/· por Renan · RC$/)).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Da lista · 2" })).toBeTruthy();
     expect(screen.getByText(/^R\$\s17,38$/)).toBeTruthy();
 

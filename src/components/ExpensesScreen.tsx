@@ -12,6 +12,7 @@ import {
   purchaseMonth,
 } from "../domain/history";
 import { describePayment, formatMoney } from "../domain/money";
+import { purchaseStore } from "../domain/storeName";
 import type { MonthTotal, Purchase } from "../domain/types";
 import { useMonthTotals } from "../hooks/useMonthTotals";
 import { Icon } from "../ui/Icon";
@@ -143,7 +144,7 @@ function PurchaseCard({
         <span className="purchase__meta">
           {purchase.itemCount === 1 ? "1 item" : `${purchase.itemCount} itens`}
           {purchase.memberName && ` · por ${purchase.memberName}`}
-          {purchase.receipt?.storeName && ` · ${purchase.receipt.storeName}`}
+          {purchaseStore(purchase) && ` · ${purchaseStore(purchase)}`}
         </span>
       </button>
 

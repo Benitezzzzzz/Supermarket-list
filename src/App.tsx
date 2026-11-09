@@ -21,6 +21,7 @@ import { DEFAULT_CATEGORY, knownCategories } from "./domain/categories";
 import { createItem, describeItem } from "./domain/items";
 import { findProduct } from "./domain/barcodes";
 import { buildPriceIndex, lastPrice, pricesFor } from "./domain/prices";
+import { knownStores } from "./domain/storeName";
 import { createTemplate, itemsFromTemplate, knownCategoryFor } from "./domain/templates";
 import type { Item, ListSummary, Template, UserInfo } from "./domain/types";
 import { canKeepAwake, useKeepAwake } from "./hooks/useKeepAwake";
@@ -302,6 +303,7 @@ export function App({
         <FinishSheet
           listId={current.id}
           items={state.items}
+          stores={knownStores(state.purchases)}
           onFinish={(details, { receipt, saveAsTemplate }) => {
             const itemIds = state.items.map((item) => item.id);
             const items = purchasedItems(state.items);

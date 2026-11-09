@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildPriceIndex } from "./prices";
+import { buildPriceIndex, priceTrend, pricesFor, storePrices } from "./prices";
+import { knownStores, purchaseStore } from "./storeName";
 import { priceGaps, shortStoreName, storeTotals } from "./stores";
 import type { Purchase } from "./types";
 
@@ -66,5 +67,38 @@ describe("mercados", () => {
     expect(gaps[0].cheapest).toMatchObject({ store: "Atacadao", unitCents: 2250 });
     expect(gaps[0].priciest).toMatchObject({ store: "Bompreco", unitCents: 2490 });
     expect(gaps[0].percent).toBe(11);
+  });
+
+  it("Leite Elegê: R$ 6 num mercado, R$ 7 no outro no mês seguinte", () => {
+    const outubro = { ...purchase(1, null, 600, "2026-10-05T15:00:00.000Z", [["Leite Elegê", 600]]), store: "Atacadão" };
+    const novembro = { ...purchase(2, null, 700, "2026-11-05T15:00:00.000Z", [["Leite Elegê", 700]]), store: "Bompreço" };
+    const index = buildPriceIndex([outubro, novembro]);
+
+    const trend = priceTrend(index, "Leite Elegê");
+    expect(trend?.last).toMatchObject({ unitCents: 700, storeName: "Bompreço" });
+    expect(trend?.percent).toBe(17);
+    expect(trend?.cheaper).toMatchObject({ store: "Atacadão", unitCents: 600 });
+
+    expect(storePrices(pricesFor(index, "leite elege")).map((p) => [p.store, p.unitCents])).toEqual([
+      ["Atacadão", 600],
+      ["Bompreço", 700],
+    ]);
+  });
+
+  it("sem outro mercado mais barato, não sugere nada", () => {
+    const a = { ...purchase(1, null, 700, "2026-10-05T15:00:00.000Z", [["Leite", 700]]), store: "Atacadão" };
+    const b = { ...purchase(2, null, 600, "2026-11-05T15:00:00.000Z", [["Leite", 600]]), store: "atacadao" };
+    expect(priceTrend(buildPriceIndex([a, b]), "Leite")?.cheaper).toBeNull();
+  });
+
+  it("o mercado digitado vale mais que o do cupom e junta grafias", () => {
+    expect(purchaseStore({ store: " Atacadão ", receipt: null })).toBe("Atacadão");
+    expect(purchaseStore({ store: "", receipt: purchase(1, "BOMPRECO S/A", 1, "2026-11-01T00:00:00.000Z").receipt })).toBe("Bompreco");
+    const purchases = [
+      { ...purchase(1, null, 1000, "2026-11-02T15:00:00.000Z"), store: "Atacadão" },
+      { ...purchase(2, null, 2000, "2026-11-03T15:00:00.000Z"), store: "atacadao" },
+    ];
+    expect(storeTotals(purchases, "2026-11").stores).toHaveLength(1);
+    expect(knownStores(purchases)).toEqual(["atacadao"]);
   });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { describePayment, formatMoney } from "../domain/money";
+import { shortStoreName } from "../domain/storeName";
 import type { Item, Purchase, PurchasedItem } from "../domain/types";
 import { BottomSheet } from "../ui/BottomSheet";
 import { Icon } from "../ui/Icon";
@@ -23,6 +24,8 @@ interface FinishSheetProps {
   items: Item[];
   onFinish: (details: PurchaseDetails, extras: FinishExtras) => void;
   onClose: () => void;
+  /** Mercados já usados nesta lista. */
+  stores: string[];
 }
 
 type Step = "form" | "receipt" | "confirm";
@@ -31,7 +34,7 @@ type Step = "form" | "receipt" | "confirm";
  * Finalizar em até três passos: ler o cupom (opcional, preenche o valor e os preços),
  * o pagamento, e a pergunta "Finalizar lista?", com a opção de guardar a compra como modelo.
  */
-export function FinishSheet({ listId, items, onFinish, onClose }: FinishSheetProps) {
+export function FinishSheet({ listId, items, onFinish, onClose, stores }: FinishSheetProps) {
   const [step, setStep] = useState<Step>("form");
   const [details, setDetails] = useState<PurchaseDetails | null>(null);
   const [receipt, setReceipt] = useState<ReceiptResult | null>(null);
@@ -65,6 +68,8 @@ export function FinishSheet({ listId, items, onFinish, onClose }: FinishSheetPro
           setReceipt(result);
           const read = result.receipt.totalCents;
           if (read) setDetails((current) => current && { ...current, amountCents: read });
+          const store = shortStoreName(result.receipt.storeName);
+          if (store) setDetails((current) => current && { ...current, store: current.store || store });
           setStep("form");
         }}
         onBack={() => setStep("form")}
@@ -78,7 +83,10 @@ export function FinishSheet({ listId, items, onFinish, onClose }: FinishSheetPro
       <BottomSheet title="Finalizar lista?" onClose={onClose}>
         <div className="summary">
           <span className="summary__amount">{formatMoney(details.amountCents)}</span>
-          <span className="summary__method">{describePayment(details)}</span>
+          <span className="summary__method">
+            {describePayment(details)}
+            {details.store && ` · ${details.store}`}
+          </span>
         </div>
         <p className="hint">
           {itemCount === 1
@@ -141,7 +149,13 @@ export function FinishSheet({ listId, items, onFinish, onClose }: FinishSheetPro
       <PurchaseForm
         // Ao ler o cupom, o formulário recomeça com o total dele.
         key={total ?? "sem-cupom"}
-        initial={details ?? (total !== null ? { amountCents: total } : undefined)}
+        initial={
+          details ??
+          (receipt
+            ? { amountCents: total ?? undefined, store: shortStoreName(receipt.receipt.storeName) }
+            : undefined)
+        }
+        stores={stores}
         submitLabel="Continuar"
         onSubmit={(next) => {
           setDetails(next);

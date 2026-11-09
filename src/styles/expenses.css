@@ -592,7 +592,8 @@
   padding-bottom: var(--space-1);
 }
 
-.price-table th small {
+.price-table th small,
+.price-table td small {
   display: block;
   color: var(--ink-soft);
 }

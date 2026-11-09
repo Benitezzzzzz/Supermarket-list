@@ -1,5 +1,6 @@
 import { parseMoney } from "./money";
 import { relate, words } from "./receipt";
+import { purchaseStore, storeKey } from "./storeName";
 import type { Item, PriceSource, Purchase } from "./types";
 
 /** Nome do produto sem acento, plural, unidade e palavras de ligação: "2 Leites" e "leite" são o mesmo. */
@@ -97,7 +98,7 @@ export function buildPriceIndex(purchases: Purchase[]): PriceIndex {
         totalCents: price.totalCents,
         date: purchase.createdAt,
         purchaseId: purchase.id,
-        storeName: purchase.receipt?.storeName ?? "",
+        storeName: purchaseStore(purchase),
         source: price.source,
       });
       index.set(key, points);
@@ -119,18 +120,53 @@ export function lastPrice(index: PriceIndex, text: string, excludePurchaseId?: s
 /** A partir de quantos por cento de diferença o preço conta como subida ou queda. */
 export const PRICE_ALERT_PERCENT = 10;
 
+export interface StorePrice {
+  store: string;
+  unitCents: number;
+  date: string;
+  count: number;
+}
+
+/**
+ * O último preço do produto em cada mercado, do mais barato ao mais caro.
+ * Compras sem mercado conhecido ficam de fora.
+ */
+export function storePrices(points: PricePoint[]): StorePrice[] {
+  const byStore = new Map<string, StorePrice>();
+  // Os pontos vêm do mais recente ao mais antigo: o primeiro de cada mercado é o último preço lá.
+  for (const point of points) {
+    if (!point.storeName || point.unitCents <= 0) continue;
+    const key = storeKey(point.storeName);
+    const known = byStore.get(key);
+    if (known) known.count += 1;
+    else byStore.set(key, { store: point.storeName, unitCents: point.unitCents, date: point.date, count: 1 });
+  }
+  return [...byStore.values()].sort((a, b) => a.unitCents - b.unitCents || b.date.localeCompare(a.date));
+}
+
 export interface PriceTrend {
   last: PricePoint;
   /** Variação da última compra em relação à anterior, em %; null sem compra anterior. */
   percent: number | null;
+  /** Outro mercado onde o último preço foi menor que o da última compra. */
+  cheaper: StorePrice | null;
 }
 
-/** Último preço do produto e quanto ele mudou desde a compra anterior. */
+/** Último preço do produto, quanto ele mudou desde a compra anterior e se outro mercado saiu mais barato. */
 export function priceTrend(index: PriceIndex, text: string): PriceTrend | null {
-  const [last, previous] = pricesFor(index, text);
+  const points = pricesFor(index, text);
+  const [last, previous] = points;
   if (!last) return null;
-  if (!previous || previous.unitCents === 0) return { last, percent: null };
-  return { last, percent: Math.round(((last.unitCents - previous.unitCents) / previous.unitCents) * 100) };
+  const best = storePrices(points)[0];
+  const cheaper =
+    best && last.storeName && storeKey(best.store) !== storeKey(last.storeName) && best.unitCents < last.unitCents
+      ? best
+      : null;
+  const percent =
+    !previous || previous.unitCents === 0
+      ? null
+      : Math.round(((last.unitCents - previous.unitCents) / previous.unitCents) * 100);
+  return { last, percent, cheaper };
 }
 
 export interface ListEstimate {

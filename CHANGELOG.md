@@ -1,5 +1,19 @@
 # Changelog
 
+## 4.11.0 (2026-11-09)
+
+### Adicionado
+
+- **Mercado da compra:** campo "Mercado (opcional)" no Finalizar e em Editar compra, com atalhos para os mercados já usados. Com o cupom lido, vem preenchido com o nome curto da loja.
+- **Preço por mercado em cada produto:**
+  - Na lista: "Última: R$ 7,00 no Bompreço" e, quando outro mercado saiu mais barato, "Mais barato no Atacadão: R$ 6,00".
+  - No histórico de preços do item: tabela "Por mercado", com o último preço em cada um e a diferença para o mais barato.
+- "Por mercado" em Gastos passa a contar também as compras sem cupom que têm o mercado escrito.
+
+### Banco de dados
+
+- Migração `0011_mercado_da_compra.sql`: coluna `store` em `purchases`.
+
 ## 4.10.0 (2026-11-09)
 
 ### Adicionado

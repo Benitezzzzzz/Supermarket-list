@@ -1,5 +1,6 @@
 import type { SyncedList } from "../data/syncedList";
 import type { PriceIndex } from "../domain/prices";
+import { knownStores } from "../domain/storeName";
 import type { Purchase } from "../domain/types";
 import { EditPurchaseSheet } from "./EditPurchaseSheet";
 import { PricesSheet } from "./PricesSheet";
@@ -36,6 +37,7 @@ export function PurchaseSheets({ sheet, purchases, listId, list, prices, show, o
       <EditPurchaseSheet
         purchase={purchase}
         startWithDelete={sheet.confirmDelete === true}
+        stores={knownStores(purchases)}
         onSave={(payment) => {
           list.updatePurchase(purchase.id, payment);
           onClose();

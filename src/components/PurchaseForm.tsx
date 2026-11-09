@@ -1,4 +1,5 @@
 import { type FormEvent, useId, useRef, useState } from "react";
+import { MAX_STORE } from "../../shared/contract.ts";
 import {
   centsToInput,
   formatMoney,
@@ -13,6 +14,8 @@ export interface PurchaseDetails {
   amountCents: number;
   method: PaymentMethod;
   installments: number;
+  /** Mercado onde comprou; vazio quando a pessoa não escreveu. */
+  store: string;
 }
 
 interface PurchaseFormProps {
@@ -20,6 +23,8 @@ interface PurchaseFormProps {
   initial?: Partial<PurchaseDetails>;
   submitLabel: string;
   onSubmit: (details: PurchaseDetails) => void;
+  /** Mercados já usados, sugeridos ao digitar. */
+  stores?: string[];
 }
 
 const METHODS: { value: PaymentMethod; icon: IconName; tone: string }[] = [
@@ -30,7 +35,9 @@ const METHODS: { value: PaymentMethod; icon: IconName; tone: string }[] = [
 ];
 
 /** Valor e forma de pagamento. Usado ao finalizar e ao corrigir uma compra. */
-export function PurchaseForm({ initial, submitLabel, onSubmit }: PurchaseFormProps) {
+export function PurchaseForm({ initial, submitLabel, onSubmit, stores = [] }: PurchaseFormProps) {
+  const [store, setStore] = useState(initial?.store ?? "");
+  const storesId = useId();
   const [amountText, setAmountText] = useState(initial?.amountCents ? centsToInput(initial.amountCents) : "");
   const [method, setMethod] = useState<PaymentMethod | null>(initial?.method ?? null);
   const [split, setSplit] = useState((initial?.installments ?? 1) > 1);
@@ -53,7 +60,12 @@ export function PurchaseForm({ initial, submitLabel, onSubmit }: PurchaseFormPro
       return;
     }
     setError("");
-    onSubmit({ amountCents, method, installments: method === "credito" && split ? installments : 1 });
+    onSubmit({
+      amountCents,
+      method,
+      installments: method === "credito" && split ? installments : 1,
+      store: store.trim().replace(/\s+/g, " "),
+    });
   }
 
   return (
@@ -78,6 +90,38 @@ export function PurchaseForm({ initial, submitLabel, onSubmit }: PurchaseFormPro
           onChange={(event) => setAmountText(event.target.value)}
         />
       </div>
+
+      <label htmlFor="mercado-compra" className="field-label">
+        Mercado <span className="field-label__optional">(opcional)</span>
+      </label>
+      <input
+        id="mercado-compra"
+        className="field"
+        type="text"
+        placeholder="Ex.: Atacadão"
+        autoComplete="off"
+        maxLength={MAX_STORE}
+        list={stores.length > 0 ? storesId : undefined}
+        value={store}
+        onChange={(event) => setStore(event.target.value)}
+      />
+      {stores.length > 0 && (
+        <datalist id={storesId}>
+          {stores.map((name) => (
+            <option key={name} value={name} />
+          ))}
+        </datalist>
+      )}
+      {stores.length > 0 && !store && (
+        <fieldset className="store-chips">
+          <legend className="visually-hidden">Mercados já usados</legend>
+          {stores.slice(0, 4).map((name) => (
+            <button key={name} type="button" className="chip chip--small" onClick={() => setStore(name)}>
+              {name}
+            </button>
+          ))}
+        </fieldset>
+      )}
 
       <fieldset className="tiles tiles--stack">
         <legend className="field-label">Forma de pagamento</legend>

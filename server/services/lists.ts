@@ -118,7 +118,7 @@ export class ListService {
         .all<{ name: string }>(),
       this.db
         .prepare(
-          `SELECT id, amount_cents AS amountCents, method, installments, item_count AS itemCount,
+          `SELECT id, amount_cents AS amountCents, method, installments, store, item_count AS itemCount,
              member_name AS memberName, created_at AS createdAt, items
            FROM purchases WHERE list_id = ? AND deleted_at IS NULL
            ORDER BY created_at DESC LIMIT ${RECENT_PURCHASES}`,
@@ -287,8 +287,8 @@ export class ListService {
       this.db
         .prepare(
           `INSERT INTO purchases
-             (list_id, id, amount_cents, method, installments, item_count, member_name, created_at, items)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             (list_id, id, amount_cents, method, installments, store, item_count, member_name, created_at, items)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT DO NOTHING`,
         )
         .bind(
@@ -297,6 +297,7 @@ export class ListService {
           purchase.amountCents,
           purchase.method,
           purchase.installments,
+          purchase.store ?? "",
           purchase.itemCount,
           memberName,
           purchase.createdAt,
@@ -310,10 +311,10 @@ export class ListService {
   async updatePurchase(listId: string, id: string, payment: Payment): Promise<boolean> {
     const { meta } = await this.db
       .prepare(
-        `UPDATE purchases SET amount_cents = ?, method = ?, installments = ?
+        `UPDATE purchases SET amount_cents = ?, method = ?, installments = ?, store = COALESCE(?, store)
          WHERE list_id = ? AND id = ?`,
       )
-      .bind(payment.amountCents, payment.method, payment.installments, listId, id)
+      .bind(payment.amountCents, payment.method, payment.installments, payment.store ?? null, listId, id)
       .run();
     return meta.changes > 0;
   }

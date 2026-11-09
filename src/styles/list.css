@@ -716,3 +716,13 @@
   outline: 3px solid var(--hero-ink);
   outline-offset: 2px;
 }
+
+/* "Mais barato no Atacadão: R$ 6,00", abaixo do último preço. */
+.item__ref--cheaper {
+  color: var(--primary-soft-ink);
+  font-weight: var(--weight-bold);
+}
+
+.item--done .item__ref--cheaper {
+  color: inherit;
+}

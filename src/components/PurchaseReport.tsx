@@ -4,6 +4,7 @@ import { describePayment, formatMoney } from "../domain/money";
 import { formatCnpj } from "../domain/receipt";
 import type { Purchase } from "../domain/types";
 import { PurchaseDetails } from "./PurchaseDetails";
+import { purchaseStore } from "../domain/storeName";
 
 interface PurchaseReportProps {
   purchase: Purchase;
@@ -72,7 +73,8 @@ export function PurchaseReport({ purchase, listName, onDone }: PurchaseReportPro
     ["Finalizada em", longDate.format(new Date(purchase.createdAt))],
   ];
   if (purchase.memberName) rows.push(["Por", purchase.memberName]);
-  if (receipt?.storeName) rows.push(["Loja", receipt.storeName]);
+  if (purchaseStore(purchase)) rows.push(["Mercado", purchaseStore(purchase)]);
+  if (receipt?.storeName && receipt.storeName !== purchaseStore(purchase)) rows.push(["Loja no cupom", receipt.storeName]);
   if (receipt?.cnpj) rows.push(["CNPJ", formatCnpj(receipt.cnpj)]);
   if (receipt?.issuedOn) rows.push(["Data do cupom", formatDay(receipt.issuedOn)]);
   if (receipt?.totalCents != null) rows.push(["Total do cupom", formatMoney(receipt.totalCents)]);
