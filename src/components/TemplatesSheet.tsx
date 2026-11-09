@@ -7,6 +7,7 @@ import { createTemplate, uniqueItems } from "../domain/templates";
 import type { Item, Template, TemplateItem } from "../domain/types";
 import { BottomSheet } from "../ui/BottomSheet";
 import { Icon } from "../ui/Icon";
+import { CategoryOptions } from "./CategoryOptions";
 
 interface TemplatesSheetProps {
   templates: Template[];
@@ -18,13 +19,27 @@ interface TemplatesSheetProps {
   onSave: (template: Template) => void;
   onDelete: (template: Template) => void;
   onClose: () => void;
+  /** Modelo novo já preenchido (a compra que acabou de ser finalizada): abre direto nele. */
+  draft?: Template;
+  /** Categorias da lista, para escolher a de cada item do modelo. */
+  categories: string[];
 }
 
 type Mode = { kind: "list" } | { kind: "edit"; template: Template; isNew: boolean };
 
 /** Lista dos modelos: usar, editar, definir o padrão, criar a partir da lista atual. */
-export function TemplatesSheet({ templates, items, categoryFor, onUse, onSave, onDelete, onClose }: TemplatesSheetProps) {
-  const [mode, setMode] = useState<Mode>({ kind: "list" });
+export function TemplatesSheet({
+  templates,
+  items,
+  categoryFor,
+  onUse,
+  onSave,
+  onDelete,
+  onClose,
+  draft,
+  categories,
+}: TemplatesSheetProps) {
+  const [mode, setMode] = useState<Mode>(draft ? { kind: "edit", template: draft, isNew: true } : { kind: "list" });
   const full = templates.length >= MAX_TEMPLATES;
 
   if (mode.kind === "edit") {
@@ -33,6 +48,7 @@ export function TemplatesSheet({ templates, items, categoryFor, onUse, onSave, o
         template={mode.template}
         isNew={mode.isNew}
         categoryFor={categoryFor}
+        categories={categories}
         onSave={(template) => {
           onSave(template);
           setMode({ kind: "list" });
@@ -133,13 +149,14 @@ interface TemplateEditorProps {
   template: Template;
   isNew: boolean;
   categoryFor: (text: string) => string;
+  categories: string[];
   onSave: (template: Template) => void;
   onDelete: () => void;
   onBack: () => void;
   onClose: () => void;
 }
 
-function TemplateEditor({ template, isNew, categoryFor, onSave, onDelete, onBack, onClose }: TemplateEditorProps) {
+function TemplateEditor({ template, isNew, categoryFor, categories, onSave, onDelete, onBack, onClose }: TemplateEditorProps) {
   const [name, setName] = useState(template.name);
   const [isDefault, setIsDefault] = useState(template.isDefault);
   const [items, setItems] = useState<TemplateItem[]>(template.items);
@@ -165,6 +182,13 @@ function TemplateEditor({ template, isNew, categoryFor, onSave, onDelete, onBack
   function setQuantity(index: number, quantity: number) {
     setItems(items.map((item, position) => (position === index ? { ...item, quantity } : item)));
   }
+
+  function setCategory(index: number, category: string) {
+    setItems(items.map((item, position) => (position === index ? { ...item, category } : item)));
+  }
+
+  /** A categoria do item aparece mesmo que não esteja mais entre as da lista. */
+  const optionsFor = (category: string) => (categories.includes(category) ? categories : [...categories, category]);
 
   function save() {
     if (!name.trim()) {
@@ -226,7 +250,17 @@ function TemplateEditor({ template, isNew, categoryFor, onSave, onDelete, onBack
           <ul className="template-items">
             {items.map((item, index) => (
               <li key={productKey(item.text)} className="template-item">
-                <span className="template-item__text">{item.text}</span>
+                <span className="template-item__main">
+                  <span className="template-item__text">{item.text}</span>
+                  <select
+                    className="template-item__category"
+                    aria-label={`Categoria de ${item.text}`}
+                    value={item.category}
+                    onChange={(event) => setCategory(index, event.target.value)}
+                  >
+                    <CategoryOptions categories={optionsFor(item.category)} />
+                  </select>
+                </span>
                 <span className="template-item__qty">
                   <button
                     type="button"

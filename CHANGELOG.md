@@ -1,5 +1,17 @@
 # Changelog
 
+## 4.10.0 (2026-11-09)
+
+### Adicionado
+
+- **Cupom no Finalizar:** "Ler o cupom fiscal" logo no começo do Finalizar. O valor da compra vem preenchido com o total do cupom, e o cupom fica guardado na compra ao finalizar. O que faltou comprar pode voltar para a lista.
+- **Salvar a compra como modelo:** na pergunta "Finalizar lista?", a opção "Salvar como modelo de lista" abre o novo modelo já com os itens da compra, para dar um nome.
+- **Categoria nos modelos:** cada item do modelo mostra a categoria e deixa trocar.
+- **− e + na lista:** a quantidade muda na própria linha, sem abrir o item.
+- **Arrastar para marcar:** arrastar a linha para o lado marca ou desmarca o item.
+- **Enviar lista:** botão no cabeçalho que manda o que falta comprar pelo WhatsApp (ou outro app), separado por categoria e com a quantidade. Colada de volta no app, a lista entra igual.
+- **Por mercado, em Gastos:** quanto foi gasto em cada mercado no mês, com barras, e "Onde sai mais barato", que compara o último preço do mesmo produto em mercados diferentes. Usa os cupons lidos.
+
 ## 4.9.0 (2026-11-09)
 
 ### Mudado

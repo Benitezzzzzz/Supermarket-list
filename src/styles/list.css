@@ -607,3 +607,112 @@
   background: var(--surface);
   box-shadow: var(--shadow-card);
 }
+
+/* Modelo: cada item mostra a categoria e deixa trocar. */
+.template-item__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-1) 0;
+}
+
+.template-item__main .template-item__text {
+  flex: none;
+}
+
+.template-item__category {
+  align-self: flex-start;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface-muted);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+}
+
+/* Arrastar para o lado marca o item: a linha acompanha o dedo e fica verde quando já vale. */
+.item {
+  touch-action: pan-y;
+}
+
+.item--swiping {
+  transform: translateX(var(--swipe, 0));
+  transition: none;
+  user-select: none;
+}
+
+.item--swipe-ready {
+  background: var(--primary-soft);
+}
+
+.item--done.item--swipe-ready {
+  background: var(--surface);
+}
+
+/* − 2× + na própria linha (só nos itens que faltam comprar). */
+.item__qty {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.item__step {
+  width: 30px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.item__step:active {
+  background: var(--surface-muted);
+}
+
+.item__step:disabled {
+  opacity: 0.35;
+}
+
+.item__step:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+/* Enviar a lista (WhatsApp ou outro app) pelo compartilhar do celular. */
+.hero__share {
+  align-self: flex-start;
+  margin-top: var(--space-2);
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--hero-chip);
+  color: var(--hero-ink);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+}
+
+.hero__share:active {
+  transform: scale(0.97);
+}
+
+.hero__share:focus-visible {
+  outline: 3px solid var(--hero-ink);
+  outline-offset: 2px;
+}

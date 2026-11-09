@@ -1,6 +1,7 @@
 const PATHS = {
   plus: "M12 5v14M5 12h14",
   minus: "M5 12h14",
+  share: "M4 13v7h16v-7M12 3v13M7 8l5-5 5 5",
   check: "M5 13l4 4L19 7",
   close: "M6 6l12 12M18 6L6 18",
   edit: "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z",

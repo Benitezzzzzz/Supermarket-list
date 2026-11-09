@@ -387,3 +387,78 @@
   color: var(--ink);
   font-weight: var(--weight-black);
 }
+
+/* Finalizar: atalho para ler o cupom antes do pagamento. */
+.finish-scan {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 2px dashed var(--primary);
+  border-radius: var(--radius-lg);
+  background: var(--primary-soft);
+  color: var(--primary-soft-ink);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.finish-scan:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.finish-scan__icon {
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: var(--on-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.finish-scan__text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.finish-scan__title {
+  font-weight: var(--weight-black);
+}
+
+.finish-scan__note {
+  font-size: var(--text-xs);
+}
+
+.finish-receipt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* Opção com título e explicação, num cartão. */
+.choice--card {
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  font-size: var(--text-md);
+}
+
+.choice--card > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.choice__note {
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}

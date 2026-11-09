@@ -100,6 +100,7 @@ describe("App", () => {
   beforeEach(() => {
     localStorage.clear();
     calls.length = 0;
+    receiptMocks.sent.length = 0;
   });
   afterEach(cleanup);
 
@@ -251,7 +252,7 @@ describe("App", () => {
     expect(marcado.closest("li")?.className).toContain("item--done");
     // Continua na mesma ordem: Arroz antes de Feijão.
     const ordem = within(card).getAllByRole("button", { name: /Arroz|Feijão/ }).map((b) => b.getAttribute("aria-label"));
-    expect(ordem.filter((n) => !n?.startsWith("Editar"))).toEqual(["Desmarcar Arroz", "Marcar Feijão como comprado"]);
+    expect(ordem.filter((n) => !/^(Editar|Menos|Mais) /.test(n ?? ""))).toEqual(["Desmarcar Arroz", "Marcar Feijão como comprado"]);
     expect(screen.queryByText(/No carrinho/)).toBeNull();
     expect(screen.getByText("Oi, Renan! Falta 1 item.")).toBeTruthy();
 
@@ -326,6 +327,58 @@ describe("App", () => {
     expect(screen.getAllByText(/R\$\s152,90/).length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/Crédito em 3x de R\$\s50,97/)).toBeTruthy();
     expect(screen.getByText("2 itens · por Renan")).toBeTruthy();
+  });
+
+  it("muda a quantidade com − e + na própria linha", async () => {
+    const user = renderApp();
+    await addItems(user, "Arroz");
+    const row = () => screen.getByRole("button", { name: "Marcar Arroz como comprado" }).closest("li") as HTMLElement;
+    expect(row().textContent).toContain("1×");
+    expect((within(row()).getByRole("button", { name: "Menos Arroz" }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(within(row()).getByRole("button", { name: "Mais Arroz" }));
+    await user.click(within(row()).getByRole("button", { name: "Mais Arroz" }));
+    expect(row().textContent).toContain("3×");
+    await user.click(within(row()).getByRole("button", { name: "Menos Arroz" }));
+    expect(row().textContent).toContain("2×");
+  });
+
+  it("lê o cupom já no Finalizar, preenche o valor e salva a compra como modelo", async () => {
+    const user = renderApp();
+    await addItems(user, "Amendoim", "Café", "Leite");
+    await user.click(screen.getByRole("button", { name: "Finalizar compra" }));
+    await user.click(await screen.findByRole("button", { name: /Ler o cupom fiscal/ }));
+
+    const sheet = await screen.findByRole("dialog", { name: "Cupom fiscal" });
+    const camera = sheet.querySelector("input[capture]") as HTMLInputElement;
+    await user.upload(camera, new File(["x"], "cupom.jpg", { type: "image/jpeg" }));
+    expect(await within(sheet).findByText("RC Comercio de Alimentos LTDA")).toBeTruthy();
+    // Ainda não há valor digitado: não pergunta se usa o total do cupom.
+    expect(within(sheet).queryByRole("checkbox", { name: /Usar o total do cupom/ })).toBeNull();
+    await user.click(within(sheet).getByRole("button", { name: "Continuar para o pagamento" }));
+
+    const form = await screen.findByRole("dialog", { name: "Finalizar compra" });
+    expect(within(form).getByRole("status").textContent).toMatch(/Cupom lido/);
+    expect((within(form).getByLabelText("Valor da compra") as HTMLInputElement).value).toBe("22,52");
+    await user.click(within(form).getByRole("radio", { name: "PIX" }));
+    await user.click(within(form).getByRole("button", { name: "Continuar" }));
+
+    const confirm = await screen.findByRole("dialog", { name: "Finalizar lista?" });
+    expect(within(confirm).getByText(/O cupom lido vai junto/)).toBeTruthy();
+    await user.click(within(confirm).getByRole("checkbox", { name: /Salvar como modelo de lista/ }));
+    await user.click(within(confirm).getByRole("button", { name: "Sim, finalizar" }));
+
+    const editor = await screen.findByRole("dialog", { name: "Novo modelo" });
+    expect(within(editor).getByText("Amendoim")).toBeTruthy();
+    const category = within(editor).getByRole("combobox", { name: "Categoria de Café" }) as HTMLSelectElement;
+    await user.selectOptions(category, "Mercearia");
+    await user.type(within(editor).getByLabelText("Nome do modelo"), "Feira");
+    await user.click(within(editor).getByRole("button", { name: "Salvar modelo" }));
+    expect(await screen.findByText("Modelo Feira salvo")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Fechar" }));
+    await user.click(screen.getByRole("button", { name: "Gastos" }));
+    expect(screen.getAllByText(/R\$\s22,52/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("region", { name: "Por mercado" })).toBeTruthy();
   });
 
   it("dizer Não na pergunta volta sem apagar nada", async () => {
@@ -663,7 +716,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Usar “Compra do mês”" }));
     expect(await screen.findByText("2 itens de Compra do mês entraram na lista")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Marcar Leite como comprado" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Marcar Café como comprado" }).textContent).toContain("2×");
+    expect(screen.getByRole("button", { name: "Marcar Café como comprado" }).closest("li")?.textContent).toContain("2×");
 
     // Usar de novo não duplica o que já está na lista.
     await user.click(screen.getByRole("button", { name: "Modelos de lista" }));

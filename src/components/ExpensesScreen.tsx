@@ -19,6 +19,7 @@ import { ChangeText } from "./ChangeText";
 import { MonthChart } from "./MonthChart";
 import { PurchaseDetails } from "./PurchaseDetails";
 import { PurchaseReport } from "./PurchaseReport";
+import { StoresCard } from "./StoresCard";
 
 interface ExpensesScreenProps {
   purchases: Purchase[];
@@ -257,6 +258,7 @@ export function ExpensesScreen({
               setFiltered(true);
             }}
           />
+          <StoresCard purchases={purchases} month={selected} />
         </>
       )}
 

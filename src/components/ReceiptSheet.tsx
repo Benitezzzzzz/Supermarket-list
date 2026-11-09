@@ -31,8 +31,15 @@ interface ReceiptSheetProps {
   listId: string;
   purchase: Purchase;
   onSave: (result: ReceiptResult) => void;
-  onRemove: () => void;
+  onRemove?: () => void;
   onClose: () => void;
+  /**
+   * Lido no Finalizar, antes de a compra existir: o valor ainda não foi digitado (vem do cupom),
+   * então não há "usar o total" e o botão só continua para o pagamento.
+   */
+  draft?: boolean;
+  /** No rascunho, voltar leva ao Finalizar em vez de fechar tudo. */
+  onBack?: () => void;
 }
 
 type Step =
@@ -67,7 +74,9 @@ function Review({
   onSave,
   onAddPhoto,
   onAddFromGallery,
+  draft = false,
 }: {
+  draft?: boolean;
   purchase: Purchase;
   receipt: Receipt;
   qr: NfceQr | null;
@@ -82,7 +91,7 @@ function Review({
   const relations = relate(purchase.items, receipt);
   const [useTotal, setUseTotal] = useState(true);
   const [returning, setReturning] = useState<Set<number>>(new Set());
-  const differentTotal = receipt.totalCents !== null && receipt.totalCents !== purchase.amountCents;
+  const differentTotal = !draft && receipt.totalCents !== null && receipt.totalCents !== purchase.amountCents;
   const sefazUrl = qr?.sefazUrl ?? (receipt.accessKey ? parseNfceQr(receipt.accessKey)?.sefazUrl : "");
 
   // Trocar a ligação muda a linha de grupo (e de lugar na tela); o foco vai junto.
@@ -264,14 +273,14 @@ function Review({
       )}
 
       <button type="button" className="btn btn--primary btn--block btn--xl" onClick={save}>
-        Salvar cupom
+        {draft ? "Continuar para o pagamento" : "Salvar cupom"}
       </button>
     </div>
   );
 }
 
 /** Ler o cupom fiscal de uma compra (foto ou QR code) e ligar à lista. */
-export function ReceiptSheet({ listId, purchase, onSave, onRemove, onClose }: ReceiptSheetProps) {
+export function ReceiptSheet({ listId, purchase, onSave, onRemove, onClose, draft = false, onBack }: ReceiptSheetProps) {
   const [step, setStep] = useState<Step>(() =>
     purchase.receipt
       ? { kind: "review", receipt: purchase.receipt, qr: null, photos: purchase.receipt.items.length > 0 ? 1 : 0 }
@@ -419,8 +428,9 @@ export function ReceiptSheet({ listId, purchase, onSave, onRemove, onClose }: Re
           onSave={onSave}
           onAddPhoto={() => moreCameraRef.current?.click()}
           onAddFromGallery={() => moreGalleryRef.current?.click()}
+          draft={draft}
         />
-        {purchase.receipt && (
+        {purchase.receipt && onRemove && (
           <div className="sheet__actions">
             <button type="button" className="btn btn--secondary" onClick={() => setStep({ kind: "choose" })}>
               Ler de novo
@@ -429,6 +439,11 @@ export function ReceiptSheet({ listId, purchase, onSave, onRemove, onClose }: Re
               Remover cupom
             </button>
           </div>
+        )}
+        {onBack && (
+          <button type="button" className="btn btn--link" onClick={onBack}>
+            Voltar sem o cupom
+          </button>
         )}
       </BottomSheet>
     );
@@ -476,6 +491,11 @@ export function ReceiptSheet({ listId, purchase, onSave, onRemove, onClose }: Re
           Foto do QR code
         </button>
       </div>
+      {onBack && (
+        <button type="button" className="btn btn--link" onClick={onBack}>
+          Voltar sem o cupom
+        </button>
+      )}
     </BottomSheet>
   );
 }

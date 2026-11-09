@@ -16,7 +16,8 @@ export interface PurchaseDetails {
 }
 
 interface PurchaseFormProps {
-  initial?: PurchaseDetails;
+  /** No Finalizar com cupom lido, só o valor vem preenchido. */
+  initial?: Partial<PurchaseDetails>;
   submitLabel: string;
   onSubmit: (details: PurchaseDetails) => void;
 }
@@ -30,7 +31,7 @@ const METHODS: { value: PaymentMethod; icon: IconName; tone: string }[] = [
 
 /** Valor e forma de pagamento. Usado ao finalizar e ao corrigir uma compra. */
 export function PurchaseForm({ initial, submitLabel, onSubmit }: PurchaseFormProps) {
-  const [amountText, setAmountText] = useState(initial ? centsToInput(initial.amountCents) : "");
+  const [amountText, setAmountText] = useState(initial?.amountCents ? centsToInput(initial.amountCents) : "");
   const [method, setMethod] = useState<PaymentMethod | null>(initial?.method ?? null);
   const [split, setSplit] = useState((initial?.installments ?? 1) > 1);
   const [installments, setInstallments] = useState(Math.max(2, initial?.installments ?? 2));

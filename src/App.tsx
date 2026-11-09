@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { MAX_TEMPLATES } from "../shared/contract.ts";
 import { AccountSheet } from "./components/AccountSheet";
 import { AddSheet } from "./components/AddSheet";
 import { AdminSheet } from "./components/AdminSheet";
@@ -7,7 +8,7 @@ import { ClearSheet } from "./components/ClearSheet";
 import { DisplaySheet } from "./components/DisplaySheet";
 import { EditItemSheet } from "./components/EditItemSheet";
 import { ExpensesScreen } from "./components/ExpensesScreen";
-import { FinishSheet } from "./components/FinishSheet";
+import { FinishSheet, purchasedItems } from "./components/FinishSheet";
 import { ImportSheet } from "./components/ImportSheet";
 import { takeSharedText } from "./sharedText";
 import { ListScreen } from "./components/ListScreen";
@@ -20,7 +21,7 @@ import { DEFAULT_CATEGORY, knownCategories } from "./domain/categories";
 import { createItem, describeItem } from "./domain/items";
 import { findProduct } from "./domain/barcodes";
 import { buildPriceIndex, lastPrice, pricesFor } from "./domain/prices";
-import { itemsFromTemplate, knownCategoryFor } from "./domain/templates";
+import { createTemplate, itemsFromTemplate, knownCategoryFor } from "./domain/templates";
 import type { Item, ListSummary, Template, UserInfo } from "./domain/types";
 import { canKeepAwake, useKeepAwake } from "./hooks/useKeepAwake";
 import { resolvedTheme, setThemeChoice, type ThemeChoice, themeChoice } from "./theme";
@@ -50,7 +51,7 @@ type Sheet =
   | { kind: "clear" }
   | { kind: "finish" }
   | PurchaseSheet
-  | { kind: "templates" }
+  | { kind: "templates"; draft?: Template }
   | { kind: "lists" }
   | { kind: "account" }
   | { kind: "display" }
@@ -148,6 +149,7 @@ export function App({
           awake={canKeepAwake && awake.enabled}
           onToggle={(item) => list.updateItem(item.id, { done: !item.done })}
           onEdit={(item) => setSheet({ kind: "edit", id: item.id })}
+          onQuantity={(item, quantity) => list.updateItem(item.id, { quantity })}
           onAskClearAll={() => setSheet({ kind: "clear" })}
           prices={priceIndex}
           onOpenTemplates={() => setSheet({ kind: "templates" })}
@@ -298,27 +300,51 @@ export function App({
 
       {sheet?.kind === "finish" && (
         <FinishSheet
-          itemCount={state.items.length}
-          onFinish={(details) => {
+          listId={current.id}
+          items={state.items}
+          onFinish={(details, { receipt, saveAsTemplate }) => {
             const itemIds = state.items.map((item) => item.id);
+            const items = purchasedItems(state.items);
+            const purchaseId = crypto.randomUUID();
             list.finishShopping(
               {
-                id: crypto.randomUUID(),
+                id: purchaseId,
                 ...details,
                 itemCount: itemIds.length,
                 memberName: user.displayName,
                 createdAt: new Date().toISOString(),
-                items: state.items.map(({ text, quantity, category, done }) => ({
-                  text,
-                  quantity,
-                  category,
-                  done,
-                })),
+                items,
               },
               itemIds,
             );
+            // O que faltou comprar (marcado na revisão do cupom) volta para a lista.
+            const back = receipt?.returnItems.length ?? 0;
+            if (receipt) {
+              list.setReceipt(purchaseId, receipt.receipt);
+              const now = Date.now();
+              list.addItems(
+                receipt.returnItems.map((item, index) => ({
+                  id: crypto.randomUUID(),
+                  text: item.text,
+                  quantity: item.quantity,
+                  category: item.category,
+                  done: false,
+                  createdAt: new Date(now + index).toISOString(),
+                })),
+              );
+            }
+            if (saveAsTemplate) {
+              const full = state.templates.length >= MAX_TEMPLATES;
+              setSheet(full ? null : { kind: "templates", draft: createTemplate("", items, state.templates.length === 0) });
+              show(full ? `Compra finalizada. Já há ${MAX_TEMPLATES} modelos: exclua um para salvar outro` : "Compra finalizada. Dê um nome ao modelo");
+              return;
+            }
             close();
-            show("Compra finalizada e guardada em Gastos");
+            show(
+              back > 0
+                ? `Compra finalizada. ${back === 1 ? "1 item voltou" : `${back} itens voltaram`} para a lista`
+                : "Compra finalizada e guardada em Gastos",
+            );
           }}
           onClose={close}
         />
@@ -327,6 +353,8 @@ export function App({
       {sheet?.kind === "templates" && (
         <TemplatesSheet
           templates={state.templates}
+          draft={sheet.draft}
+          categories={categories}
           items={state.items}
           categoryFor={categoryFor}
           onUse={applyTemplate}

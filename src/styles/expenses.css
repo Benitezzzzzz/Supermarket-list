@@ -614,3 +614,120 @@
   font-size: var(--text-sm);
   color: var(--ink-soft);
 }
+
+/* ---------- Por mercado (vem do cupom) ---------- */
+
+.stores {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.stores__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-black);
+}
+
+.stores__subtitle {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-md);
+  font-weight: var(--weight-black);
+}
+
+.stores__list,
+.stores__gaps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.stores__row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stores__line {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-weight: var(--weight-bold);
+}
+
+.stores__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.stores__amount {
+  flex: none;
+  font-weight: var(--weight-black);
+  font-variant-numeric: tabular-nums;
+}
+
+.stores__bar {
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.stores__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--chart-bar);
+}
+
+.stores__meta {
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
+.stores__gap {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-soft);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px var(--space-2);
+  align-items: center;
+}
+
+.stores__gap:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.stores__gap-name {
+  font-weight: var(--weight-bold);
+  overflow-wrap: anywhere;
+}
+
+.stores__gap-detail {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.stores__gap-detail strong {
+  color: var(--ink);
+}
+
+.stores__gap-badge {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--primary-soft);
+  color: var(--primary-soft-ink);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-black);
+  white-space: nowrap;
+}
+
+.stores-hint {
+  margin: 0;
+}

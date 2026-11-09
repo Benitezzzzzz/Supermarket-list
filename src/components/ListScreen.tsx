@@ -4,6 +4,7 @@ import { groupByCategory } from "../domain/categories";
 import { categoryStyle } from "../domain/categoryStyle";
 import { formatMoney } from "../domain/money";
 import { estimateList, type PriceIndex, priceTrend } from "../domain/prices";
+import { shareList, shareText } from "../domain/shareList";
 import type { Item, ListSummary, Template, UserInfo } from "../domain/types";
 import { Icon } from "../ui/Icon";
 import { ItemRow } from "./ItemRow";
@@ -22,6 +23,7 @@ interface ListScreenProps {
   awake: boolean;
   onToggle: (item: Item) => void;
   onEdit: (item: Item) => void;
+  onQuantity: (item: Item, quantity: number) => void;
   onAskClearAll: () => void;
   /** Preços já pagos, para a estimativa e a referência de cada item. */
   prices: PriceIndex;
@@ -74,6 +76,7 @@ export function ListScreen({
   awake,
   onToggle,
   onEdit,
+  onQuantity,
   onAskClearAll,
   prices,
   onOpenTemplates,
@@ -155,6 +158,16 @@ export function ListScreen({
                 Estimativa: <strong>{formatMoney(estimate.cents)}</strong>
                 {estimate.missing > 0 && ` · ${estimate.missing} sem preço`}
               </p>
+            )}
+            {toBuy.length > 0 && (
+              <button
+                type="button"
+                className="hero__share"
+                onClick={() => void shareList(shareText(current.name, state.items))}
+              >
+                <Icon name="share" size={16} strokeWidth={2.4} />
+                Enviar lista
+              </button>
             )}
           </div>
           {state.items.length > 0 && (
@@ -273,6 +286,7 @@ export function ListScreen({
                     item={item}
                     onToggle={onToggle}
                     onEdit={onEdit}
+                    onQuantity={onQuantity}
                     price={priceTrend(prices, item.text)}
                   />
                 ))}

@@ -1,4 +1,6 @@
+import { type CSSProperties, type PointerEvent, useRef, useState } from "react";
 import { categoryStyle } from "../domain/categoryStyle";
+import { MAX_QUANTITY } from "../domain/items";
 import { formatMoney } from "../domain/money";
 import { PRICE_ALERT_PERCENT, type PriceTrend } from "../domain/prices";
 import type { Item } from "../domain/types";
@@ -8,12 +10,79 @@ interface ItemRowProps {
   item: Item;
   onToggle: (item: Item) => void;
   onEdit: (item: Item) => void;
+  /** Muda a quantidade pelos botões − e + da própria linha. */
+  onQuantity: (item: Item, quantity: number) => void;
   /** Última compra deste produto e a variação: só referência, não vira o preço desta compra. */
   price?: PriceTrend | null;
 }
 
+/** Quanto o dedo precisa arrastar para o lado para marcar ou desmarcar. */
+const SWIPE_PX = 72;
+
+/**
+ * Arrastar a linha para o lado marca ou desmarca o item, como tocar nela.
+ * O movimento só conta quando é mais de lado do que para cima, para não atrapalhar a rolagem.
+ */
+function useSwipe(onSwipe: () => void) {
+  const start = useRef<{ x: number; y: number; id: number } | null>(null);
+  const swiping = useRef(false);
+  /** Depois de arrastar, o toque que o navegador solta no fim não pode marcar de novo. */
+  const swallowClick = useRef(false);
+  const [offset, setOffset] = useState(0);
+
+  function reset() {
+    start.current = null;
+    swiping.current = false;
+    setOffset(0);
+  }
+
+  return {
+    offset,
+    consumeClick() {
+      const swallow = swallowClick.current;
+      swallowClick.current = false;
+      return swallow;
+    },
+    handlers: {
+      onPointerDown(event: PointerEvent<HTMLLIElement>) {
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        start.current = { x: event.clientX, y: event.clientY, id: event.pointerId };
+        swiping.current = false;
+        swallowClick.current = false;
+      },
+      onPointerMove(event: PointerEvent<HTMLLIElement>) {
+        const origin = start.current;
+        if (!origin || origin.id !== event.pointerId) return;
+        const dx = event.clientX - origin.x;
+        const dy = event.clientY - origin.y;
+        if (!swiping.current) {
+          if (Math.abs(dy) > 12) {
+            start.current = null;
+            return;
+          }
+          if (Math.abs(dx) < 12) return;
+          swiping.current = true;
+          event.currentTarget.setPointerCapture?.(event.pointerId);
+        }
+        setOffset(Math.max(-SWIPE_PX * 1.4, Math.min(SWIPE_PX * 1.4, dx)));
+      },
+      onPointerUp(event: PointerEvent<HTMLLIElement>) {
+        const origin = start.current;
+        if (swiping.current && origin) {
+          swallowClick.current = true;
+          if (Math.abs(event.clientX - origin.x) >= SWIPE_PX) onSwipe();
+        }
+        reset();
+      },
+      onPointerCancel: reset,
+    },
+  };
+}
+
 /** Marcado, o item continua no mesmo lugar, só riscado. */
-export function ItemRow({ item, onToggle, onEdit, price }: ItemRowProps) {
+export function ItemRow({ item, onToggle, onEdit, onQuantity, price }: ItemRowProps) {
+  const swipe = useSwipe(() => onToggle(item));
+  const ready = Math.abs(swipe.offset) >= SWIPE_PX;
   const lastPrice = price?.last;
   const percent = price?.percent ?? null;
   const alert = percent !== null && Math.abs(percent) >= PRICE_ALERT_PERCENT;
@@ -21,13 +90,19 @@ export function ItemRow({ item, onToggle, onEdit, price }: ItemRowProps) {
   const style = categoryStyle(item.category);
 
   return (
-    <li className={item.done ? "item item--done" : "item"}>
+    <li
+      className={`item${item.done ? " item--done" : ""}${swipe.offset !== 0 ? " item--swiping" : ""}${ready ? " item--swipe-ready" : ""}`}
+      style={swipe.offset !== 0 ? ({ "--swipe": `${swipe.offset}px` } as CSSProperties) : undefined}
+      {...swipe.handlers}
+    >
       <button
         type="button"
         className="item__toggle"
         aria-pressed={item.done}
         aria-label={label}
-        onClick={() => onToggle(item)}
+        onClick={() => {
+          if (!swipe.consumeClick()) onToggle(item);
+        }}
       >
         {/* O ícone da categoria vira o visto quando o item vai para o carrinho. */}
         <span className={`item__tile ${style.tone}`} aria-hidden="true">
@@ -48,8 +123,32 @@ export function ItemRow({ item, onToggle, onEdit, price }: ItemRowProps) {
             </span>
           )}
         </span>
-        <span className="qty">{item.quantity}×</span>
       </button>
+      {item.done ? (
+        <span className="qty">{item.quantity}×</span>
+      ) : (
+        <span className="item__qty">
+          <button
+            type="button"
+            className="item__step"
+            aria-label={`Menos ${item.text}`}
+            disabled={item.quantity <= 1}
+            onClick={() => onQuantity(item, item.quantity - 1)}
+          >
+            <Icon name="minus" size={16} strokeWidth={2.8} />
+          </button>
+          <span className="qty">{item.quantity}×</span>
+          <button
+            type="button"
+            className="item__step"
+            aria-label={`Mais ${item.text}`}
+            disabled={item.quantity >= MAX_QUANTITY}
+            onClick={() => onQuantity(item, item.quantity + 1)}
+          >
+            <Icon name="plus" size={16} strokeWidth={2.8} />
+          </button>
+        </span>
+      )}
       <button
         type="button"
         className="item__edit"
