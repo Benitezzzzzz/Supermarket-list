@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { RejectedOpError } from "../data/backend";
-import { addMember, fetchMembers, removeMember } from "../data/listsApi";
+import { fetchMembers, removeMember } from "../data/listsApi";
 import type { ListMember } from "../domain/types";
 
 export function useListMembers(listId: string) {
@@ -20,17 +19,6 @@ export function useListMembers(listId: string) {
     void reload();
   }, [reload]);
 
-  /** Devolve a mensagem de erro, ou "" se deu certo. */
-  async function add(username: string): Promise<string> {
-    try {
-      await addMember(listId, username);
-      await reload();
-      return "";
-    } catch (failure) {
-      return failure instanceof RejectedOpError ? failure.message : "Não consegui adicionar. Confira a internet.";
-    }
-  }
-
   async function remove(userId: string) {
     try {
       await removeMember(listId, userId);
@@ -40,5 +28,5 @@ export function useListMembers(listId: string) {
     }
   }
 
-  return { members, error, add, remove };
+  return { members, error, remove };
 }

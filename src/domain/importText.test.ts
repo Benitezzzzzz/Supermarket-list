@@ -97,7 +97,7 @@ describe("colar lista do WhatsApp", () => {
 [07/11/26, 18:02:13] Elson: 1 melão
 [07/11/26, 18:02:13] Elson: Banana`;
     expect(parse(text)).toEqual([
-      [1, "Café 2", "Outros"],
+      [2, "Café", "Outros"],
       [2, "Açúcar", "Outros"],
       [1, "Papel higiênico", "Outros"],
       [1, "Sabonete", "Outros"],

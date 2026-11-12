@@ -3,9 +3,9 @@ import { HTTPException } from "hono/http-exception";
 import {
   addCategorySchema,
   barcodeSchema,
-  addMemberSchema,
   deleteItemsSchema,
   finishSchema,
+  inviteCodeSchema,
   listNameSchema,
   paymentSchema,
   readReceiptSchema,
@@ -66,15 +66,11 @@ function oneList({ lists, memberships, notifier, receipts, reader }: Deps) {
 
   routes.get("/members", async (c) => c.json(await memberships.members(c.get("listId"))));
 
-  routes.post("/members", requireListAdmin, async (c) => {
-    const { username } = await readJson(c, addMemberSchema);
-    const result = await memberships.add(c.get("listId"), username);
-    if (!result.ok && result.reason === "not_found") {
-      throw new HTTPException(404, { message: "Não encontrei esse usuário. Confira como a pessoa escreveu." });
-    }
-    if (!result.ok) throw new HTTPException(409, { message: "Essa pessoa já participa da lista." });
-    return c.json(result.member, 201);
-  });
+  /** Qualquer participante pode compartilhar o link da lista. */
+  routes.get("/invite", async (c) => c.json({ code: await memberships.inviteCode(c.get("listId")) }));
+
+  /** Link novo: quem tinha o antigo não entra mais (quem já entrou continua). */
+  routes.post("/invite", requireListAdmin, async (c) => c.json({ code: await memberships.resetInvite(c.get("listId")) }));
 
   routes.delete("/members/:userId", requireListAdmin, async (c) => {
     const listId = c.get("listId");
@@ -245,5 +241,30 @@ export function listRoutes(deps: Deps) {
   });
 
   routes.route("/:listId", oneList(deps));
+  return routes;
+}
+
+/** /api/invites/:code — o link de convite. Ver o nome da lista não exige conta; entrar, sim. */
+export function inviteRoutes({ accounts, memberships }: Pick<Deps, "accounts" | "memberships">) {
+  const routes = new Hono<Env>();
+  const notFound = () => new HTTPException(404, { message: "Este convite não vale mais. Peça um link novo para quem te convidou." });
+  const codeOf = (raw: string) => {
+    const parsed = inviteCodeSchema.safeParse(raw);
+    if (!parsed.success) throw notFound();
+    return parsed.data;
+  };
+
+  routes.get("/:code", async (c) => {
+    const list = await memberships.findInvite(codeOf(c.req.param("code")));
+    if (!list) throw notFound();
+    return c.json({ listName: list.name });
+  });
+
+  routes.post("/:code/join", requireUser(accounts), async (c) => {
+    const result = await memberships.join(codeOf(c.req.param("code")), c.get("user").id);
+    if (!result) throw notFound();
+    return c.json(result.list, result.joined ? 201 : 200);
+  });
+
   return routes;
 }

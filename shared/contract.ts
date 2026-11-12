@@ -62,7 +62,8 @@ export const adminPasswordSchema = z.object({ passwordKey: passwordKeySchema });
 
 export const listNameSchema = z.object({ name: z.string().trim().min(1).max(MAX_LIST_NAME) });
 
-export const addMemberSchema = z.object({ username: usernameSchema });
+/** Código do link de convite (hexadecimal de 128 bits). */
+export const inviteCodeSchema = z.string().regex(/^[0-9a-f]{32}$/);
 
 export const MAX_INSTALLMENTS = 24;
 export const MAX_AMOUNT_CENTS = 100_000_000;
@@ -313,6 +314,16 @@ export interface AdminList {
 export interface AdminOverview {
   users: AdminUser[];
   lists: AdminList[];
+}
+
+/** O link de convite de uma lista. */
+export interface ListInvite {
+  code: string;
+}
+
+/** O que quem abriu o link vê antes de entrar. */
+export interface InvitePreview {
+  listName: string;
 }
 
 export interface ListMember {

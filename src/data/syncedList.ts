@@ -130,7 +130,7 @@ export class SyncedList {
     if (items.length > 0) this.dispatch({ kind: "upsert", items });
   }
 
-  updateItem(id: string, changes: Partial<Pick<Item, "done" | "category" | "quantity">>) {
+  updateItem(id: string, changes: Partial<Pick<Item, "text" | "done" | "category" | "quantity">>) {
     const item = this.state.items.find((i) => i.id === id);
     if (item) this.dispatch({ kind: "upsert", items: [{ ...item, ...changes }] });
   }

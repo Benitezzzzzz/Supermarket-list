@@ -24,7 +24,8 @@ function useKeyboardOffset(): number {
 }
 
 interface BottomSheetProps {
-  title: string;
+  /** Texto, ou um título que se edita no lugar (como o nome do item). */
+  title: ReactNode;
   onClose: () => void;
   children: ReactNode;
 }

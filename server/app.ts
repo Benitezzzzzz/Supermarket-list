@@ -5,7 +5,7 @@ import { secureHeaders } from "hono/secure-headers";
 import type { Database } from "./db/database.ts";
 import { adminRoutes } from "./http/adminRoutes.ts";
 import { authRoutes } from "./http/authRoutes.ts";
-import { listRoutes } from "./http/listRoutes.ts";
+import { inviteRoutes, listRoutes } from "./http/listRoutes.ts";
 import type { Notifier } from "./http/notifier.ts";
 import { AccountService } from "./services/accounts.ts";
 import { ListService } from "./services/lists.ts";
@@ -31,6 +31,7 @@ export function createApp(db: Database, notifier: Notifier, reader: ReceiptReade
   api.use("*", (c, next) => (c.req.path.endsWith("/receipts/read") ? photoLimit : regularLimit)(c, next));
   api.route("/auth", authRoutes(accounts, memberships));
   api.route("/admin", adminRoutes(accounts));
+  api.route("/invites", inviteRoutes({ accounts, memberships }));
   api.route("/lists", listRoutes({ accounts, lists, memberships, notifier, receipts, reader }));
 
   const app = new Hono();

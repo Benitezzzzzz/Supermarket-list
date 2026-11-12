@@ -1,11 +1,13 @@
-import { type FormEvent, useState } from "react";
-import { appLink } from "../data/auth";
+import { useEffect, useState } from "react";
 import { RejectedOpError } from "../data/backend";
-import { deleteList, leaveList, renameList } from "../data/listsApi";
+import { deleteList, fetchInviteCode, leaveList, renameList, resetInviteCode } from "../data/listsApi";
 import { memberTone } from "../domain/categoryStyle";
+import { inviteLink, inviteMessage } from "../domain/invite";
+import { shareList } from "../domain/shareList";
 import type { ListMember, ListSummary, UserInfo } from "../domain/types";
 import { useListMembers } from "../hooks/useListMembers";
 import { ConfirmSheet } from "../ui/ConfirmSheet";
+import { Icon } from "../ui/Icon";
 
 interface ParticipantsScreenProps {
   user: UserInfo;
@@ -13,27 +15,43 @@ interface ParticipantsScreenProps {
   onListsChanged: () => void;
 }
 
-type Pending = { kind: "remove"; member: ListMember } | { kind: "delete" } | { kind: "leave" } | null;
+type Pending =
+  | { kind: "remove"; member: ListMember }
+  | { kind: "delete" }
+  | { kind: "leave" }
+  | { kind: "new-link" }
+  | null;
+
+/** O link de convite da lista; qualquer participante pode compartilhar. */
+function useInviteLink(listId: string) {
+  const [code, setCode] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setCode(null);
+    setFailed(false);
+    fetchInviteCode(listId)
+      .then((value) => active && setCode(value))
+      .catch(() => active && setFailed(true));
+    return () => {
+      active = false;
+    };
+  }, [listId]);
+
+  return { link: code ? inviteLink(code) : null, failed, setCode };
+}
 
 export function ParticipantsScreen({ user, list, onListsChanged }: ParticipantsScreenProps) {
-  const { members, error, add, remove } = useListMembers(list.id);
+  const { members, error, remove } = useListMembers(list.id);
+  const invite = useInviteLink(list.id);
   const [pending, setPending] = useState<Pending>(null);
-  const [username, setUsername] = useState("");
-  const [addMessage, setAddMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [inviteNotice, setInviteNotice] = useState("");
   const [newName, setNewName] = useState(list.name);
   const [actionError, setActionError] = useState("");
   const [copied, setCopied] = useState(false);
   const [renamed, setRenamed] = useState("");
   const isAdmin = list.role === "admin";
-
-  async function submitAdd(event: FormEvent) {
-    event.preventDefault();
-    const value = username.trim();
-    if (!value) return;
-    const problem = await add(value);
-    setAddMessage(problem ? { kind: "error", text: problem } : { kind: "ok", text: `${value} agora participa da lista.` });
-    if (!problem) setUsername("");
-  }
 
   async function run(action: () => Promise<void>) {
     setPending(null);
@@ -46,12 +64,15 @@ export function ParticipantsScreen({ user, list, onListsChanged }: ParticipantsS
     }
   }
 
+  const message = invite.link ? inviteMessage(list.name, invite.link, user.displayName) : "";
+
   async function copyLink() {
+    if (!invite.link) return;
     try {
-      await navigator.clipboard.writeText(appLink());
+      await navigator.clipboard.writeText(invite.link);
       setCopied(true);
     } catch {
-      setActionError("Não consegui copiar. Toque no endereço e copie manualmente.");
+      setActionError("Não consegui copiar. Toque no link e copie manualmente.");
     }
   }
 
@@ -103,49 +124,48 @@ export function ParticipantsScreen({ user, list, onListsChanged }: ParticipantsS
         </ul>
       )}
 
-      {isAdmin && (
-        <section className="card invite" aria-labelledby="adicionar">
-          <h2 id="adicionar" className="card__header">
-            Adicionar alguém
-          </h2>
-          <p className="hint">
-            A pessoa abre o app, cria uma conta e te passa o usuário dela. Você digita aqui.
-          </p>
-          <form className="invite__row" onSubmit={(event) => void submitAdd(event)}>
-            <label htmlFor="usuario-participante" className="visually-hidden">
-              Usuário da pessoa
-            </label>
-            <input
-              id="usuario-participante"
-              className="field"
-              type="text"
-              placeholder="Usuário"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-            />
-            <button type="submit" className="btn btn--primary">
-              Adicionar
+      <section className="card invite" aria-labelledby="chamar">
+        <h2 id="chamar" className="card__header">
+          Chamar alguém para a lista
+        </h2>
+        <p className="hint">
+          Mande o convite pelo WhatsApp. Quem tocar no link entra ou cria a conta e já cai direto na lista {list.name}.
+        </p>
+        {invite.failed && <p className="banner banner--danger">Não consegui carregar o link de convite. Confira a internet.</p>}
+        {invite.link && (
+          <>
+            <div className="invite__message" role="note" aria-label="Mensagem do convite">
+              {message}
+            </div>
+            <button type="button" className="btn btn--primary btn--block" onClick={() => void shareList(message)}>
+              <Icon name="share" size={18} strokeWidth={2.4} />
+              Enviar convite
             </button>
-          </form>
-          {addMessage && (
-            <p className={addMessage.kind === "ok" ? "notice" : "banner banner--danger"} role="status">
-              {addMessage.text}
-            </p>
-          )}
-          <div className="invite__row">
-            <label htmlFor="endereco-app" className="visually-hidden">
-              Endereço do app
-            </label>
-            <input id="endereco-app" className="field" type="text" readOnly value={appLink()} onFocus={(event) => event.target.select()} />
-            <button type="button" className="btn btn--secondary" onClick={() => void copyLink()}>
-              {copied ? "Copiado" : "Copiar"}
-            </button>
-          </div>
-        </section>
-      )}
+            <div className="invite__row">
+              <label htmlFor="link-convite" className="visually-hidden">
+                Link de convite
+              </label>
+              <input
+                id="link-convite"
+                className="field"
+                type="text"
+                readOnly
+                value={invite.link}
+                onFocus={(event) => event.target.select()}
+              />
+              <button type="button" className="btn btn--secondary" onClick={() => void copyLink()}>
+                {copied ? "Copiado" : "Copiar link"}
+              </button>
+            </div>
+          </>
+        )}
+        {isAdmin && invite.link && (
+          <button type="button" className="btn btn--link" onClick={() => setPending({ kind: "new-link" })}>
+            Gerar um link novo
+          </button>
+        )}
+        <div aria-live="polite">{inviteNotice && <p className="notice">{inviteNotice}</p>}</div>
+      </section>
 
       {isAdmin ? (
         <section className="card invite" aria-labelledby="sobre-lista">
@@ -194,12 +214,27 @@ export function ParticipantsScreen({ user, list, onListsChanged }: ParticipantsS
       {pending?.kind === "remove" && (
         <ConfirmSheet
           title="Remover participante?"
-          message={`${pending.member.displayName} deixa de ver e editar a lista ${list.name}.`}
+          message={`${pending.member.displayName} deixa de ver e editar a lista ${list.name}. Para impedir que volte pelo link de convite, gere um link novo depois.`}
           confirmLabel="Remover"
           onConfirm={() => {
             void remove(pending.member.userId);
             setPending(null);
           }}
+          onClose={() => setPending(null)}
+        />
+      )}
+      {pending?.kind === "new-link" && (
+        <ConfirmSheet
+          title="Gerar um link novo?"
+          message="O link antigo para de funcionar. Quem já participa continua na lista."
+          confirmLabel="Gerar link novo"
+          onConfirm={() =>
+            void run(async () => {
+              invite.setCode(await resetInviteCode(list.id));
+              setCopied(false);
+              setInviteNotice("Link novo pronto. O anterior não funciona mais.");
+            })
+          }
           onClose={() => setPending(null)}
         />
       )}
@@ -215,7 +250,7 @@ export function ParticipantsScreen({ user, list, onListsChanged }: ParticipantsS
       {pending?.kind === "leave" && (
         <ConfirmSheet
           title={`Sair da lista ${list.name}?`}
-          message="Você deixa de ver esta lista. Para voltar, quem administra precisa te adicionar de novo."
+          message="Você deixa de ver esta lista. Para voltar, peça o link de convite de novo."
           confirmLabel="Sair da lista"
           onConfirm={() => void run(() => leaveList(list.id))}
           onClose={() => setPending(null)}

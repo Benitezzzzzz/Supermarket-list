@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { randomBytes, randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { Item, ListMember, ListSummary, MeResponse, Purchase, Snapshot, Template } from "../shared/contract.ts";
+import type { Item, ListInvite, ListMember, ListSummary, MeResponse, Purchase, Snapshot, Template } from "../shared/contract.ts";
 import { createApp } from "./app.ts";
 import type { Database } from "./db/database.ts";
 import { openTestDatabase } from "./db/sqliteAdapter.ts";
@@ -37,6 +37,12 @@ function item(overrides: Partial<Item> = {}): Item {
     createdAt: new Date().toISOString(),
     ...overrides,
   };
+}
+
+/** O dono pega o link da lista e o convidado entra por ele. */
+async function joinByInvite(owner: Device, guest: Device, listId: string) {
+  const { code } = (await (await owner.call("GET", `/lists/${listId}/invite`)).json()) as ListInvite;
+  expect((await guest.call("POST", `/invites/${code}/join`)).status).toBe(201);
 }
 
 /** Aparelho de teste: guarda os cookies como um navegador faria. */
@@ -267,7 +273,7 @@ describe("listas", () => {
       const a = await pai.createList("Primeira");
       const b = await pai.createList("Segunda");
       const c = await pai.createList("Terceira");
-      await pai.call("POST", `/lists/${a.id}/members`, { username: "renan" });
+      await joinByInvite(pai, renan, a.id);
       for (let i = 0; i < 5; i++) {
         const me = (await (await pai.call("GET", "/auth/me")).json()) as MeResponse;
         expect(me.lists.map((l) => l.id)).toEqual([a.id, b.id, c.id]);
@@ -295,7 +301,8 @@ describe("listas", () => {
       ["PATCH", ""],
       ["DELETE", ""],
       ["GET", "/members"],
-      ["POST", "/members"],
+      ["GET", "/invite"],
+      ["POST", "/invite"],
       ["PUT", "/items"],
       ["POST", "/items/delete"],
       ["POST", "/categories"],
@@ -324,23 +331,63 @@ describe("listas", () => {
   });
 
   describe("participantes", () => {
-    it("o administrador adiciona pelo nome de usuário e a lista aparece para a pessoa", async () => {
-      const response = await renan.call("POST", `/lists/${casa.id}/members`, { username: "PAI" });
+    it("quem abre o link entra como participante e a lista aparece para a pessoa", async () => {
+      const { code } = (await (await renan.call("GET", `/lists/${casa.id}/invite`)).json()) as ListInvite;
+      const preview = await new Device(app).call("GET", `/invites/${code}`);
+      expect(await preview.json()).toEqual({ listName: "Casa" });
+
+      const response = await pai.call("POST", `/invites/${code}/join`);
       expect(response.status).toBe(201);
+      expect(await response.json()).toEqual({ id: casa.id, name: "Casa", role: "member" });
       const me = (await (await pai.call("GET", "/auth/me")).json()) as MeResponse;
       expect(me.lists).toEqual([{ id: casa.id, name: "Casa", role: "member" }]);
       await renan.call("PUT", `/lists/${casa.id}/items`, { items: [item({ text: "Café" })] });
       expect((await pai.snapshot(casa.id)).items.map((i) => i.text)).toEqual(["Café"]);
     });
 
-    it("usuário que não existe ou que já participa", async () => {
-      expect((await renan.call("POST", `/lists/${casa.id}/members`, { username: "fantasma" })).status).toBe(404);
-      await renan.call("POST", `/lists/${casa.id}/members`, { username: "pai" });
-      expect((await renan.call("POST", `/lists/${casa.id}/members`, { username: "pai" })).status).toBe(409);
+    it("abrir o link de novo não muda nada; o administrador continua administrador", async () => {
+      const { code } = (await (await renan.call("GET", `/lists/${casa.id}/invite`)).json()) as ListInvite;
+      await pai.call("POST", `/invites/${code}/join`);
+      expect((await pai.call("POST", `/invites/${code}/join`)).status).toBe(200);
+      const own = await renan.call("POST", `/invites/${code}/join`);
+      expect(((await own.json()) as ListSummary).role).toBe("admin");
+      const members = (await (await renan.call("GET", `/lists/${casa.id}/members`)).json()) as ListMember[];
+      expect(members).toHaveLength(2);
+    });
+
+    it("entrar exige conta, e convite inválido não revela nada", async () => {
+      const { code } = (await (await renan.call("GET", `/lists/${casa.id}/invite`)).json()) as ListInvite;
+      expect((await new Device(app).call("POST", `/invites/${code}/join`)).status).toBe(401);
+      for (const bad of ["0".repeat(32), "nao-e-codigo", `${code}x`]) {
+        expect((await pai.call("GET", `/invites/${bad}`)).status).toBe(404);
+        expect((await pai.call("POST", `/invites/${bad}/join`)).status).toBe(404);
+      }
+    });
+
+    it("link novo invalida o antigo, mas quem já entrou continua", async () => {
+      const { code: old } = (await (await renan.call("GET", `/lists/${casa.id}/invite`)).json()) as ListInvite;
+      await pai.call("POST", `/invites/${old}/join`);
+      const { code } = (await (await renan.call("POST", `/lists/${casa.id}/invite`)).json()) as ListInvite;
+      expect(code).not.toBe(old);
+      const tio = new Device(app);
+      await tio.signup("tio", "Tio");
+      expect((await tio.call("POST", `/invites/${old}/join`)).status).toBe(404);
+      expect((await tio.call("POST", `/invites/${code}/join`)).status).toBe(201);
+      expect((await pai.call("GET", `/lists/${casa.id}`)).status).toBe(200);
+    });
+
+    it("cada lista tem o próprio link", async () => {
+      const pousada = await renan.createList("Pousada");
+      const a = (await (await renan.call("GET", `/lists/${casa.id}/invite`)).json()) as ListInvite;
+      const b = (await (await renan.call("GET", `/lists/${pousada.id}/invite`)).json()) as ListInvite;
+      expect(a.code).not.toBe(b.code);
+      await pai.call("POST", `/invites/${b.code}/join`);
+      const me = (await (await pai.call("GET", "/auth/me")).json()) as MeResponse;
+      expect(me.lists.map((l) => l.name)).toEqual(["Pousada"]);
     });
 
     it("lista os participantes com o papel de cada um", async () => {
-      await renan.call("POST", `/lists/${casa.id}/members`, { username: "pai" });
+      await joinByInvite(renan, pai, casa.id);
       const members = (await (await pai.call("GET", `/lists/${casa.id}/members`)).json()) as ListMember[];
       expect(members.map((m) => [m.username, m.role])).toEqual([
         ["renan", "admin"],
@@ -348,18 +395,17 @@ describe("listas", () => {
       ]);
     });
 
-    it("membro comum não adiciona, não remove, não renomeia e não exclui", async () => {
-      await renan.call("POST", `/lists/${casa.id}/members`, { username: "pai" });
-      const tio = new Device(app);
-      await tio.signup("tio", "Tio");
-      expect((await pai.call("POST", `/lists/${casa.id}/members`, { username: "tio" })).status).toBe(403);
+    it("membro comum compartilha o link, mas não gera outro, não remove, não renomeia e não exclui", async () => {
+      await joinByInvite(renan, pai, casa.id);
+      expect((await pai.call("GET", `/lists/${casa.id}/invite`)).status).toBe(200);
+      expect((await pai.call("POST", `/lists/${casa.id}/invite`)).status).toBe(403);
       expect((await pai.call("DELETE", `/lists/${casa.id}/members/${renan.me?.user.id}`)).status).toBe(403);
       expect((await pai.call("PATCH", `/lists/${casa.id}`, { name: "Minha" })).status).toBe(403);
       expect((await pai.call("DELETE", `/lists/${casa.id}`)).status).toBe(403);
     });
 
     it("removido perde o acesso na hora e é desconectado", async () => {
-      await renan.call("POST", `/lists/${casa.id}/members`, { username: "pai" });
+      await joinByInvite(renan, pai, casa.id);
       const paiId = pai.me?.user.id;
       expect((await renan.call("DELETE", `/lists/${casa.id}/members/${paiId}`)).status).toBe(204);
       expect((await pai.call("GET", `/lists/${casa.id}`)).status).toBe(404);
@@ -367,7 +413,7 @@ describe("listas", () => {
     });
 
     it("membro pode sair; administrador não", async () => {
-      await renan.call("POST", `/lists/${casa.id}/members`, { username: "pai" });
+      await joinByInvite(renan, pai, casa.id);
       expect((await pai.call("POST", `/lists/${casa.id}/leave`)).status).toBe(204);
       expect((await pai.call("GET", `/lists/${casa.id}`)).status).toBe(404);
       expect((await renan.call("POST", `/lists/${casa.id}/leave`)).status).toBe(400);
@@ -382,7 +428,7 @@ describe("listas", () => {
     const renamed = await renan.call("PATCH", `/lists/${casa.id}`, { name: "Casa da praia" });
     expect(((await renamed.json()) as ListSummary).name).toBe("Casa da praia");
 
-    await renan.call("POST", `/lists/${casa.id}/members`, { username: "pai" });
+    await joinByInvite(renan, pai, casa.id);
     await renan.call("PUT", `/lists/${casa.id}/items`, { items: [item()] });
     expect((await renan.call("DELETE", `/lists/${casa.id}`)).status).toBe(204);
     expect((await renan.call("GET", `/lists/${casa.id}`)).status).toBe(404);
@@ -406,7 +452,7 @@ describe("listas", () => {
     });
 
     beforeEach(async () => {
-      await renan.call("POST", `/lists/${casa.id}/members`, { username: "pai" });
+      await joinByInvite(renan, pai, casa.id);
     });
 
     it("reenviar não duplica", async () => {

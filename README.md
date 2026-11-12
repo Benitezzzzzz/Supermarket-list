@@ -120,7 +120,10 @@ Nos testes, o banco é um adaptador sobre o SQLite do Node com a mesma interface
 | `DELETE /api/lists/:id` | Exclui com tudo dentro | Administrador |
 | `POST /api/lists/:id/leave` | Sai da lista | Participante comum |
 | `GET /api/lists/:id/members` | Participantes | Participante |
-| `POST /api/lists/:id/members` | Adiciona pelo usuário | Administrador |
+| `GET /api/lists/:id/invite` | Código do link de convite | Participante |
+| `POST /api/lists/:id/invite` | Gera link novo (o antigo para de funcionar) | Administrador |
+| `GET /api/invites/:code` | Nome da lista do convite | Qualquer um com o link |
+| `POST /api/invites/:code/join` | Entra na lista do convite | Logado |
 | `DELETE /api/lists/:id/members/:userId` | Remove e desconecta | Administrador |
 | `PUT /api/lists/:id/items` | Cria ou altera itens | Participante |
 | `POST /api/lists/:id/items/delete` | Remove itens | Participante |
@@ -157,9 +160,10 @@ Cada lista tem um Durable Object que guarda os WebSockets abertos. Quando algo m
 
 - Contas com usuário e senha; trocar senha e sair em "Sua conta"
 - Várias listas por pessoa, com troca pelo nome da lista no topo
-- Participantes por lista: adicionar pelo usuário, remover, renomear e excluir a lista, ou sair dela
+- Participantes por lista: convite pelo WhatsApp com mensagem pronta e link direto da lista (quem abre o link entra ou cria a conta e cai na lista), link novo para invalidar o antigo, remover, renomear e excluir a lista, ou sair dela
 - Adicionar item com categoria e criar categorias novas
 - Quantidade: digite "2 frangos" ou ajuste depois no lápis (medidas como "2 kg arroz" ficam no nome)
+- Corrigir o nome do item: no lápis, toque no nome no topo do painel
 - Marcar como comprado tocando na linha: o item fica riscado no mesmo lugar
 - Importar vários itens colando texto ou uma mensagem do WhatsApp (data, nome, emojis e marcadores são ignorados; "arroz, feijão" e "Arroz x2" funcionam), com prévia antes de importar; uma linha com o nome de uma categoria vira título
 - No Android, com o app instalado, compartilhar a mensagem do WhatsApp direto para a Lista do Mercado

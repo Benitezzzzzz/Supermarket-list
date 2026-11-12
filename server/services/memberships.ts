@@ -1,7 +1,12 @@
 import type { ListMember, ListSummary, Role } from "../../shared/contract.ts";
 import type { Database } from "../db/database.ts";
+import { generateInviteCode } from "./tokens.ts";
 
-export type AddResult = { ok: true; member: ListMember } | { ok: false; reason: "not_found" | "already" };
+export interface JoinResult {
+  list: ListSummary;
+  /** false quando a pessoa já participava. */
+  joined: boolean;
+}
 
 /** Quem participa de qual lista. É a única fonte de permissão para os dados de uma lista. */
 export class MembershipService {
@@ -65,24 +70,41 @@ export class MembershipService {
     return results;
   }
 
-  /** O administrador adiciona alguém que já tem conta, pelo nome de usuário. */
-  async add(listId: string, username: string): Promise<AddResult> {
-    const user = await this.db
-      .prepare("SELECT id, username, display_name AS displayName FROM users WHERE username = ?")
-      .bind(username)
-      .first<{ id: string; username: string; displayName: string }>();
-    if (!user) return { ok: false, reason: "not_found" };
-    if (await this.role(listId, user.id)) return { ok: false, reason: "already" };
+  /** Código do link de convite; listas antigas sem código ganham um na hora. */
+  async inviteCode(listId: string): Promise<string> {
+    const row = await this.db
+      .prepare("SELECT invite_code AS code FROM lists WHERE id = ?")
+      .bind(listId)
+      .first<{ code: string | null }>();
+    return row?.code ?? this.resetInvite(listId);
+  }
 
-    const joinedAt = new Date().toISOString();
+  /** Gera um código novo: o link antigo para de funcionar. */
+  async resetInvite(listId: string): Promise<string> {
+    const code = generateInviteCode();
+    await this.db.prepare("UPDATE lists SET invite_code = ? WHERE id = ?").bind(code, listId).run();
+    return code;
+  }
+
+  /** A lista de um convite, para mostrar o nome antes de entrar. */
+  async findInvite(code: string): Promise<{ id: string; name: string } | null> {
+    return this.db
+      .prepare("SELECT id, name FROM lists WHERE invite_code = ?")
+      .bind(code)
+      .first<{ id: string; name: string }>();
+  }
+
+  /** Entra na lista pelo convite. Quem já participa continua com o mesmo papel. */
+  async join(code: string, userId: string): Promise<JoinResult | null> {
+    const list = await this.findInvite(code);
+    if (!list) return null;
+    const role = await this.role(list.id, userId);
+    if (role) return { list: { ...list, role }, joined: false };
     await this.db
-      .prepare("INSERT INTO list_members (list_id, user_id, role, joined_at) VALUES (?, ?, 'member', ?)")
-      .bind(listId, user.id, joinedAt)
+      .prepare("INSERT OR IGNORE INTO list_members (list_id, user_id, role, joined_at) VALUES (?, ?, 'member', ?)")
+      .bind(list.id, userId, new Date().toISOString())
       .run();
-    return {
-      ok: true,
-      member: { userId: user.id, username: user.username, displayName: user.displayName, role: "member", joinedAt },
-    };
+    return { list: { ...list, role: "member" }, joined: true };
   }
 
   async remove(listId: string, userId: string): Promise<boolean> {

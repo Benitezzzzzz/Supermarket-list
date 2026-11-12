@@ -1,5 +1,25 @@
 # Changelog
 
+## 4.12.0 (2026-11-12)
+
+### Adicionado
+
+- **Corrigir o nome do item:** no painel do item (lápis), tocar no nome abre o campo para editar. Enter ou tocar fora salva; Esc desiste. Nome vazio não é salvo.
+
+### Mudado
+
+- **Convite por link:** em Participantes, "Chamar alguém para a lista" mostra uma mensagem pronta e amigável, com o link direto da lista no fim. O botão "Enviar convite" abre o WhatsApp (ou outro app).
+  - Quem abre o link (`/convite/<código>`) vê "Você recebeu um convite para a lista Casa", cria a conta ou entra, e já cai direto na lista.
+  - Qualquer participante pode compartilhar o link. Quem administra pode gerar um link novo, e o antigo para de funcionar.
+  - Abrir o link de novo, ou o administrador abrir o próprio link, não muda o papel de ninguém.
+- **Número no fim do nome vira quantidade:** "Peixe 1", "café 2" e "Ovos - 12" entram como 1× Peixe, 2× Café e 12× Ovos, no Novo item, na colagem do WhatsApp, nos modelos e ao corrigir o nome. Número no meio ("Molho 3 queijos") e medidas ("Coca-Cola 2L") continuam no nome.
+- Saiu a adição de participantes pelo nome de usuário (`POST /api/lists/:id/members`).
+
+### Banco de dados
+
+- Migração `0012_convite_por_link.sql`: coluna `invite_code` em `lists`, com índice único. As listas existentes ganham um código na migração.
+- Migração `0013_quantidade_no_fim_do_nome.sql`: itens que já estão na lista com o número no fim do nome ("Peixe 1") ficam só com o nome, e o número vai para a quantidade. Se a quantidade já tinha sido ajustada para mais de 1, ela é mantida.
+
 ## 4.11.0 (2026-11-09)
 
 ### Adicionado

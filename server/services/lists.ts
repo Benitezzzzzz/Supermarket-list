@@ -15,7 +15,7 @@ import {
 import { applyPrices } from "../../shared/prices.ts";
 import type { Database } from "../db/database.ts";
 import { ReceiptService } from "./receipts.ts";
-import { generateToken, hashToken } from "./tokens.ts";
+import { generateInviteCode, generateToken, hashToken } from "./tokens.ts";
 
 interface ItemRow {
   id: string;
@@ -73,8 +73,8 @@ export class ListService {
         )
         .bind(familyId, name, await hashToken(generateToken()), now),
       this.db
-        .prepare("INSERT INTO lists (id, family_id, name, created_at) VALUES (?, ?, ?, ?)")
-        .bind(listId, familyId, name, now),
+        .prepare("INSERT INTO lists (id, family_id, name, created_at, invite_code) VALUES (?, ?, ?, ?, ?)")
+        .bind(listId, familyId, name, now, generateInviteCode()),
       this.db
         .prepare("INSERT INTO list_members (list_id, user_id, role, joined_at) VALUES (?, ?, 'admin', ?)")
         .bind(listId, userId, now),

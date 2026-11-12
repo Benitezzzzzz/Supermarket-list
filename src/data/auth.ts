@@ -109,7 +109,3 @@ export function setPreferredListId(id: string) {
     // Sem armazenamento, abre na primeira lista.
   }
 }
-
-export function appLink(): string {
-  return `${location.origin}/`;
-}

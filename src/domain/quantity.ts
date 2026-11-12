@@ -1,6 +1,6 @@
 /**
  * Quantidade digitada junto com o nome do item, na frente ou no fim:
- * "2 peixe", "2x peixe", "peixe 2x", "peixe x2", "peixe (2)", "peixe 2 un", "peixe - 2 unidades".
+ * "2 peixe", "2x peixe", "peixe 2", "peixe 2x", "peixe x2", "peixe (2)", "peixe 2 un", "peixe - 2 unidades".
  * Número seguido de medida ("2 kg arroz", "Refrigerante 2L") faz parte do nome.
  */
 
@@ -12,11 +12,11 @@ const MEASURES = String.raw`(?:kg|g|mg|l|ml|lt|lts|cx|pct|pc|dz)\b`;
 const PREFIX = new RegExp(String.raw`^(\d{1,3})\s*(?:[xX×]\s+|${UNITS}\s+|\s)(?!${MEASURES})(\S.*)$`, "i");
 
 const SUFFIX = new RegExp(
-  String.raw`^(.*?\p{L}.*?)\s*(?:\s[xX×]\s*(\d{1,3})|\s(\d{1,3})\s*[xX×]|\((\d{1,3})\)|(?:\s[-–]\s*|\s)(\d{1,3})\s*${UNITS})$`,
+  String.raw`^(.*?\p{L}.*?)\s*(?:\s[xX×]\s*(\d{1,3})|\s(\d{1,3})\s*[xX×]|\((\d{1,3})\)|(?:\s[-–]\s*|\s)(\d{1,3})(?:\s*${UNITS})?)$`,
   "iu",
 );
 
-function capitalize(text: string): string {
+export function capitalize(text: string): string {
   return text.replace(/^\p{Ll}/u, (letter) => letter.toUpperCase());
 }
 

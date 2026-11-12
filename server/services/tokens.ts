@@ -12,3 +12,8 @@ export async function hashToken(token: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
   return toHex(new Uint8Array(digest));
 }
+
+/** Código do link de convite: 128 bits em hexadecimal, igual ao que a migração gera. */
+export function generateInviteCode(): string {
+  return toHex(crypto.getRandomValues(new Uint8Array(16)));
+}

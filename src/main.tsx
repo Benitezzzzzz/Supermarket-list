@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { keepAppUpdated } from "./pwa";
+import { captureInvite } from "./invite";
 import { Root } from "./Root";
 import { captureSharedText } from "./sharedText";
 import { applyTheme, followSystemTheme } from "./theme";
@@ -18,6 +19,7 @@ applyTheme();
 followSystemTheme();
 keepAppUpdated();
 captureSharedText();
+captureInvite();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

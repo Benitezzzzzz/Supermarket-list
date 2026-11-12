@@ -241,6 +241,51 @@ describe("App", () => {
     expect(screen.getByText("Oi, Renan! Falta 1 item.")).toBeTruthy();
   });
 
+  it("tocar no nome do item no painel deixa corrigir o nome", async () => {
+    const user = renderApp();
+    await addItems(user, "Frango");
+
+    await user.click(screen.getByRole("button", { name: "Editar Frango" }));
+    let dialog = await screen.findByRole("dialog", { name: "Frango" });
+    await user.click(within(dialog).getByRole("button", { name: "Frango" }));
+    const field = within(dialog).getByLabelText("Nome do produto");
+    expect(document.activeElement).toBe(field);
+    await user.clear(field);
+    await user.type(field, "filé de frango{Enter}");
+
+    dialog = await screen.findByRole("dialog", { name: "Filé de frango" });
+    expect(within(dialog).getByRole("button", { name: "Filé de frango" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Editar Filé de frango" })).toBeTruthy();
+
+    // Esc desiste da troca e o painel continua aberto.
+    await user.click(within(dialog).getByRole("button", { name: "Filé de frango" }));
+    await user.type(within(dialog).getByLabelText("Nome do produto"), " errado{Escape}");
+    expect(screen.getByRole("dialog", { name: "Filé de frango" })).toBeTruthy();
+
+    // Nome vazio não apaga o item.
+    await user.click(within(dialog).getByRole("button", { name: "Filé de frango" }));
+    await user.clear(within(dialog).getByLabelText("Nome do produto"));
+    await user.keyboard("{Enter}");
+    expect(screen.getByRole("dialog", { name: "Filé de frango" })).toBeTruthy();
+  });
+
+  it("número no fim do nome vira a quantidade, ao adicionar e ao corrigir o nome", async () => {
+    const user = renderApp();
+    await addItems(user, "peixe 1", "Café 3");
+    expect(screen.getByRole("button", { name: "Editar Peixe" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Editar Café" })).toBeTruthy();
+    expect(screen.queryByText("Peixe 1")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Editar Peixe" }));
+    const dialog = await screen.findByRole("dialog", { name: "Peixe" });
+    await user.click(within(dialog).getByRole("button", { name: "Peixe" }));
+    const field = within(dialog).getByLabelText("Nome do produto");
+    await user.clear(field);
+    await user.type(field, "Salmão 2{Enter}");
+    const renamed = await screen.findByRole("dialog", { name: "Salmão" });
+    expect(within(renamed).getByLabelText("Quantidade de Salmão").textContent).toBe("2");
+  });
+
   it("marcar deixa o item na mesma categoria, só riscado", async () => {
     const user = renderApp();
     await addItems(user, "Arroz", "Feijão");
@@ -846,6 +891,38 @@ describe("App", () => {
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Adicionar" }));
+  });
+
+  it("participantes: convite amigável com o link direto da lista", async () => {
+    const code = "a".repeat(32);
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "/api/lists/l1/invite" && init?.method === "POST") return Response.json({ code: "b".repeat(32) });
+      if (url === "/api/lists/l1/invite") return Response.json({ code });
+      if (url === "/api/lists/l1/members") {
+        return Response.json([{ userId: "u1", username: "renan", displayName: "Renan", role: "admin", joinedAt: "" }]);
+      }
+      return Response.json({ error: "?" }, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const user = renderApp();
+      await user.click(screen.getByRole("button", { name: "Participantes" }));
+
+      const link = (await screen.findByLabelText("Link de convite")) as HTMLInputElement;
+      expect(link.value).toBe(`${location.origin}/convite/${code}`);
+      const message = screen.getByLabelText("Mensagem do convite").textContent ?? "";
+      expect(message).toContain("Aqui é Renan");
+      expect(message).toContain("*Casa*");
+      expect(message.trim().endsWith(link.value)).toBe(true);
+      expect(screen.queryByPlaceholderText("Usuário")).toBeNull();
+
+      await user.click(screen.getByRole("button", { name: "Gerar um link novo" }));
+      await user.click(await screen.findByRole("button", { name: "Gerar link novo" }));
+      await waitFor(() => expect(link.value).toBe(`${location.origin}/convite/${"b".repeat(32)}`));
+      expect(screen.getByText("Link novo pronto. O anterior não funciona mais.")).toBeTruthy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("navega para os participantes pela barra inferior", async () => {

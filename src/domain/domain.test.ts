@@ -61,6 +61,13 @@ describe("parseQuantity", () => {
     ["Arroz 5kg", "Arroz 5kg", 1],
     ["Kit 3x1", "Kit 3x1", 1],
     ["Peixe 0x", "Peixe 0x", 1],
+    ["Peixe 1", "Peixe", 1],
+    ["café 2", "Café", 2],
+    ["Ovos - 12", "Ovos", 12],
+    ["Molho 3 queijos 2", "Molho 3 queijos", 2],
+    ["Molho 3 queijos", "Molho 3 queijos", 1],
+    ["Peixe 0", "Peixe 0", 1],
+    ["Arroz 5 kg", "Arroz 5 kg", 1],
   ])("%s", (input, text, quantity) => {
     expect(parseQuantity(input)).toEqual({ text, quantity });
   });

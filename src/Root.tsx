@@ -1,21 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { App } from "./App";
 import { AuthScreen } from "./components/AuthScreen";
 import { CreateListScreen } from "./components/CreateListScreen";
 import { fetchMe, forgetEverything, logout, type MeState, preferredListId, setPreferredListId } from "./data/auth";
 import { ApiBackend } from "./data/apiBackend";
-import { createList, renameList } from "./data/listsApi";
+import { RejectedOpError } from "./data/backend";
+import { createList, joinInvite, previewInvite, renameList } from "./data/listsApi";
 import { SyncedList } from "./data/syncedList";
 import type { ListSummary, MeResponse } from "./domain/types";
+import { clearInvite, pendingInvite } from "./invite";
 
 /** Tela enquanto a conta é conferida, no lugar de uma página em branco. */
-function Starting() {
+function Starting({ message = "Abrindo…" }: { message?: string }) {
   return (
     <main className="app" aria-busy="true">
       <div className="page">
         <header className="screen-header">
           <h1 className="title">Lista do Mercado</h1>
-          <p className="subtitle">Abrindo…</p>
+          <p className="subtitle">{message}</p>
         </header>
         {[70, 50, 85].map((width) => (
           <div key={width} className="skeleton" aria-hidden="true">
@@ -38,6 +40,12 @@ export function Root() {
   const [state, setState] = useState<MeState | "loading">("loading");
   const [listId, setListId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  /** Convite aberto por link (/convite/<código>), esperando a pessoa entrar na conta. */
+  const [invite, setInvite] = useState<{ code: string; listName?: string } | null>(() => {
+    const code = pendingInvite();
+    return code ? { code } : null;
+  });
+  const joining = useRef(false);
 
   const applyMe = useCallback((me: MeResponse, wanted: string | null = preferredListId()) => {
     setState({ kind: "user", me });
@@ -58,6 +66,53 @@ export function Root() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const inviteCode = invite?.code;
+  const dropInvite = useCallback((message: string) => {
+    clearInvite();
+    setInvite(null);
+    setNotice(message);
+  }, []);
+
+  // O nome da lista do convite aparece na tela de entrar, antes de ter conta.
+  useEffect(() => {
+    if (!inviteCode) return;
+    let active = true;
+    previewInvite(inviteCode)
+      .then(({ listName }) => {
+        if (active) setInvite((current) => (current?.code === inviteCode ? { code: inviteCode, listName } : current));
+      })
+      .catch((failure) => {
+        if (active && failure instanceof RejectedOpError) dropInvite(failure.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [inviteCode, dropInvite]);
+
+  // Com a conta aberta, entra na lista do convite e já abre nela.
+  const signedIn = state !== "loading" && state.kind === "user";
+  useEffect(() => {
+    if (!signedIn || !inviteCode || joining.current) return;
+    joining.current = true;
+    joinInvite(inviteCode)
+      .then(async (joined) => {
+        clearInvite();
+        setInvite(null);
+        setNotice(`Pronto! Você está na lista ${joined.name}.`);
+        await refresh(joined.id);
+      })
+      .catch((failure) => {
+        dropInvite(
+          failure instanceof RejectedOpError
+            ? failure.message
+            : "Não consegui entrar na lista do convite agora. Abra o link de novo com internet.",
+        );
+      })
+      .finally(() => {
+        joining.current = false;
+      });
+  }, [signedIn, inviteCode, refresh, dropInvite]);
 
   const list = useMemo(
     () => (listId ? new SyncedList(new ApiBackend(listId), `lista-mercado:cache:${listId}`) : null),
@@ -91,8 +146,12 @@ export function Root() {
   );
 
   if (state === "loading") return <Starting />;
-  if (state.kind === "none") return <AuthScreen notice={notice} onAuthenticated={(me) => applyMe(me)} />;
+  if (state.kind === "none") {
+    return <AuthScreen notice={notice} invitedTo={invite?.listName} onAuthenticated={(me) => applyMe(me)} />;
+  }
   if (state.kind === "legacy") return <AuthScreen legacyName={state.name} onAuthenticated={(me) => applyMe(me)} />;
+
+  if (invite) return <Starting message={invite.listName ? `Entrando na lista ${invite.listName}…` : "Entrando na lista…"} />;
 
   const { me } = state;
   const current = me.lists.find((item) => item.id === listId);

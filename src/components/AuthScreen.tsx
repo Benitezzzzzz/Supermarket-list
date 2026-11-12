@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { claimLegacy, login, MIN_PASSWORD, normalizeUsername, signup, USERNAME_PATTERN } from "../data/auth";
 import { AccessRevokedError, RejectedOpError } from "../data/backend";
 import type { MeResponse } from "../domain/types";
@@ -11,6 +11,8 @@ interface AuthScreenProps {
   /** Aparelho da versão sem contas: cria a conta levando a lista junto. */
   legacyName?: string;
   notice?: string;
+  /** Nome da lista de um link de convite: depois de entrar, a pessoa cai direto nela. */
+  invitedTo?: string;
 }
 
 function validate(mode: Mode | "claim", fields: { username: string; displayName: string; password: string; repeat: string }) {
@@ -23,11 +25,11 @@ function validate(mode: Mode | "claim", fields: { username: string; displayName:
   return "";
 }
 
-export function AuthScreen({ onAuthenticated, legacyName, notice }: AuthScreenProps) {
+export function AuthScreen({ onAuthenticated, legacyName, notice, invitedTo }: AuthScreenProps) {
   // Quem já criou a conta em outro aparelho pode pular a transferência e só entrar.
   const [skipClaim, setSkipClaim] = useState(false);
   const claiming = legacyName !== undefined && !skipClaim;
-  const [mode, setMode] = useState<Mode>("login");
+  const [mode, setMode] = useState<Mode>(invitedTo ? "signup" : "login");
   const [displayName, setDisplayName] = useState(legacyName ?? "");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -35,6 +37,11 @@ export function AuthScreen({ onAuthenticated, legacyName, notice }: AuthScreenPr
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const effectiveMode = claiming ? "claim" : mode;
+
+  // Quem chega por convite quase sempre ainda não tem conta.
+  useEffect(() => {
+    if (invitedTo) setMode("signup");
+  }, [invitedTo]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -80,11 +87,21 @@ export function AuthScreen({ onAuthenticated, legacyName, notice }: AuthScreenPr
           <p className="subtitle">
             {claiming
               ? `Oi, ${legacyName}! Agora cada pessoa tem usuário e senha. Crie os seus para continuar com a sua lista.`
-              : mode === "login"
-                ? "Entre com seu usuário e senha."
-                : "Crie sua conta. Depois é só pedir para alguém te adicionar numa lista, ou criar a sua."}
+              : invitedTo
+                ? mode === "login"
+                  ? "Entre com seu usuário e senha para participar."
+                  : "Crie sua conta para participar. Se já tem uma, toque em Entrar."
+                : mode === "login"
+                  ? "Entre com seu usuário e senha."
+                  : "Crie sua conta. Depois é só abrir o link de convite de uma lista, ou criar a sua."}
           </p>
         </header>
+
+        {invitedTo && !claiming && (
+          <p className="notice" role="status">
+            🛒 Você recebeu um convite para a lista <strong>{invitedTo}</strong>.
+          </p>
+        )}
 
         {!claiming && (
           <div className="segmented" role="tablist" aria-label="Entrar ou criar conta">

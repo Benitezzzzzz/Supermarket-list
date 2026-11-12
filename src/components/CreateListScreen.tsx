@@ -35,8 +35,8 @@ export function CreateListScreen({ user, onCreate, onLogout }: CreateListScreenP
         <header className="screen-header">
           <h1 className="title">Oi, {user.displayName.split(/\s+/)[0]}!</h1>
           <p className="subtitle">
-            Você ainda não participa de nenhuma lista. Crie a sua, ou peça para alguém te adicionar usando o
-            seu usuário: <strong>{user.username}</strong>.
+            Você ainda não participa de nenhuma lista. Crie a sua, ou peça para alguém da família te mandar o
+            link de convite da lista.
           </p>
         </header>
         {error && (
