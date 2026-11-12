@@ -5,6 +5,7 @@
 ### Adicionado
 
 - **Excluir a lista pelo lápis:** em "Suas listas", o lápis de uma lista que você administra agora também tem "Excluir a lista". O app pede confirmação ali mesmo e avisa que itens, gastos e participantes são apagados para todos. Se era a lista aberta, o app passa para outra; sem nenhuma, abre a tela de criar lista.
+- **Administrador geral exclui qualquer lista:** no painel Administração geral, cada lista tem o botão "Excluir", com a mesma confirmação. Vale também para listas em que ele não participa.
 
 ## 4.13.0 (2026-11-12)
 

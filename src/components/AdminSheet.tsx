@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import type { AdminOverview, AdminUser } from "../../shared/contract.ts";
+import type { AdminList, AdminOverview, AdminUser } from "../../shared/contract.ts";
 import { fetchOverview, logoutUser, resetPassword } from "../data/adminApi";
 import type { UserInfo } from "../domain/types";
 import { BottomSheet } from "../ui/BottomSheet";
 
 interface AdminSheetProps {
   user: UserInfo;
+  /** Exclui a lista para todos; o aparelho atualiza o seletor do topo. */
+  onDeleteList: (listId: string) => Promise<void>;
   onClose: () => void;
 }
 
@@ -14,12 +16,13 @@ const dateTime = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "shor
 type Action = { kind: "reset" | "logout"; target: AdminUser } | null;
 
 /** Painel do administrador geral: todas as contas e listas. Nenhuma senha aparece aqui. */
-export function AdminSheet({ user, onClose }: AdminSheetProps) {
+export function AdminSheet({ user, onDeleteList, onClose }: AdminSheetProps) {
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [error, setError] = useState("");
   const [action, setAction] = useState<Action>(null);
   const [result, setResult] = useState<{ name: string; password?: string; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState<AdminList | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -53,6 +56,19 @@ export function AdminSheet({ user, onClose }: AdminSheetProps) {
       await load();
     } catch {
       setError("Não consegui fazer agora. Confira a internet.");
+    }
+    setBusy(false);
+  }
+
+  async function deleteList(list: AdminList) {
+    setBusy(true);
+    try {
+      await onDeleteList(list.id);
+      setDeleting(null);
+      setResult({ name: list.name, text: `A lista ${list.name} foi excluída.` });
+      await load();
+    } catch {
+      setError("Não consegui excluir agora. Confira a internet.");
     }
     setBusy(false);
   }
@@ -104,11 +120,17 @@ export function AdminSheet({ user, onClose }: AdminSheetProps) {
                   </span>
                   {!isMe && !confirming && (
                     <span className="admin__actions">
-                      <button type="button" className="btn btn--secondary btn--small" onClick={() => setAction({ kind: "reset", target: account })}>
+                      <button type="button" className="btn btn--secondary btn--small" onClick={() => {
+                          setDeleting(null);
+                          setAction({ kind: "reset", target: account });
+                        }}>
                         Nova senha
                       </button>
                       {account.devices > 0 && (
-                        <button type="button" className="btn btn--danger-soft btn--small" onClick={() => setAction({ kind: "logout", target: account })}>
+                        <button type="button" className="btn btn--danger-soft btn--small" onClick={() => {
+                          setDeleting(null);
+                          setAction({ kind: "logout", target: account });
+                        }}>
                           Desconectar
                         </button>
                       )}
@@ -139,7 +161,7 @@ export function AdminSheet({ user, onClose }: AdminSheetProps) {
           <h3 className="field-label">Listas · {overview.lists.length}</h3>
           <ul className="members">
             {overview.lists.map((list) => (
-              <li key={list.id} className="member">
+              <li key={list.id} className="member admin__user">
                 <span className="member__info">
                   <span className="member__name">{list.name}</span>
                   <span className="member__role">
@@ -150,6 +172,36 @@ export function AdminSheet({ user, onClose }: AdminSheetProps) {
                       : list.members.map((member) => `${member.displayName}${member.role === "admin" ? " (administra)" : ""}`).join(", ")}
                   </span>
                 </span>
+                {deleting?.id === list.id ? (
+                  <span className="admin__confirm">
+                    <span className="hint">
+                      Excluir a lista {list.name}? Itens, gastos e participantes são apagados para todos. Não dá para
+                      desfazer.
+                    </span>
+                    <span className="admin__actions">
+                      <button type="button" className="btn btn--secondary btn--small" onClick={() => setDeleting(null)}>
+                        Cancelar
+                      </button>
+                      <button type="button" className="btn btn--danger btn--small" disabled={busy} onClick={() => void deleteList(list)}>
+                        Excluir lista
+                      </button>
+                    </span>
+                  </span>
+                ) : (
+                  <span className="admin__actions">
+                    <button
+                      type="button"
+                      className="btn btn--danger-soft btn--small"
+                      aria-label={`Excluir a lista ${list.name}`}
+                      onClick={() => {
+                        setAction(null);
+                        setDeleting(list);
+                      }}
+                    >
+                      Excluir
+                    </button>
+                  </span>
+                )}
               </li>
             ))}
           </ul>

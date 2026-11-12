@@ -153,7 +153,7 @@ Cada lista tem um Durable Object que guarda os WebSockets abertos. Quando algo m
 - **Tentativas:** depois de 5 senhas erradas, a conta fica bloqueada por 15 minutos. A mensagem de erro é a mesma para usuário inexistente e senha errada.
 - **Sessão:** um token aleatório de 256 bits por aparelho, em cookie `HttpOnly`, `SameSite=Strict` e `Secure`. O banco guarda só o hash. Trocar a senha desconecta os outros aparelhos.
 - **Isolamento:** toda rota de uma lista confere em `list_members` se a pessoa participa. A chave dos itens e das compras inclui a lista, então um id de outra lista não alcança a linha.
-- **Administrador geral:** vê todas as contas e listas e gera senha nova para quem esqueceu, pelo painel em Sua conta. Nem ele vê senhas: elas não ficam guardadas. O papel só é dado pelo comando `user:set-superadmin`.
+- **Administrador geral:** vê todas as contas e listas, gera senha nova para quem esqueceu e exclui qualquer lista, pelo painel em Sua conta. Nem ele vê senhas: elas não ficam guardadas. O papel só é dado pelo comando `user:set-superadmin`.
 - **Sem e-mail:** quem esquecer a senha pede ao administrador geral, pelo painel ou pelo comando `npm run user:reset-password -- <usuario> --remoto`.
 - **Validação:** todo dado de entrada passa pelo Zod no servidor, e o banco repete os limites com `CHECK`.
 

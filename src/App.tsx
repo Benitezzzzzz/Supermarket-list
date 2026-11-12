@@ -309,7 +309,7 @@ export function App({
         />
       )}
 
-      {sheet?.kind === "admin" && <AdminSheet user={user} onClose={close} />}
+      {sheet?.kind === "admin" && <AdminSheet user={user} onDeleteList={onDeleteList} onClose={close} />}
 
       {sheet?.kind === "clear" && (
         <ClearSheet

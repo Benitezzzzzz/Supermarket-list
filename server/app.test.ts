@@ -593,6 +593,15 @@ describe("administrador geral", () => {
     expect((await pai.snapshot(pousada.id)).items.map((i) => i.text)).toEqual(["Sabonete"]);
   });
 
+  it("exclui a lista de outra pessoa, e quem participa perde o acesso", async () => {
+    const outra = await renan.createList("Praia");
+    expect((await pai.call("DELETE", `/lists/${outra.id}`)).status).toBe(404);
+    expect((await renan.call("DELETE", `/lists/${pousada.id}`)).status).toBe(204);
+    expect((await pai.call("GET", `/lists/${pousada.id}`)).status).not.toBe(200);
+    const me = (await (await pai.call("GET", "/auth/me")).json()) as MeResponse;
+    expect(me.lists).toEqual([]);
+  });
+
   it("lista que não existe continua inexistente, mesmo para ele", async () => {
     expect((await renan.call("GET", `/lists/${randomUUID()}`)).status).toBe(404);
   });
