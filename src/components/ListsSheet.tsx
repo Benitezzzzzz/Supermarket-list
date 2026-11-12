@@ -12,16 +12,19 @@ interface ListsSheetProps {
   onCreate: (name: string) => Promise<void>;
   /** Só quem administra a lista pode mudar o nome; o servidor confere. */
   onRename: (listId: string, name: string) => Promise<void>;
+  /** Só quem administra pode excluir; apaga a lista para todos. */
+  onDelete: (listId: string) => Promise<void>;
   onClose: () => void;
 }
 
-/** Trocar de lista, mudar o nome de uma lista ou criar uma nova, como "Pousada". */
-export function ListsSheet({ lists, currentId, onPick, onCreate, onRename, onClose }: ListsSheetProps) {
+/** Trocar de lista, mudar o nome ou excluir uma lista, ou criar uma nova, como "Pousada". */
+export function ListsSheet({ lists, currentId, onPick, onCreate, onRename, onDelete, onClose }: ListsSheetProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [renameError, setRenameError] = useState("");
   const [renamed, setRenamed] = useState("");
   const [renaming, setRenaming] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -32,6 +35,23 @@ export function ListsSheet({ lists, currentId, onPick, onCreate, onRename, onClo
     setEditName(list.name);
     setRenameError("");
     setRenamed("");
+    setConfirmingDelete(false);
+  }
+
+  async function remove(list: ListSummary) {
+    setRenaming(true);
+    try {
+      await onDelete(list.id);
+      setEditingId(null);
+      setConfirmingDelete(false);
+      setRenameError("");
+      setRenamed(`A lista ${list.name} foi excluída.`);
+    } catch (failure) {
+      setConfirmingDelete(false);
+      setRenameError(failure instanceof RejectedOpError ? failure.message : "Não consegui excluir. Confira a internet.");
+    } finally {
+      setRenaming(false);
+    }
   }
 
   async function rename(event: FormEvent, list: ListSummary) {
@@ -105,14 +125,49 @@ export function ListsSheet({ lists, currentId, onPick, onCreate, onRename, onClo
                   {renameError}
                 </p>
               )}
-              <div className="sheet__actions">
-                <button type="button" className="btn btn--secondary" onClick={() => setEditingId(null)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn btn--primary" disabled={renaming}>
-                  Salvar nome
-                </button>
-              </div>
+              {confirmingDelete ? (
+                <div className="list-rename__confirm">
+                  <p className="hint">
+                    Excluir a lista {list.name}? Itens, gastos e participantes desta lista são apagados para todos. Não
+                    dá para desfazer.
+                  </p>
+                  <div className="sheet__actions">
+                    <button type="button" className="btn btn--secondary" onClick={() => setConfirmingDelete(false)}>
+                      Não excluir
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--danger"
+                      disabled={renaming}
+                      autoFocus
+                      onClick={() => void remove(list)}
+                    >
+                      Excluir lista
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="sheet__actions">
+                    <button type="button" className="btn btn--secondary" onClick={() => setEditingId(null)}>
+                      Cancelar
+                    </button>
+                    <button type="submit" className="btn btn--primary" disabled={renaming}>
+                      Salvar nome
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn--danger-soft btn--block"
+                    onClick={() => {
+                      setRenameError("");
+                      setConfirmingDelete(true);
+                    }}
+                  >
+                    Excluir a lista {list.name}
+                  </button>
+                </>
+              )}
             </form>
           ) : (
             <div key={list.id} className="list-row">

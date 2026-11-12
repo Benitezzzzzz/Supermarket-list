@@ -80,6 +80,9 @@ function renderApp() {
         if (name === "Falha") throw new Error("sem internet");
         calls.push(`rename:${id}:${name}`);
       }}
+      onDeleteList={async (id) => {
+        calls.push(`delete:${id}`);
+      }}
       onListsChanged={() => calls.push("changed")}
       onLogout={() => calls.push("logout")}
       onSessionLost={() => calls.push("session-lost")}
@@ -190,6 +193,23 @@ describe("App", () => {
     expect(await within(sheet).findByText("A lista agora se chama Casa da família.")).toBeTruthy();
     expect(calls).toEqual(["rename:l1:Casa da família"]);
     expect(within(sheet).queryByLabelText("Nome da lista")).toBeNull();
+  });
+
+  it("quem administra exclui a lista pelo lápis, depois de confirmar", async () => {
+    const user = renderApp();
+    await user.click(screen.getByRole("button", { name: "Lista Casa. Trocar de lista" }));
+    const sheet = await screen.findByRole("dialog", { name: "Suas listas" });
+    await user.click(within(sheet).getByRole("button", { name: "Mudar o nome da lista Casa" }));
+
+    await user.click(within(sheet).getByRole("button", { name: "Excluir a lista Casa" }));
+    expect(within(sheet).getByText(/Não dá para desfazer/)).toBeTruthy();
+    await user.click(within(sheet).getByRole("button", { name: "Não excluir" }));
+    expect(calls).toEqual([]);
+
+    await user.click(within(sheet).getByRole("button", { name: "Excluir a lista Casa" }));
+    await user.click(within(sheet).getByRole("button", { name: "Excluir lista" }));
+    expect(await within(sheet).findByText("A lista Casa foi excluída.")).toBeTruthy();
+    expect(calls).toEqual(["delete:l1"]);
   });
 
   it("cria uma lista nova pelo seletor", async () => {

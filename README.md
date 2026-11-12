@@ -160,7 +160,7 @@ Cada lista tem um Durable Object que guarda os WebSockets abertos. Quando algo m
 ## Funcionalidades
 
 - Contas com usuário e senha; trocar senha e sair em "Sua conta"
-- Várias listas por pessoa, com troca pelo nome da lista no topo
+- Várias listas por pessoa, com troca pelo nome da lista no topo; quem administra muda o nome ou exclui a lista pelo lápis
 - Participantes por lista: convite pelo WhatsApp com mensagem pronta e link direto da lista (quem abre o link entra ou cria a conta e cai na lista), link novo para invalidar o antigo, remover, renomear e excluir a lista, ou sair dela
 - Adicionar item com categoria e criar categorias novas
 - Quantidade: digite "2 frangos" ou ajuste depois no lápis (medidas como "2 kg arroz" ficam no nome)

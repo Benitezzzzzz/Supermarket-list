@@ -5,7 +5,7 @@ import { CreateListScreen } from "./components/CreateListScreen";
 import { fetchMe, forgetEverything, logout, type MeState, preferredListId, setPreferredListId } from "./data/auth";
 import { ApiBackend } from "./data/apiBackend";
 import { RejectedOpError } from "./data/backend";
-import { createList, joinInvite, previewInvite, renameList } from "./data/listsApi";
+import { createList, deleteList, joinInvite, previewInvite, renameList } from "./data/listsApi";
 import { SyncedList } from "./data/syncedList";
 import type { ListSummary, MeResponse } from "./domain/types";
 import { clearInvite, pendingInvite } from "./invite";
@@ -174,6 +174,10 @@ export function Root() {
       onRenameList={async (id, name) => {
         await renameList(id, name);
         await refresh(listId);
+      }}
+      onDeleteList={async (id) => {
+        await deleteList(id);
+        await refresh(id === listId ? null : listId);
       }}
       onListsChanged={() => void refresh(listId)}
       onLogout={() => void onLogout()}

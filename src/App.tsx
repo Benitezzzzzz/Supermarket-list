@@ -42,6 +42,7 @@ interface AppProps {
   onSwitchList: (listId: string) => void;
   onCreateList: (name: string) => Promise<void>;
   onRenameList: (listId: string, name: string) => Promise<void>;
+  onDeleteList: (listId: string) => Promise<void>;
   onListsChanged: () => void;
   onLogout: () => void;
   onSessionLost: () => void;
@@ -71,6 +72,7 @@ export function App({
   onSwitchList,
   onCreateList,
   onRenameList,
+  onDeleteList,
   onListsChanged,
   onLogout,
   onSessionLost,
@@ -289,6 +291,7 @@ export function App({
             close();
           }}
           onRename={onRenameList}
+          onDelete={onDeleteList}
           onClose={close}
         />
       )}
