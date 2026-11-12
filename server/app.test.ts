@@ -681,6 +681,8 @@ describe("cupom fiscal", () => {
   let casa: ListSummary;
   let reads: string[];
   let answer: unknown;
+  let listAnswer: unknown;
+  let kinds: string[];
 
   const compra = () => ({
     id: randomUUID(),
@@ -713,6 +715,7 @@ describe("cupom fiscal", () => {
 
   beforeEach(async () => {
     reads = [];
+    kinds = [];
     answer = {
       loja: "RC Comercio",
         cnpj: "07.309.087/0001-22",
@@ -724,10 +727,12 @@ describe("cupom fiscal", () => {
         ],
         total: 17.38,
     };
+    listAnswer = { linhas: ["2 leite", "Limpeza", "Detergente", "  ", "123"] };
     app = createApp(db, notifier, {
-      read: async (image) => {
+      read: async (image, kind = "receipt") => {
         reads.push(image);
-        return answer;
+        kinds.push(kind);
+        return kind === "list" ? listAnswer : answer;
       },
     });
     renan = new Device(app);
@@ -772,10 +777,29 @@ describe("cupom fiscal", () => {
     expect(reads).toHaveLength(30);
   });
 
+  it("lista escrita à mão: devolve o texto, uma linha por item", async () => {
+    const response = await renan.call("POST", `/lists/${casa.id}/list-photo/read`, { image: "A".repeat(2_000_000) });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ text: "2 leite\nLimpeza\nDetergente" });
+    expect(kinds).toEqual(["list"]);
+    expect((await renan.snapshot(casa.id)).items).toEqual([]);
+  });
+
+  it("lista sem itens, quem não participa e limite somado com os cupons", async () => {
+    expect((await estranho.call("POST", `/lists/${casa.id}/list-photo/read`, { image: "A".repeat(200) })).status).toBe(404);
+    listAnswer = { linhas: [] };
+    const empty = await renan.call("POST", `/lists/${casa.id}/list-photo/read`, { image: "A".repeat(200) });
+    expect(empty.status).toBe(422);
+    expect(((await empty.json()) as { error: string }).error).toMatch(/Não encontrei itens/);
+    for (let i = 0; i < 29; i++) await renan.call("POST", `/lists/${casa.id}/receipts/read`, { image: "A".repeat(200) });
+    expect((await renan.call("POST", `/lists/${casa.id}/list-photo/read`, { image: "A".repeat(200) })).status).toBe(429);
+  });
+
   it("sem IA configurada responde 503", async () => {
     const semIa = new Device(createApp(db, notifier));
     semIa.cookies = renan.cookies;
     expect((await semIa.call("POST", `/lists/${casa.id}/receipts/read`, { image: "A".repeat(200) })).status).toBe(503);
+    expect((await semIa.call("POST", `/lists/${casa.id}/list-photo/read`, { image: "A".repeat(200) })).status).toBe(503);
   });
 
   it("liga o cupom à compra, aparece no snapshot e some ao remover", async () => {

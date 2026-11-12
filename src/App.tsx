@@ -10,6 +10,8 @@ import { EditItemSheet } from "./components/EditItemSheet";
 import { ExpensesScreen } from "./components/ExpensesScreen";
 import { FinishSheet, purchasedItems } from "./components/FinishSheet";
 import { ImportSheet } from "./components/ImportSheet";
+import { listPhotoBase64 } from "./data/receiptImage";
+import { readListPhoto } from "./data/receiptsApi";
 import { takeSharedText } from "./sharedText";
 import { ListScreen } from "./components/ListScreen";
 import { ListsSheet } from "./components/ListsSheet";
@@ -22,7 +24,8 @@ import { createItem, describeItem } from "./domain/items";
 import { findProduct } from "./domain/barcodes";
 import { buildPriceIndex, lastPrice, pricesFor } from "./domain/prices";
 import { knownStores } from "./domain/storeName";
-import { createTemplate, itemsFromTemplate, knownCategoryFor } from "./domain/templates";
+import { categoryGuesser } from "./domain/categoryGuess";
+import { createTemplate, itemsFromTemplate } from "./domain/templates";
 import type { Item, ListSummary, Template, UserInfo } from "./domain/types";
 import { canKeepAwake, useKeepAwake } from "./hooks/useKeepAwake";
 import { resolvedTheme, setThemeChoice, type ThemeChoice, themeChoice } from "./theme";
@@ -47,7 +50,7 @@ interface AppProps {
 
 type Sheet =
   | { kind: "add" }
-  | { kind: "import"; text?: string }
+  | { kind: "import"; text?: string; fromPhoto?: boolean }
   | { kind: "edit"; id: string }
   | { kind: "clear" }
   | { kind: "finish" }
@@ -100,14 +103,31 @@ export function App({
     if (notice) show(notice);
   }, [notice, show]);
 
-  const categories = knownCategories(state.customCategories, state.items);
+  const categories = useMemo(
+    () => knownCategories(state.customCategories, state.items),
+    [state.customCategories, state.items],
+  );
   const editing = sheet?.kind === "edit" ? state.items.find((item) => item.id === sheet.id) : undefined;
 
   /** Preços já pagos, por produto: base da referência na lista e do histórico de cada item. */
   const priceIndex = useMemo(() => buildPriceIndex(state.purchases), [state.purchases]);
   const findLastPrice = useCallback((text: string) => lastPrice(priceIndex, text), [priceIndex]);
 
-  const categoryFor = (text: string) => knownCategoryFor(text, state.items, state.purchases);
+  /** Categoria pelo nome: o que a lista já usou (do mais antigo ao mais recente) e produtos comuns. */
+  const guessCategory = useMemo(
+    () =>
+      categoryGuesser(
+        [
+          ...state.templates.flatMap((template) => template.items),
+          ...state.barcodes,
+          ...[...state.purchases].reverse().flatMap((purchase) => purchase.items),
+          ...state.items,
+        ],
+        categories,
+      ),
+    [state.templates, state.barcodes, state.purchases, state.items, categories],
+  );
+  const categoryFor = (text: string) => guessCategory(text) ?? DEFAULT_CATEGORY;
 
   function applyTemplate(template: Template) {
     const items = itemsFromTemplate(template, state.items);
@@ -212,6 +232,11 @@ export function App({
           }}
           findProduct={(code) => findProduct(code, state.barcodes, state.purchases)}
           onOpenImport={() => setSheet({ kind: "import" })}
+          onReadListPhoto={async (file) => {
+            const text = await readListPhoto(current.id, await listPhotoBase64(file));
+            // Se a pessoa fechou o painel enquanto lia, não abre nada por cima.
+            setSheet((open) => (open?.kind === "add" ? { kind: "import", text, fromPhoto: true } : open));
+          }}
           onClose={close}
           lastPrice={findLastPrice}
         />
@@ -223,6 +248,8 @@ export function App({
           initialCategory={category}
           listName={current.name}
           initialText={sheet.text}
+          fromPhoto={sheet.fromPhoto}
+          guessCategory={guessCategory}
           onImport={(items) => {
             list.addItems(items);
             close();

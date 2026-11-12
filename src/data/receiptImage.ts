@@ -97,17 +97,32 @@ export interface PreparedPhoto {
   qrText: string | null;
 }
 
+/** A foto do tamanho certo para a IA, em base64. */
+async function uploadFrom(file: Blob, bitmap: ImageBitmap): Promise<string> {
+  const small = Math.max(bitmap.width, bitmap.height) <= MAX_SIDE;
+  const upload =
+    file.type === "image/jpeg" && small && file.size <= MAX_ORIGINAL_BYTES
+      ? file
+      : await canvasToJpeg(canvasFrom(bitmap, bitmap.width, bitmap.height, MAX_SIDE));
+  return blobToBase64(upload);
+}
+
 export async function preparePhoto(file: Blob): Promise<PreparedPhoto> {
   // O navegador já aplica a rotação gravada pela câmera (EXIF).
   const bitmap = await createImageBitmap(file);
   try {
     const qrText = await findQrIn(bitmap);
-    const small = Math.max(bitmap.width, bitmap.height) <= MAX_SIDE;
-    const upload =
-      file.type === "image/jpeg" && small && file.size <= MAX_ORIGINAL_BYTES
-        ? file
-        : await canvasToJpeg(canvasFrom(bitmap, bitmap.width, bitmap.height, MAX_SIDE));
-    return { base64: await blobToBase64(upload), qrText };
+    return { base64: await uploadFrom(file, bitmap), qrText };
+  } finally {
+    bitmap.close();
+  }
+}
+
+/** Foto de uma lista escrita: só reduz, sem procurar QR code. */
+export async function listPhotoBase64(file: Blob): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  try {
+    return await uploadFrom(file, bitmap);
   } finally {
     bitmap.close();
   }

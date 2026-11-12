@@ -1,8 +1,11 @@
 import { MAX_AMOUNT_CENTS, MAX_RECEIPT_ITEMS, type ReceiptReading } from "../../shared/contract.ts";
 
-/** Lê a foto de um cupom e devolve o JSON que o modelo escreveu (ainda sem validar). */
+/** O que está na foto: um cupom fiscal ou uma lista de compras escrita (à mão ou não). */
+export type PhotoKind = "receipt" | "list";
+
+/** Lê a foto e devolve o JSON que o modelo escreveu (ainda sem validar). */
 export interface ReceiptReader {
-  read(imageBase64: string): Promise<unknown>;
+  read(imageBase64: string, kind?: PhotoKind): Promise<unknown>;
 }
 
 /** A IA não conseguiu responder (cota do dia esgotada, fora do ar...). */
@@ -29,13 +32,25 @@ Regras:
 - "total" é o "Valor a pagar".
 - Não invente nada. Campo ilegível fica vazio ("") ou 0.`;
 
+const LIST_PROMPT = `Você lê fotos de listas de compras de supermercado em português do Brasil, quase sempre escritas à mão, e transcreve os itens.
+Responda somente com JSON, sem nenhum texto fora dele, neste formato:
+{"linhas":["2 leite","Arroz 5kg","Limpeza","Detergente"]}
+Regras:
+- Uma linha por item, na ordem da lista. Mantenha a quantidade se estiver escrita ("2 leite", "ovos 12", "3x sabão").
+- Medidas fazem parte do nome ("Arroz 5kg", "Coca-Cola 2L").
+- Se a lista tiver títulos de seção (ex.: "Limpeza", "Hortifruti"), coloque o título numa linha própria, antes dos itens dele.
+- Leia a letra à mão com cuidado e escreva o nome do produto com a grafia correta ("fejão" vira "Feijão").
+- Ignore itens riscados, datas, preços, assinaturas e rabiscos.
+- Não invente itens. Palavra ilegível fica de fora.
+- Se não houver lista de compras na foto, responda {"linhas":[]}.`;
+
 interface AiBinding {
   run(model: string, input: unknown): Promise<unknown>;
 }
 
 export function workersAiReader(ai: AiBinding): ReceiptReader {
   return {
-    async read(imageBase64) {
+    async read(imageBase64, kind = "receipt") {
       let result: unknown;
       try {
         result = await ai.run(RECEIPT_MODEL, {
@@ -43,7 +58,7 @@ export function workersAiReader(ai: AiBinding): ReceiptReader {
             {
               role: "user",
               content: [
-                { type: "text", text: PROMPT },
+                { type: "text", text: kind === "list" ? LIST_PROMPT : PROMPT },
                 { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
               ],
             },
@@ -158,4 +173,32 @@ export function normalizeReading(raw: unknown): ReceiptReading {
     totalCents: toCents(data.total) || null,
     items: items.slice(0, MAX_RECEIPT_ITEMS),
   };
+}
+
+/** Quantas linhas a leitura de uma lista escrita devolve, no máximo. */
+export const MAX_LIST_LINES = 150;
+
+/**
+ * A lista escrita vira texto, uma linha por item, no formato do "Colar vários itens":
+ * a pessoa confere e corrige antes de importar.
+ */
+export function normalizeListReading(raw: unknown): string {
+  const data = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const rawLines = [data.linhas, data.itens, data.items, data.lines].find(Array.isArray) ?? [];
+  const lines: string[] = [];
+  for (const entry of rawLines) {
+    if (lines.length >= MAX_LIST_LINES) break;
+    let line = "";
+    if (typeof entry === "string") line = entry;
+    else if (entry && typeof entry === "object") {
+      // O modelo às vezes devolve {"nome": "Leite", "quantidade": 2}.
+      const record = entry as Record<string, unknown>;
+      const name = text(record.nome ?? record.name ?? record.item, 80);
+      const quantity = Number(record.quantidade ?? record.quantity);
+      line = name && Number.isInteger(quantity) && quantity > 1 && quantity <= 999 ? `${quantity} ${name}` : name;
+    }
+    const clean = text(line, 80);
+    if (/\p{L}/u.test(clean)) lines.push(clean);
+  }
+  return lines.join("\n");
 }

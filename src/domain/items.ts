@@ -24,11 +24,17 @@ export function createItem(input: string, category: string, createdAt = new Date
 
 /**
  * Transforma texto colado em itens, inclusive mensagens copiadas do WhatsApp.
- * Uma linha com o nome de uma categoria vira título e categoriza as seguintes.
+ * Uma linha com o nome de uma categoria vira título e categoriza as seguintes;
+ * sem título, a categoria vem de `guess` (o que a lista aprendeu e produtos comuns).
  */
-export function parseImport(text: string, categories: string[], defaultCategory: string): Item[] {
+export function parseImport(
+  text: string,
+  categories: string[],
+  defaultCategory: string,
+  guess?: (name: string) => string | null,
+): Item[] {
   const now = Date.now();
-  return parseListText(text, categories, defaultCategory || DEFAULT_CATEGORY).map((entry, index) =>
+  return parseListText(text, categories, defaultCategory || DEFAULT_CATEGORY, guess).map((entry, index) =>
     // Um milissegundo por item preserva a ordem colada ao ordenar por data.
     createItem(entry.text, entry.category, new Date(now + index)),
   );

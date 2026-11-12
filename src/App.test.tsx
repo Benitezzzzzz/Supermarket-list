@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { applyOp } from "./data/applyOp";
-import type { ListBackend } from "./data/backend";
+import { type ListBackend, RejectedOpError } from "./data/backend";
 import { SyncedList } from "./data/syncedList";
 import { captureSharedText } from "./sharedText";
 import type { ListSummary, Op, ReceiptReading, Snapshot, UserInfo } from "./domain/types";
@@ -23,15 +23,22 @@ const receiptMocks = vi.hoisted(() => ({
   } as ReceiptReading,
   sent: [] as string[][],
   barcode: "7896058599848" as string | null,
+  listText: "Hortifruti\n2 bananas\nLimpeza\nDetergente" as string | null,
 }));
 
 vi.mock("./data/receiptImage", () => ({
   preparePhoto: async () => ({ base64: "FOTO", qrText: receiptMocks.qr }),
   qrFromPhoto: async () => receiptMocks.qr,
   barcodeFromPhoto: async () => receiptMocks.barcode,
+  listPhotoBase64: async () => "FOTO-LISTA",
   scanVideo: () => () => {},
 }));
 vi.mock("./data/receiptsApi", () => ({
+  readListPhoto: async (listId: string, base64: string) => {
+    receiptMocks.sent.push([listId, base64]);
+    if (receiptMocks.listText === null) throw new RejectedOpError("Não encontrei itens na foto.");
+    return receiptMocks.listText;
+  },
   readReceiptPhoto: async (listId: string, base64: string) => {
     receiptMocks.sent.push([listId, base64]);
     return receiptMocks.reading;
@@ -284,6 +291,30 @@ describe("App", () => {
     await user.type(field, "Salmão 2{Enter}");
     const renamed = await screen.findByRole("dialog", { name: "Salmão" });
     expect(within(renamed).getByLabelText("Quantidade de Salmão").textContent).toBe("2");
+  });
+
+  it("foto de uma lista escrita: confere o que foi lido e importa", async () => {
+    const user = renderApp();
+    let dialog = await openAddSheet(user);
+    const photo = new File(["x"], "lista.jpg", { type: "image/jpeg" });
+
+    receiptMocks.listText = null;
+    await user.upload(within(dialog).getByLabelText("Foto da lista"), photo);
+    expect((await within(dialog).findByRole("alert")).textContent).toBe("Não encontrei itens na foto.");
+
+    receiptMocks.listText = "Hortifruti\n2 bananas\nLimpeza\nDetergente";
+    dialog = screen.getByRole("dialog", { name: "Novo item" });
+    await user.upload(within(dialog).getByLabelText("Foto da lista"), photo);
+    const review = await screen.findByRole("dialog", { name: "Lista da foto" });
+    expect(within(review).getByText(/Confira o que foi lido da foto/)).toBeTruthy();
+    expect((within(review).getByLabelText("Itens") as HTMLTextAreaElement).value).toBe(
+      "Hortifruti\n2 bananas\nLimpeza\nDetergente",
+    );
+    expect(receiptMocks.sent.at(-1)).toEqual(["l1", "FOTO-LISTA"]);
+
+    await user.click(within(review).getByRole("button", { name: "Importar 2 itens" }));
+    expect(screen.getByRole("button", { name: "Editar Bananas" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Editar Detergente" })).toBeTruthy();
   });
 
   it("marcar deixa o item na mesma categoria, só riscado", async () => {

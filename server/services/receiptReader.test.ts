@@ -44,3 +44,32 @@ describe("resposta da IA", () => {
     expect(failure.quotaExceeded).toBe(true);
   });
 });
+
+describe("lista escrita à mão", () => {
+  it("vira texto, uma linha por item, aceitando objetos com nome e quantidade", async () => {
+    const { normalizeListReading } = await import("./receiptReader.ts");
+    expect(
+      normalizeListReading({
+        linhas: ["  2 leite ", "Limpeza", { nome: "Feijão", quantidade: 3 }, { nome: "Sal", quantidade: 1 }, "", "45", null],
+      }),
+    ).toBe("2 leite\nLimpeza\n3 Feijão\nSal");
+    expect(normalizeListReading({ itens: ["Arroz"] })).toBe("Arroz");
+    expect(normalizeListReading(null)).toBe("");
+    expect(normalizeListReading({ linhas: Array.from({ length: 300 }, (_, i) => `Item ${i}`) }).split("\n")).toHaveLength(150);
+  });
+
+  it("a lista vai com o próprio pedido para a IA", async () => {
+    const prompts: string[] = [];
+    const reader = workersAiReader({
+      run: async (_model, input) => {
+        const { messages } = input as { messages: { content: { type: string; text?: string }[] }[] };
+        prompts.push(messages[0].content[0].text ?? "");
+        return { response: { linhas: [] } };
+      },
+    });
+    await reader.read("IMG", "list");
+    await reader.read("IMG");
+    expect(prompts[0]).toMatch(/listas de compras/);
+    expect(prompts[1]).toMatch(/cupons fiscais/);
+  });
+});

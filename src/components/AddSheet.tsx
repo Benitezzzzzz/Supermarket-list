@@ -1,4 +1,5 @@
 import { type ChangeEvent, type FormEvent, useRef, useState } from "react";
+import { RejectedOpError } from "../data/backend";
 import { barcodeFromPhoto } from "../data/receiptImage";
 import { type KnownProduct, normalizeCode } from "../domain/barcodes";
 import { BottomSheet } from "../ui/BottomSheet";
@@ -22,6 +23,8 @@ interface AddSheetProps {
   /** O produto de um código de barras, se a lista já o conhece. */
   findProduct: (code: string) => KnownProduct | null;
   onOpenImport: () => void;
+  /** Lê a foto de uma lista escrita à mão e abre a revisão dos itens. */
+  onReadListPhoto: (file: File) => Promise<void>;
   onClose: () => void;
   /** Última compra do produto que está sendo digitado, como referência. */
   lastPrice: (text: string) => PricePoint | undefined;
@@ -53,6 +56,7 @@ export function AddSheet({
   onCreateCategory,
   onAdd,
   onOpenImport,
+  onReadListPhoto,
   onClose,
   lastPrice,
   findProduct,
@@ -67,6 +71,29 @@ export function AddSheet({
   const [scanError, setScanError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const photoRef = useRef<HTMLInputElement>(null);
+  const listPhotoRef = useRef<HTMLInputElement>(null);
+  const [readingList, setReadingList] = useState(false);
+  const [listPhotoError, setListPhotoError] = useState("");
+
+  async function readListPhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setListPhotoError("");
+    setReadingList(true);
+    try {
+      await onReadListPhoto(file);
+    } catch (failure) {
+      setReadingList(false);
+      setListPhotoError(
+        failure instanceof RejectedOpError
+          ? failure.message
+          : failure instanceof TypeError
+            ? "Sem internet. A leitura da foto precisa de conexão."
+            : "Não consegui ler agora. Tente de novo em instantes.",
+      );
+    }
+  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -120,6 +147,16 @@ export function AddSheet({
     if (value) onCreateCategory(value);
     setNewCategory("");
     setCreating(false);
+  }
+
+  if (readingList) {
+    return (
+      <BottomSheet title="Lista da foto" onClose={onClose}>
+        <p className="notice" role="status" aria-busy="true">
+          Lendo a lista da foto… leva uns 10 segundos.
+        </p>
+      </BottomSheet>
+    );
   }
 
   if (scanning) {
@@ -239,10 +276,21 @@ export function AddSheet({
         <button type="submit" className="btn btn--primary btn--block btn--xl">
           Adicionar à lista
         </button>
+        <button type="button" className="btn btn--secondary btn--block" onClick={() => listPhotoRef.current?.click()}>
+          <Icon name="camera" size={22} />
+          Foto de uma lista escrita
+        </button>
+        {listPhotoError && (
+          <p className="banner banner--danger" role="alert">
+            {listPhotoError}
+          </p>
+        )}
         <button type="button" className="btn btn--link" onClick={onOpenImport}>
           Colar vários itens de uma vez
         </button>
       </form>
+      {/* Sem capture: a pessoa escolhe entre tirar a foto agora ou pegar uma da galeria. */}
+      <input ref={listPhotoRef} type="file" accept="image/*" hidden aria-label="Foto da lista" onChange={(e) => void readListPhoto(e)} />
     </BottomSheet>
   );
 }

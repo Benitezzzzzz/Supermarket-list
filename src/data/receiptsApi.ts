@@ -6,3 +6,9 @@ export async function readReceiptPhoto(listId: string, base64: string): Promise<
   const response = await api(`/lists/${encodeURIComponent(listId)}/receipts/read`, "POST", { image: base64 });
   return (await response.json()) as ReceiptReading;
 }
+
+/** Lê a foto de uma lista escrita à mão; devolve o texto, um item por linha. Não grava nada. */
+export async function readListPhoto(listId: string, base64: string): Promise<string> {
+  const response = await api(`/lists/${encodeURIComponent(listId)}/list-photo/read`, "POST", { image: base64 });
+  return ((await response.json()) as { text: string }).text;
+}

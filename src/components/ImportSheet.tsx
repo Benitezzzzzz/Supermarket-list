@@ -10,6 +10,10 @@ interface ImportSheetProps {
   /** Nome da lista que recebe os itens, para ninguém importar na lista errada. */
   listName?: string;
   initialText?: string;
+  /** O texto veio da leitura de uma foto: a pessoa confere antes de importar. */
+  fromPhoto?: boolean;
+  /** Categoria pelo nome do produto, para a lista colada já entrar separada. */
+  guessCategory?: (name: string) => string | null;
   onImport: (items: Item[]) => void;
   onClose: () => void;
 }
@@ -22,11 +26,23 @@ function groupByCategory(items: Item[]): [string, Item[]][] {
 
 const canReadClipboard = () => typeof navigator !== "undefined" && typeof navigator.clipboard?.readText === "function";
 
-export function ImportSheet({ categories, initialCategory, listName, initialText = "", onImport, onClose }: ImportSheetProps) {
+export function ImportSheet({
+  categories,
+  initialCategory,
+  listName,
+  initialText = "",
+  fromPhoto = false,
+  guessCategory,
+  onImport,
+  onClose,
+}: ImportSheetProps) {
   const [text, setText] = useState(initialText);
   const [category, setCategory] = useState(initialCategory);
   const [pasteError, setPasteError] = useState(false);
-  const items = useMemo(() => parseImport(text, categories, category), [text, categories, category]);
+  const items = useMemo(
+    () => parseImport(text, categories, category, guessCategory),
+    [text, categories, category, guessCategory],
+  );
   const groups = groupByCategory(items);
 
   function submit(event: FormEvent) {
@@ -45,12 +61,19 @@ export function ImportSheet({ categories, initialCategory, listName, initialText
   }
 
   return (
-    <BottomSheet title="Colar vários itens" onClose={onClose}>
+    <BottomSheet title={fromPhoto ? "Lista da foto" : "Colar vários itens"} onClose={onClose}>
       <form className="form" onSubmit={submit}>
-        <p className="hint">
-          Copie a mensagem do WhatsApp e cole aqui. Data, nome de quem mandou, emojis e marcadores são
-          ignorados. Um item por linha ou separados por vírgula; "Arroz x2" entra como 2 arroz.
-        </p>
+        {fromPhoto ? (
+          <p className="notice" role="status">
+            Confira o que foi lido da foto e corrija o que precisar antes de importar. Um item por linha.
+          </p>
+        ) : (
+          <p className="hint">
+            Copie a mensagem do WhatsApp e cole aqui. Data, nome de quem mandou, emojis e marcadores são
+            ignorados. Um item por linha ou separados por vírgula; "Arroz x2" entra como 2 arroz. Cada produto já
+            vai para a sua categoria; confira na prévia antes de importar.
+          </p>
+        )}
         <label htmlFor="importar-itens" className="field-label">
           Itens
         </label>
@@ -63,7 +86,7 @@ export function ImportSheet({ categories, initialCategory, listName, initialText
           value={text}
           onChange={(event) => setText(event.target.value)}
         />
-        {canReadClipboard() && (
+        {!fromPhoto && canReadClipboard() && (
           <button type="button" className="btn btn--secondary btn--block" onClick={() => void paste()}>
             Colar o que copiei
           </button>
@@ -74,7 +97,7 @@ export function ImportSheet({ categories, initialCategory, listName, initialText
           </p>
         )}
         <label htmlFor="importar-categoria" className="field-label">
-          Categoria dos itens sem título
+          Categoria do que eu não reconhecer
         </label>
         <select
           id="importar-categoria"

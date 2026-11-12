@@ -14,7 +14,7 @@ import type { ReceiptReader } from "./services/receiptReader.ts";
 import { ReceiptService } from "./services/receipts.ts";
 
 const MAX_BODY_BYTES = 512 * 1024;
-/** A foto do cupom já chega reduzida pelo aparelho; em base64 fica abaixo disso. */
+/** A foto (cupom ou lista escrita) já chega reduzida pelo aparelho; em base64 fica abaixo disso. */
 const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
 
 export function createApp(db: Database, notifier: Notifier, reader: ReceiptReader | null = null) {
@@ -28,7 +28,8 @@ export function createApp(db: Database, notifier: Notifier, reader: ReceiptReade
     bodyLimit({ maxSize, onError: (c) => c.json({ error: "Envio grande demais" }, 413) });
   const regularLimit = limit(MAX_BODY_BYTES);
   const photoLimit = limit(MAX_PHOTO_BYTES);
-  api.use("*", (c, next) => (c.req.path.endsWith("/receipts/read") ? photoLimit : regularLimit)(c, next));
+  const isPhoto = (path: string) => path.endsWith("/receipts/read") || path.endsWith("/list-photo/read");
+  api.use("*", (c, next) => (isPhoto(c.req.path) ? photoLimit : regularLimit)(c, next));
   api.route("/auth", authRoutes(accounts, memberships));
   api.route("/admin", adminRoutes(accounts));
   api.route("/invites", inviteRoutes({ accounts, memberships }));

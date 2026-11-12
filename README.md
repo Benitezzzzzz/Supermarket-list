@@ -132,6 +132,7 @@ Nos testes, o banco é um adaptador sobre o SQLite do Node com a mesma interface
 | `PUT /api/lists/:id/purchases/:pid` | Corrige valor e forma de pagamento | Participante |
 | `DELETE /api/lists/:id/purchases/:pid` | Exclui a compra (só marca) | Participante |
 | `POST /api/lists/:id/purchases/:pid/restore` | Desfaz a exclusão | Participante |
+| `POST /api/lists/:id/list-photo/read` | Lê a foto de uma lista escrita à mão (IA) e devolve o texto | Participante |
 | `GET /api/lists/:id/events` | Avisos em tempo real (WebSocket) | Participante |
 
 Para quem não participa, qualquer rota de uma lista responde 404, como se ela não existisse. O administrador geral é a exceção: abre qualquer lista com poderes de administrador.
@@ -165,7 +166,8 @@ Cada lista tem um Durable Object que guarda os WebSockets abertos. Quando algo m
 - Quantidade: digite "2 frangos" ou ajuste depois no lápis (medidas como "2 kg arroz" ficam no nome)
 - Corrigir o nome do item: no lápis, toque no nome no topo do painel
 - Marcar como comprado tocando na linha: o item fica riscado no mesmo lugar
-- Importar vários itens colando texto ou uma mensagem do WhatsApp (data, nome, emojis e marcadores são ignorados; "arroz, feijão" e "Arroz x2" funcionam), com prévia antes de importar; uma linha com o nome de uma categoria vira título
+- Importar vários itens colando texto (cada produto já vai para a sua categoria, pelo que a lista já usou ou por um dicionário de produtos comuns) ou uma mensagem do WhatsApp (data, nome, emojis e marcadores são ignorados; "arroz, feijão" e "Arroz x2" funcionam), com prévia antes de importar; uma linha com o nome de uma categoria vira título
+- Foto de uma lista escrita à mão: a IA lê os itens e eles abrem para conferir antes de importar
 - No Android, com o app instalado, compartilhar a mensagem do WhatsApp direto para a Lista do Mercado
 - Lixeira no topo: limpar só os riscados ou a lista toda
 - Finalizar compra: valor, forma de pagamento (PIX, dinheiro, débito ou crédito, à vista ou parcelado) e limpeza da lista

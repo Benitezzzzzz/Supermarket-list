@@ -131,10 +131,20 @@ function splitItems(line: string): string[] {
     .filter(Boolean);
 }
 
-export function parseListText(text: string, categories: string[], defaultCategory: string): ParsedEntry[] {
+/**
+ * `guess` adivinha a categoria pelo nome do produto. Vale para os itens que vêm antes
+ * de qualquer título de seção; depois de um título ("Limpeza"), vale o título.
+ */
+export function parseListText(
+  text: string,
+  categories: string[],
+  defaultCategory: string,
+  guess?: (name: string) => string | null,
+): ParsedEntry[] {
   const entries: ParsedEntry[] = [];
   const seen = new Set<string>();
   let current = defaultCategory;
+  let fromHeading = false;
 
   for (const rawLine of text.split(/\r?\n/)) {
     const withoutPrefix = rawLine.trim().replace(BRACKET_PREFIX, "").replace(DASH_PREFIX, "");
@@ -147,6 +157,7 @@ export function parseListText(text: string, categories: string[], defaultCategor
     const heading = categoryFor(line, categories);
     if (heading) {
       current = heading;
+      fromHeading = true;
       continue;
     }
     // "Lista de compras:", "Para a pousada:" e "*Compras do mês*" só anunciam o que vem.
@@ -160,7 +171,8 @@ export function parseListText(text: string, categories: string[], defaultCategor
       const key = normalize(itemText);
       if (seen.has(key)) continue;
       seen.add(key);
-      entries.push({ text: itemText, category: current });
+      const category = fromHeading ? current : (guess?.(itemText) ?? current);
+      entries.push({ text: itemText, category });
     }
   }
   return entries;

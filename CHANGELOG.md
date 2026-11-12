@@ -1,5 +1,20 @@
 # Changelog
 
+## 4.13.0 (2026-11-12)
+
+### Adicionado
+
+- **Foto de uma lista escrita:** em Novo item, "Foto de uma lista escrita" tira a foto (ou pega da galeria) de uma lista feita à mão. A mesma IA grátis do cupom (Workers AI) lê os itens, e eles abrem em "Lista da foto" para conferir e corrigir antes de importar, com a prévia por categoria.
+  - Quantidades, medidas e títulos de seção escritos na lista são mantidos; itens riscados ficam de fora.
+  - A leitura não grava nada e conta no mesmo limite diário de fotos do cupom (30 por lista).
+  - Rota nova: `POST /api/lists/:id/list-photo/read`.
+- **Colar já separa por categoria:** em "Colar vários itens" (e na lista da foto), cada produto vai sozinho para a categoria certa: banana em Hortifruti, detergente em Limpeza, leite em Laticínios e Frios.
+  - Primeiro vale o que a própria lista já usou: se o produto já esteve numa categoria (na lista, numa compra, num modelo ou no código de barras), ele volta para ela. Isso inclui categorias criadas pela família.
+  - Sem histórico, um dicionário de produtos comuns decide pela primeira palavra ("Molho de tomate" é Mercearia, não Hortifruti), com expressões como "papel higiênico" e "leite condensado".
+  - Título de seção escrito na mensagem ("Limpeza") continua mandando nos itens abaixo dele.
+  - O que não for reconhecido vai para a categoria escolhida em "Categoria do que eu não reconhecer".
+  - Os itens novos dos modelos usam a mesma adivinhação.
+
 ## 4.12.0 (2026-11-12)
 
 ### Adicionado

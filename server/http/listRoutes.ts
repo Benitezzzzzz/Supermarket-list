@@ -17,7 +17,13 @@ import {
 import type { AccountService } from "../services/accounts.ts";
 import type { ListService } from "../services/lists.ts";
 import type { MembershipService } from "../services/memberships.ts";
-import { normalizeReading, ReaderUnavailableError, type ReceiptReader } from "../services/receiptReader.ts";
+import {
+  normalizeListReading,
+  normalizeReading,
+  type PhotoKind,
+  ReaderUnavailableError,
+  type ReceiptReader,
+} from "../services/receiptReader.ts";
 import type { ReceiptService } from "../services/receipts.ts";
 import { type Env, readJson, requireListAccess, requireListAdmin, requireUser } from "./context.ts";
 import type { Notifier } from "./notifier.ts";
@@ -191,19 +197,20 @@ function oneList({ lists, memberships, notifier, receipts, reader }: Deps) {
     return c.body(null, 204);
   });
 
-  /** Lê a foto do cupom com a IA. Não grava nada: a pessoa revisa antes de salvar. */
-  routes.post("/receipts/read", async (c) => {
-    if (!reader) throw new HTTPException(503, { message: "A leitura de cupom não está disponível agora." });
-    const { image } = await readJson(c, readReceiptSchema);
-    if (!(await receipts.countRead(c.get("listId")))) {
-      throw new HTTPException(429, { message: "Esta lista já leu muitos cupons hoje. Tente de novo amanhã." });
+  /**
+   * Manda a foto para a IA, dentro do limite diário da lista (cupons e listas somam).
+   * Não grava nada: a pessoa revisa antes de salvar.
+   */
+  async function readPhoto(listId: string, image: string, kind: PhotoKind): Promise<unknown> {
+    if (!reader) throw new HTTPException(503, { message: "A leitura de fotos não está disponível agora." });
+    if (!(await receipts.countRead(listId))) {
+      throw new HTTPException(429, { message: "Esta lista já leu muitas fotos hoje. Tente de novo amanhã." });
     }
-    let raw: unknown;
     try {
-      raw = await reader.read(image);
+      return await reader.read(image, kind);
     } catch (error) {
       if (error instanceof ReaderUnavailableError) {
-        console.error("leitura de cupom:", error.message);
+        console.error(`leitura de foto (${kind}):`, error.message);
         throw new HTTPException(error.quotaExceeded ? 429 : 503, {
           message: error.quotaExceeded
             ? "Acabaram as leituras grátis de hoje. Tente de novo amanhã."
@@ -212,13 +219,30 @@ function oneList({ lists, memberships, notifier, receipts, reader }: Deps) {
       }
       throw error;
     }
-    const reading = normalizeReading(raw);
+  }
+
+  /** Lê a foto do cupom com a IA. */
+  routes.post("/receipts/read", async (c) => {
+    const { image } = await readJson(c, readReceiptSchema);
+    const reading = normalizeReading(await readPhoto(c.get("listId"), image, "receipt"));
     if (reading.items.length === 0) {
       throw new HTTPException(422, {
         message: "Não encontrei produtos na foto. Tire outra com o cupom inteiro, reto e bem iluminado.",
       });
     }
     return c.json(reading);
+  });
+
+  /** Lê a foto de uma lista escrita à mão e devolve o texto, um item por linha. */
+  routes.post("/list-photo/read", async (c) => {
+    const { image } = await readJson(c, readReceiptSchema);
+    const text = normalizeListReading(await readPhoto(c.get("listId"), image, "list"));
+    if (!text) {
+      throw new HTTPException(422, {
+        message: "Não encontrei itens na foto. Tire outra com a lista inteira, reta e bem iluminada.",
+      });
+    }
+    return c.json({ text });
   });
 
   routes.get("/events", (c) => {
